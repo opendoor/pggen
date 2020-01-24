@@ -6,7 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	"github.com/opendoor-labs/pggen/cmd/test/db_shims"
+	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
 )
 
 var gormDB *gorm.DB

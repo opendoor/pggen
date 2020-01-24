@@ -9,7 +9,6 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/opendoor-labs/pggen/gen"
-	testInternal "github.com/opendoor-labs/pggen/cmd/test/test_internal"
 )
 
 func usage(ok bool) {
@@ -43,7 +42,6 @@ Options:
 func main() {
 	var config gen.Config
 	config.OutputFileName = "./pg_generated.go"
-	allowTestMode := false
 
 	func() {
 		// While parsing args we will might panic on out-of-bounds array
@@ -72,7 +70,6 @@ func main() {
 				// mode. We gaurd test mode with a special flag because running in
 				// test mode involves Execing `db.sql` which blows away and recreates
 				// the `public` database schema.
-				allowTestMode = true
 				args = args[1:]
 			} else if len(args) == 1 {
 				config.ConfigFilePath = args[0]
@@ -86,14 +83,7 @@ func main() {
 	if config.ConnectionString == "" {
 		config.ConnectionString = os.Getenv("DB_URL")
 		if len(config.ConnectionString) == 0 {
-			// HACK: This fallback is an undocumented extension to
-			//       grease the wheels in CI
-			config.ConnectionString = os.Getenv("DB_TEST_URL")
-			if len(config.ConnectionString) == 0 || !allowTestMode {
-				log.Fatal("No connection string. Either pass '-c' or set DB_URL in the environment.")
-			} else {
-				testInternal.SetupDatabase(config.ConnectionString)
-			}
+			log.Fatal("No connection string. Either pass '-c' or set DB_URL in the environment.")
 		}
 	}
 

@@ -9,7 +9,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/willf/bitset"
 
-	"github.com/opendoor-labs/pggen/cmd/test/db_shims"
+	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
 )
 
 func TestInsertSmallEntity(t *testing.T) {

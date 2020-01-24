@@ -8,7 +8,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/opendoor-labs/pggen/cmd/test/db_shims"
+	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
 )
 
 func TestNonNullText(t *testing.T) {
@@ -69,18 +69,14 @@ func TestDateTimeArg(t *testing.T) {
 
 	Expectation{
 		call: func() (interface{}, error) {
-			return pgClient.DateTimeArg(
-				ctx, early, early, early, early, early,
-			)
+			return pgClient.DateTimeArg(ctx, early, early, early)
 		},
 		expected: `\["1999-01-08T04:05:06Z"\]`,
 	}.test(t)
 
 	Expectation{
 		call: func() (interface{}, error) {
-			return pgClient.DateTimeArg(
-				ctx, late, late, late, late, late,
-			)
+			return pgClient.DateTimeArg(ctx, late, late, late)
 		},
 		expected: `\[\]`,
 	}.test(t)

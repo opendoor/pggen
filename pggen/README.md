@@ -1,6 +1,7 @@
 # pggen
 
-The pggen tool is a command line tool for generating type safe SQL
+Package `"github.com/opendoor-labs/pggen/pggen"` contains the command line
+tool for invoking the `pggen` library. It generates type safe SQL
 database call shims based on the objects stored in a postgres database.
 This allows you to define the schema for your database objects only once,
 and in the language most natural for working with relational data: SQL.
@@ -45,4 +46,6 @@ Some issues I found with xo:
   - It doesn't know how to infer argument types for queries (you have to
     explicitly provide them using a baroque xo-specific syntax instead
     of being able to use a postgres-native query).
+  - It uses command line flags rather than a single configuration file
+    for configuration, which I find more confusing.
 

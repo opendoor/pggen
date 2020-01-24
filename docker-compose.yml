@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+  test:
+    build: .
+    environment:
+      DB_URL: "postgres://postgres:@postgres/pggen_test?sslmode=disable"
+    links:
+      - "postgres"
+    depends_on:
+      - "postgres"
+    volumes:
+      - ".:/pggen"
+
+  postgres:
+    image: postgres:11

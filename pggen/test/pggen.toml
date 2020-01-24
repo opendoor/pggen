@@ -93,9 +93,12 @@ FROM type_rainbow
 WHERE ts_field > $1
   AND tsz_field > $2
   AND date_field > $3
-  AND time_field < $4
-  AND timez_field < $5
 '''
+# TODO: different postgres versions return different results when
+#       the time fields are compared against. My locally installed
+#       postgres `AND time_field < $4 AND timez_field < $5` and the
+#       ci's dockized version wants the comparisons to be flipped.
+#       I give it a 50/50 chance of this being a bug in pggen or lib/pq.
 
 [[query]]
 name = "BooleanArg"

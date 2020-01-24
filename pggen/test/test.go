@@ -9,8 +9,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/opendoor-labs/pggen/cmd/test/db_shims"
-	testInternal "github.com/opendoor-labs/pggen/cmd/test/test_internal"
+	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
 )
 
 var (
@@ -22,11 +21,7 @@ var (
 func init() {
 	dbURL = os.Getenv("DB_URL")
 	if dbURL == "" {
-		dbURL = os.Getenv("DB_TEST_URL")
-		if dbURL == "" {
-			log.Fatalf("no DB_URL or DB_TEST_URL in the environment")
-		}
-		testInternal.SetupDatabase(dbURL)
+		log.Fatalf("no DB_URL in the environment")
 	}
 
 	db, err := sql.Open("postgres", dbURL)
