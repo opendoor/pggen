@@ -8,7 +8,7 @@ import (
 func TestStmtInsertSmallEntity(t *testing.T) {
 	txClient := newTx(t)
 	defer func() {
-		txClient.DB.(*sql.Tx).Rollback()
+		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
 	res, err := txClient.StmtInsertSmallEntity(ctx, 719)

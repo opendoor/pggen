@@ -82,7 +82,10 @@ const (
 			return kBogusGoTypeInfo, err
 		}
 
-		g.types.emitType(typeInfo.Name, typeSig.String(), typeDef.String())
+		err = g.types.emitType(typeInfo.Name, typeSig.String(), typeDef.String())
+		if err != nil {
+			return kBogusGoTypeInfo, err
+		}
 		return typeInfo, nil
 	}
 

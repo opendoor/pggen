@@ -142,7 +142,12 @@ func (g *Generator) argsOfStmt(body string) ([]arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() {
+		// The only mutation we've made is adding a prepared statement,
+		// which is a session local thing, so we don't need to make a
+		// hullabaloo if the rollback fails.
+		_ = tx.Rollback()
+	}()
 
 	stmt, err := tx.Prepare(body)
 	if err != nil {
@@ -156,6 +161,9 @@ func (g *Generator) argsOfStmt(body string) ([]arg, error) {
 		SELECT parameter_types
 		FROM pg_prepared_statements
 		WHERE statement = $1`, body).Scan(&types)
+	if err != nil {
+		return nil, err
+	}
 	args := make([]arg, len(types.pgTypes))[:0]
 	for i, t := range types.pgTypes {
 		name := fmt.Sprintf("arg%d", i)
@@ -334,6 +342,9 @@ func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 			pgTypeName string
 		)
 		err = rows.Scan(&a.PgName, &pgTypeName)
+		if err != nil {
+			return nil, err
+		}
 
 		a.Idx = i
 		a.GoName = snakeToPascal(a.PgName)
@@ -372,7 +383,10 @@ func (g *Generator) queryReturns(query string) ([]colMeta, error) {
 	// up in psql sessions that were already active when pggen was run. We intentionally
 	// don't check the error code here because we really don't care too much if
 	// this doesn't work.
-	g.db.Exec(fmt.Sprintf(`DROP VIEW IF EXISTS %s`, viewName))
+	_, err = g.db.Exec(fmt.Sprintf(`DROP VIEW IF EXISTS %s`, viewName))
+	if err != nil {
+		return nil, err
+	}
 
 	return viewMeta.Cols, nil
 }

@@ -17,10 +17,6 @@ func snakeToPascal(snakeName string) string {
 	return snakeToMixed(snakeName, true)
 }
 
-func snakeToCamel(snakeName string) string {
-	return snakeToMixed(snakeName, false)
-}
-
 func snakeToMixed(snakeName string, needsUpper bool) string {
 	var res strings.Builder
 	for _, r := range snakeName {

@@ -96,12 +96,12 @@ func TestSelectTime(t *testing.T) {
 	// TODO: there is something weird going on with time marshalling. It
 	//       works with some postgres versions, but not with all of them.
 	expected := regexp.QuoteMeta(`[{"TsField":"1999-01-08T04:05:06Z","TsFieldNotNull":"1999-01-08T04:05:06Z","TszField":"`) +
-	`.+` + regexp.QuoteMeta(`","TszFieldNotNull":"`) +
-	`.+` + regexp.QuoteMeta(`","DateField":"1995-05-19T00:00:00Z","DateFieldNotNull":"1995-05-19T00:00:00Z","TimeField":"0000-01-01T03:11:21Z","TimeFieldNotNull":"0000-01-01T03:11:21Z","TimezField":"`) + `.+` +
-	regexp.QuoteMeta(`","TimezFieldNotNull":"`) + `.+` +
-	regexp.QuoteMeta(`"},{"TsField":null,"TsFieldNotNull":"1999-01-08T04:05:06Z","TszField":null,"TszFieldNotNull":"`) + `.+` +
-	regexp.QuoteMeta(`","DateField":null,"DateFieldNotNull":"1995-05-19T00:00:00Z","TimeField":null,"TimeFieldNotNull":"0000-01-01T03:11:21Z","TimezField":null,"TimezFieldNotNull":"`) +
-	`.+` + regexp.QuoteMeta(`"}]`)
+		`.+` + regexp.QuoteMeta(`","TszFieldNotNull":"`) +
+		`.+` + regexp.QuoteMeta(`","DateField":"1995-05-19T00:00:00Z","DateFieldNotNull":"1995-05-19T00:00:00Z","TimeField":"0000-01-01T03:11:21Z","TimeFieldNotNull":"0000-01-01T03:11:21Z","TimezField":"`) + `.+` +
+		regexp.QuoteMeta(`","TimezFieldNotNull":"`) + `.+` +
+		regexp.QuoteMeta(`"},{"TsField":null,"TsFieldNotNull":"1999-01-08T04:05:06Z","TszField":null,"TszFieldNotNull":"`) + `.+` +
+		regexp.QuoteMeta(`","DateField":null,"DateFieldNotNull":"1995-05-19T00:00:00Z","TimeField":null,"TimeFieldNotNull":"0000-01-01T03:11:21Z","TimezField":null,"TimezFieldNotNull":"`) +
+		`.+` + regexp.QuoteMeta(`"}]`)
 
 	Expectation{
 		call: func() (interface{}, error) {

@@ -89,7 +89,10 @@ func (g *Generator) genTable(
 	if err != nil {
 		return
 	}
-	g.types.emitType(meta.GoName, tableSig.String(), tableType.String())
+	err = g.types.emitType(meta.GoName, tableSig.String(), tableType.String())
+	if err != nil {
+		return
+	}
 
 	return tableShimTmpl.Execute(into, meta)
 }

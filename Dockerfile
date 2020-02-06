@@ -5,6 +5,9 @@ FROM golang:1.12-alpine
 # and gcc are needed for cgo support.
 RUN apk add --no-cache postgresql-client git musl-dev gcc bash
 
+# install golangci-lint
+RUN wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.23.3
+
 WORKDIR /pggen
 
 COPY go.sum .

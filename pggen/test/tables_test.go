@@ -15,7 +15,7 @@ import (
 func TestInsertSmallEntity(t *testing.T) {
 	txClient := newTx(t)
 	defer func() {
-		txClient.DB.(*sql.Tx).Rollback()
+		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
 	entity := db_shims.SmallEntity{
@@ -40,7 +40,7 @@ func TestSmallEntityBulk(t *testing.T) {
 
 	txClient := newTx(t)
 	defer func() {
-		txClient.DB.(*sql.Tx).Rollback()
+		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
 	entities := []db_shims.SmallEntity{
@@ -93,7 +93,7 @@ func TestSmallEntityUpdate(t *testing.T) {
 
 	txClient := newTx(t)
 	defer func() {
-		txClient.DB.(*sql.Tx).Rollback()
+		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
 	entities := []db_shims.SmallEntity{
@@ -150,7 +150,7 @@ func TestSmallEntityCreateDelete(t *testing.T) {
 
 	txClient := newTx(t)
 	defer func() {
-		txClient.DB.(*sql.Tx).Rollback()
+		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
 	entities := []db_shims.SmallEntity{
@@ -202,7 +202,7 @@ func TestSmallEntityCreateDelete(t *testing.T) {
 func TestFill(t *testing.T) {
 	txClient := newTx(t)
 	defer func() {
-		txClient.DB.(*sql.Tx).Rollback()
+		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
 	entityID, err := txClient.InsertSmallEntity(ctx, db_shims.SmallEntity{
@@ -226,7 +226,8 @@ func TestFill(t *testing.T) {
 
 	e, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	txClient.SmallEntityFillAll(ctx, &e)
+	err = txClient.SmallEntityFillAll(ctx, &e)
+	chkErr(t, err)
 
 	if len(e.Attachments) != 2 {
 		t.Fatalf("len attachments = %d, expected 2", len(e.Attachments))
