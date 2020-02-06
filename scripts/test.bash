@@ -24,8 +24,8 @@ createdb -h postgres -U postgres -w -e pggen_test || /bin/true
 
 psql $DB_URL < pggen/test/db.sql
 
-golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
-
 go generate ./...
+
+golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
 
 go test ./...
