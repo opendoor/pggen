@@ -22,14 +22,14 @@ want to focus on a specific test, you will probably want to look there.
 
 ## With Docker
 
-If you want, you can use the same docker set up that `pggen` uses for
+If you want, you can use almost the same docker set up that `pggen` uses for
 continuous integration. First, build the development docker image:
 
 ```bash
 > docker-compose build
 ```
 
-once you have the image built and tagged, you can either run the tests
+once you have the image built, you can either run the tests
 start to finish with
 
 ```
@@ -40,5 +40,5 @@ for more interactive debugging, you will probably want to execute a shell
 instead of the test script
 
 ```
-> docker-compose -f .circleci/docker-compose.yml run test /bin/bash
+> docker-compose run test /bin/bash
 ```
