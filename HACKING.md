@@ -36,8 +36,7 @@ start to finish with
 > docker-compose run test
 ```
 
-for more interactive debugging, you will probably want to execute a shell
-instead of the test script
+or debug interactively by opening a bash shell with
 
 ```
 > docker-compose run test /bin/bash
