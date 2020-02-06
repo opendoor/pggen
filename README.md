@@ -326,5 +326,5 @@ writing model structs which match up with the database table definitions.
 
 `pggen` is configured with a `toml` file. Some of the configuration options have already
 been mentioned in this document, but the most complete source of documentation
-on is the comments in `$CODE/go/lib/pggen/gen/config_file.go`.
-An example file can be found at `$CODE/go/tools/pggen/test/pggen.toml`.
+on is the comments in `gen/config_file.go`.
+An example file can be found at `pggen/test/pggen.toml`.
