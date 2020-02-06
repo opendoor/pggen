@@ -1,6 +1,6 @@
 # pggen
 
-[![CircleCI](https://circleci.com/gh/opendoor-labs/pggen.svg?style=svg)](https://circleci.com/gh/opendoor-labs/pggen)
+[![CircleCI](https://circleci.com/gh/opendoor-labs/pggen.svg?style=svg&circle-token=36f0b47fd6bc10bc883c8831488fa0dcf5dd2b8b)](https://circleci.com/gh/opendoor-labs/pggen)
 
 Pggen consists of 3 main packages:
   - `github.com/opendoor-labs/pggen/pggen` is a command line tool to be
