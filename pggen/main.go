@@ -65,12 +65,6 @@ func main() {
 				args = args[2:]
 			} else if args[0] == "-h" || args[0] == "--help" {
 				usage(true)
-			} else if args[0] == "--allow-test-mode" {
-				// An undocumented argument that allows `pggen` to operate in test
-				// mode. We gaurd test mode with a special flag because running in
-				// test mode involves Execing `db.sql` which blows away and recreates
-				// the `public` database schema.
-				args = args[1:]
 			} else if len(args) == 1 {
 				config.ConfigFilePath = args[0]
 				break
