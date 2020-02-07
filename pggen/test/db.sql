@@ -79,6 +79,7 @@ CREATE TABLE type_rainbow (
     big_serial_field_not_null BIGSERIAL NOT NULL
 
 
+    -- TODO: postgis types
     -- TODO: geometric types
     -- TODO: network address types
     -- TODO: bit string types
@@ -101,6 +102,15 @@ CREATE TABLE attachments (
     small_entity_id integer NOT NULL
         REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     value text
+);
+
+CREATE TABLE single_attachments (
+    id SERIAL PRIMARY KEY NOT NULL,
+    -- pggen will be able to infer that `small_entities` has 0 or 1
+    -- `single_attachments` because of the UNIQUE index on the foreign key
+    small_entity_id integer NOT NULL UNIQUE
+        REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 --

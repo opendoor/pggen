@@ -416,7 +416,8 @@ type colMeta struct {
 	IsPrimary   bool
 }
 
-// refMeta contains metadata for a reference between two tables (a foreign key relationship)
+// refMeta contains metadata for a reference between two tables
+// (a foreign key relationship)
 type refMeta struct {
 	// The name of the table that this reference is referring to
 	PgPointsTo string
@@ -434,6 +435,9 @@ type refMeta struct {
 	// The names of the fields that are being used to refer to the key fields
 	// for the referenced table. Order matters.
 	PointsFromFields []fieldNames
+	// Indicates that there can be at most one of these references between
+	// the two tables.
+	OneToOne bool
 }
 
 type fieldNames struct {
@@ -565,17 +569,23 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 			})
 		}
 
-		fromFields, err := g.colNames(ref.PgPointsFrom)
+		// this call is what makes this routine run N+1 queries
+		fromFields, err := g.pointsFromColMeta(ref.PgPointsFrom)
 		if err != nil {
 			return err
 		}
+
+		ref.OneToOne = true
 		for _, idx := range pointsFromIdxs {
 			idx--
 
 			if idx < 0 || int64(len(fromFields)) <= idx {
 				return fmt.Errorf("out of bounds foreign key field (from) at index %d", idx)
 			}
-			ref.PointsFromFields = append(ref.PointsFromFields, fromFields[idx])
+
+			ffield := &fromFields[idx]
+			ref.PointsFromFields = append(ref.PointsFromFields, ffield.name)
+			ref.OneToOne = ref.OneToOne && ffield.hasUniqueIndex
 		}
 
 		meta.References = append(meta.References, ref)
@@ -584,13 +594,34 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 	return nil
 }
 
-// colNames returns the names of a tables columns given the table name in postgres
-func (g *Generator) colNames(table string) ([]fieldNames, error) {
+type pointsFromColMeta struct {
+	name           fieldNames
+	hasUniqueIndex bool
+}
+
+// pointsFromMeta returns the names of a tables columns given the table name
+// in postgres
+func (g *Generator) pointsFromColMeta(table string) (
+	[]pointsFromColMeta,
+	error,
+) {
 	rows, err := g.db.Query(`
-		SELECT a.attname
+		WITH unique_cols AS (
+			SELECT
+				UNNEST(ix.indkey) as colnum,
+				ix.indisunique as is_unique
+			FROM pg_class c
+			JOIN pg_index ix
+				ON (c.oid = ix.indrelid)
+			WHERE c.relname = $1
+		)
+
+		SELECT a.attname, COALESCE(u.is_unique, 'f'::bool)
 		FROM pg_attribute a
 		INNER JOIN pg_class c
 			ON (c.oid = a.attrelid)
+		LEFT JOIN unique_cols u
+			ON (u.colnum = a.attnum)
 		WHERE a.attisdropped = false
 		  AND a.attnum > 0
 		  AND c.relname = $1
@@ -599,18 +630,19 @@ func (g *Generator) colNames(table string) ([]fieldNames, error) {
 		return nil, err
 	}
 
-	fields := []fieldNames{}
+	cols := []pointsFromColMeta{}
+
 	for rows.Next() {
-		var field fieldNames
-		err = rows.Scan(&field.PgName)
+		var col pointsFromColMeta
+		err = rows.Scan(&col.name.PgName, &col.hasUniqueIndex)
 		if err != nil {
 			return nil, err
 		}
-		field.GoName = snakeToPascal(field.PgName)
-		fields = append(fields, field)
+		col.name.GoName = snakeToPascal(col.name.PgName)
+		cols = append(cols, col)
 	}
 
-	return fields, nil
+	return cols, nil
 }
 
 // Given the oid of a postgres type, return all the variants that

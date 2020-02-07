@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/willf/bitset"
@@ -224,6 +225,13 @@ func TestFill(t *testing.T) {
 	})
 	chkErr(t, err)
 
+	aTime := time.Unix(5432553, 0)
+	_, err = txClient.InsertSingleAttachment(ctx, db_shims.SingleAttachment{
+		SmallEntityId: entityID,
+		CreatedAt:     aTime,
+	})
+	chkErr(t, err)
+
 	e, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
 	err = txClient.SmallEntityFillAll(ctx, &e)
@@ -241,5 +249,13 @@ func TestFill(t *testing.T) {
 				attachmentID2,
 			)
 		}
+	}
+
+	if !e.SingleAttachment.CreatedAt.Equal(aTime) {
+		t.Fatalf(
+			"single attachment time clash: '%s' != '%s'",
+			aTime.String(),
+			e.SingleAttachment.CreatedAt.String(),
+		)
 	}
 }

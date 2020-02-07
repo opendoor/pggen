@@ -201,6 +201,9 @@ name = "small_entities"
 [[table]]
 name = "attachments"
 
+[[table]]
+name = "single_attachments"
+
 
 # TODO: it would be nice to support `INSERT ... RETURNING ...` queries, but
 #       that breaks the way that we use tmp views to infer the result types

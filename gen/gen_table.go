@@ -56,9 +56,10 @@ func (g *Generator) genTable(
 		return
 	}
 
-	// Filter out all the references from tables that are not mentioned in the TOML.
-	// We only want to generate code about the part of the database schema that we have
-	// been explicitly asked to generate code for.
+	// Filter out all the references from tables that are not mentioned in
+	// the TOML. We only want to generate code about the part of the
+	// database schema that we have been explicitly asked to generate code
+	// for.
 	kept := 0
 	for _, ref := range meta.References {
 		if _, inMap := tableConfigs[ref.PgPointsFrom]; inMap {
@@ -120,7 +121,11 @@ type {{ .GoName }} struct {
 	"`" + `
 	{{- end }}
 	{{- range .References }}
+	{{- if .OneToOne }}
+	{{ .GoPointsFrom }} *{{ .GoPointsFrom }}
+	{{- else }}
 	{{ .PluralGoPointsFrom }} []{{ .GoPointsFrom }}
+	{{- end }}
 	{{- end }}
 }
 func (r *{{ .GoName }}) Scan(rs *sql.Rows) error {
@@ -374,15 +379,23 @@ func (p *PGClient) {{ .GoName }}FillToDepth(
 {{- range .References }}
 
 	// Fill in the {{ .PluralGoPointsFrom }}
+	{{- if .OneToOne }}
+	err = p.{{ $.GoName }}Fill{{ .GoPointsFrom }}(ctx, recs)
+	{{- else }}
 	err = p.{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(ctx, recs)
+	{{- end }}
 	if err != nil {
 		return
 	}
 	var sub{{ .PluralGoPointsFrom }} []*{{ .GoPointsFrom }}
 	for _, outer := range recs {
+		{{- if .OneToOne }}
+		sub{{ .PluralGoPointsFrom }} = append(sub{{ .PluralGoPointsFrom }}, outer.{{ .GoPointsFrom }})
+		{{- else }}
 		for i, _ := range outer.{{ .PluralGoPointsFrom }} {
 			sub{{ .PluralGoPointsFrom }} = append(sub{{ .PluralGoPointsFrom }}, &outer.{{ .PluralGoPointsFrom }}[i])
 		}
+		{{- end }}
 	}
 	err = p.{{ .GoPointsFrom }}FillToDepth(ctx, sub{{ .PluralGoPointsFrom }}, maxDepth - 1)
 	if err != nil {
@@ -396,7 +409,11 @@ func (p *PGClient) {{ .GoName }}FillToDepth(
 
 // For a give set of {{ $.GoName }}, fill in all the {{ .GoPointsFrom }}
 // connected to them using a single query.
+{{- if .OneToOne }}
+func (p *PGClient) {{ $.GoName }}Fill{{ .GoPointsFrom }}(
+{{- else }}
 func (p *PGClient) {{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
+{{- end }}
 	ctx context.Context,
 	parentRecs []*{{ $.GoName }},
 ) error {
@@ -411,7 +428,11 @@ func (p *PGClient) {{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 		ctx,
 		` + "`" +
 	`SELECT * FROM "{{ .PgPointsFrom }}"
-		 WHERE "{{ (index .PointsFromFields 0).PgName }}" = ANY($1)` +
+		 WHERE "{{ (index .PointsFromFields 0).PgName }}" = ANY($1)
+		 {{- if .OneToOne }}
+		 LIMIT 1
+		 {{- end }}
+		 ` +
 	"`" + `,
 		pq.Array(ids),
 	)
@@ -430,7 +451,12 @@ func (p *PGClient) {{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 		}
 
 		parentRec := idToRecord[childRec.{{ (index .PointsFromFields 0).GoName }}]
+		{{- if .OneToOne }}
+		parentRec.{{ .GoPointsFrom }} = &childRec
+		break
+		{{- else }}
 		parentRec.{{ .PluralGoPointsFrom }} = append(parentRec.{{ .PluralGoPointsFrom }}, childRec)
+		{{- end }}
 	}
 
 	return nil
