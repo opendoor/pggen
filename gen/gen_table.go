@@ -5,7 +5,15 @@ import (
 	"io"
 	"strings"
 	"text/template"
+
+	"github.com/jinzhu/inflection"
 )
+
+type tableGenInfo struct {
+	config            *tableConfig
+	explicitBelongsTo []refMeta
+	meta              tableMeta
+}
 
 // Generate code for all of the tables
 func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
@@ -22,13 +30,27 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	g.imports[`"github.com/lib/pq"`] = true
 	g.imports[`"github.com/willf/bitset"`] = true
 
-	tableConfigs := map[string]*tableConfig{}
+	infoTab := map[string]tableGenInfo{}
 	for i, table := range tables {
-		tableConfigs[table.Name] = &tables[i]
+		info := tableGenInfo{}
+		info.config = &tables[i]
+
+		meta, err := g.tableMeta(table.Name)
+		if err != nil {
+			return fmt.Errorf("table '%s': %s", table.Name, err.Error())
+		}
+		info.meta = meta
+
+		infoTab[table.Name] = info
+	}
+
+	err := buildExplicitBelongsToMapping(tables, infoTab)
+	if err != nil {
+		return err
 	}
 
 	for _, table := range tables {
-		err := g.genTable(into, tableConfigs, &table)
+		err := g.genTable(into, infoTab, &table)
 		if err != nil {
 			return err
 		}
@@ -37,10 +59,60 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	return nil
 }
 
+func buildExplicitBelongsToMapping(
+	tables []tableConfig,
+	infoTab map[string]tableGenInfo,
+) error {
+	for _, table := range tables {
+		for _, belongsTo := range table.BelongsTo {
+			if len(belongsTo.Table) == 0 {
+				return fmt.Errorf(
+					"%s: belongs_to requires 'name' key",
+					table.Name,
+				)
+			}
+
+			if len(belongsTo.KeyField) == 0 {
+				return fmt.Errorf(
+					"%s: belongs_to requires 'key_field' key",
+					table.Name,
+				)
+			}
+
+			pointsToMeta := infoTab[belongsTo.Table].meta
+			ref := refMeta{
+				PgPointsTo: belongsTo.Table,
+				GoPointsTo: snakeToPascal(inflection.Singular(belongsTo.Table)),
+				PointsToFields: []fieldNames{
+					{
+						PgName: pointsToMeta.PkeyCol.PgName,
+						GoName: pointsToMeta.PkeyCol.GoName,
+					},
+				},
+				PgPointsFrom:       table.Name,
+				GoPointsFrom:       snakeToPascal(inflection.Singular(table.Name)),
+				PluralGoPointsFrom: snakeToPascal(table.Name),
+				PointsFromFields: []fieldNames{
+					{
+						PgName: belongsTo.KeyField,
+						GoName: snakeToPascal(belongsTo.KeyField),
+					},
+				},
+				OneToOne: belongsTo.OneToOne,
+			}
+
+			info := infoTab[belongsTo.Table]
+			info.explicitBelongsTo = append(info.explicitBelongsTo, ref)
+			infoTab[belongsTo.Table] = info
+		}
+	}
+
+	return nil
+}
+
 func (g *Generator) genTable(
 	into io.Writer,
-	// A mapping from table names to table configs
-	tableConfigs map[string]*tableConfig,
+	infoTab map[string]tableGenInfo,
 	table *tableConfig,
 ) (err error) {
 	g.infof("		generating table '%s'\n", table.Name)
@@ -51,20 +123,19 @@ func (g *Generator) genTable(
 		}
 	}()
 
-	meta, err := g.tableMeta(table.Name)
-	if err != nil {
-		return
-	}
+	meta := infoTab[table.Name].meta
 
 	// Filter out all the references from tables that are not mentioned in
-	// the TOML. We only want to generate code about the part of the
-	// database schema that we have been explicitly asked to generate code
-	// for.
+	// the TOML, or have explicitly asked us not to infer relationships.
+	// We only want to generate code about the part of the database schema
+	// that we have been explicitly asked to generate code for.
 	kept := 0
 	for _, ref := range meta.References {
-		if _, inMap := tableConfigs[ref.PgPointsFrom]; inMap {
-			meta.References[kept] = ref
-			kept++
+		if fromTable, inMap := infoTab[ref.PgPointsFrom]; inMap {
+			if !fromTable.config.NoInferBelongsTo {
+				meta.References[kept] = ref
+				kept++
+			}
 		}
 
 		if len(ref.PointsFromFields) != 1 {
@@ -73,6 +144,11 @@ func (g *Generator) genTable(
 		}
 	}
 	meta.References = meta.References[:kept]
+
+	meta.References = append(
+		meta.References,
+		infoTab[table.Name].explicitBelongsTo...,
+	)
 
 	if meta.PkeyCol == nil {
 		err = fmt.Errorf("no primary key for table")

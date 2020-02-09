@@ -259,3 +259,38 @@ func TestFill(t *testing.T) {
 		)
 	}
 }
+
+func TestNoInfer(t *testing.T) {
+	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
+
+	_, has := smallEntityType.FieldByName("NoInfer")
+	if has {
+		t.Fatalf("pggen generated a NoInfer field when we asked it not to")
+	}
+}
+
+func TestExplicitBelongsTo(t *testing.T) {
+	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
+
+	f, has := smallEntityType.FieldByName("ExplicitBelongsTo")
+	if !has {
+		t.Fatalf("pggen generated failed to generate ExplicitBelongsTo")
+	}
+
+	if f.Type.Kind() == reflect.Array {
+		t.Fatalf("pggen generated a 1-many instead of a 1-1")
+	}
+}
+
+func TestExplicitBelongsToMany(t *testing.T) {
+	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
+
+	f, has := smallEntityType.FieldByName("ExplicitBelongsToMany")
+	if !has {
+		t.Fatalf("pggen generated failed to generate ExplicitBelongsToMany")
+	}
+
+	if f.Type.Kind() != reflect.Slice {
+		t.Fatalf("pggen generated a 1-1 instead of 1-many")
+	}
+}

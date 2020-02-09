@@ -113,6 +113,22 @@ CREATE TABLE single_attachments (
     created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE no_infer (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer NOT NULL
+        REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE TABLE explicit_belongs_to (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer NOT NULL
+);
+
+CREATE TABLE explicit_belongs_to_many (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer NOT NULL
+);
+
 --
 -- Load Data
 --

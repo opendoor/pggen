@@ -71,4 +71,21 @@ type stmtConfig struct {
 type tableConfig struct {
 	// The name of the table in the database
 	Name string `toml:"name"`
+	// If true, pggen will not infer a relationship between this table
+	// and any owning tables based on any foreign keys in this table.
+	NoInferBelongsTo bool `toml:"no_infer_belongs_to"`
+	// A list of tables that this table belongs to
+	BelongsTo []belongsTo `toml:"belongs_to"`
+}
+
+// An explicitly configured foreign key relationship which can be attached
+// to a table's config.
+type belongsTo struct {
+	// The table that this table belongs to
+	Table string `toml:"table"`
+	// The name of the foreign key which points to the table this table
+	// belongs to.
+	KeyField string `toml:"key_field"`
+	// If true the owning table has at most one of this table
+	OneToOne bool `toml:"one_to_one"`
 }

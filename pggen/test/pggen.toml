@@ -3,97 +3,97 @@
 #
 
 [[stored_function]]
-name = "returns_text"
-# null flags can be provided to assert that return values can never be null
-null_flags = "-"
+    name = "returns_text"
+    # null flags can be provided to assert that return values can never be null
+    null_flags = "-"
 
 [[stored_function]]
-name = "concats_text"
+    name = "concats_text"
 
 [[stored_function]]
-name = "select_matching_string"
+    name = "select_matching_string"
 
 [[stored_function]]
-name = "select_string_types"
+    name = "select_string_types"
 
 [[stored_function]]
-name = "select_money"
+    name = "select_money"
 
 [[stored_function]]
-name = "select_time"
-# nullability of fields can be specified in a longer form way if the terse
-# null flags syntax gets to confusing for a wide query.
-not_null_fields = [
-    "ts_field_not_null",
-    "tsz_field_not_null",
-    "date_field_not_null",
-    "time_field_not_null",
-    "timez_field_not_null",
-]
+    name = "select_time"
+    # nullability of fields can be specified in a longer form way if the terse
+    # null flags syntax gets to confusing for a wide query.
+    not_null_fields = [
+        "ts_field_not_null",
+        "tsz_field_not_null",
+        "date_field_not_null",
+        "time_field_not_null",
+        "timez_field_not_null",
+    ]
 
 [[stored_function]]
-name = "select_bool"
+    name = "select_bool"
 
 [[stored_function]]
-name = "select_enum"
+    name = "select_enum"
 
 [[stored_function]]
-name = "select_uuid"
-# multiple null flags can be provided
-null_flags = "n-"
+    name = "select_uuid"
+    # multiple null flags can be provided
+    null_flags = "n-"
 
 [[stored_function]]
-name = "select_numbers"
+    name = "select_numbers"
 
 [[stored_function]]
-name = "select_blobs"
+    name = "select_blobs"
 
 #
 # Queries
 #
 
 [[query]]
-name = "NonNullText"
-body = '''
-SELECT text_field FROM type_rainbow WHERE text_field IS NOT NULL
-'''
-null_flags = "-"
+    name = "NonNullText"
+    body = '''
+    SELECT text_field FROM type_rainbow WHERE text_field IS NOT NULL
+    '''
+    null_flags = "-"
 
 [[query]]
-name = "MixedNullText"
-body = '''
-SELECT text_field FROM type_rainbow ORDER BY text_field
-'''
+    name = "MixedNullText"
+    body = '''
+    SELECT text_field FROM type_rainbow ORDER BY text_field
+    '''
 
 [[query]]
-name = "MultiReturn"
-body = '''
-SELECT text_field, smallint_field
-FROM type_rainbow
-ORDER BY smallint_field
-'''
+    name = "MultiReturn"
+    body = '''
+    SELECT text_field, smallint_field
+    FROM type_rainbow
+    ORDER BY smallint_field
+    '''
 
 [[query]]
-name = "TextArg"
-body = '''
-SELECT text_field FROM type_rainbow WHERE text_field = $1
-'''
+    name = "TextArg"
+    body = '''
+    SELECT text_field FROM type_rainbow WHERE text_field = $1
+    '''
 
 [[query]]
-name = "MoneyArg"
-body = '''
-SELECT money_field FROM type_rainbow WHERE money_field = $1
-'''
+    name = "MoneyArg"
+    body = '''
+    SELECT money_field FROM type_rainbow WHERE money_field = $1
+    '''
 
 [[query]]
-name = "DateTimeArg"
-body = '''
-SELECT ts_field
-FROM type_rainbow
-WHERE ts_field > $1
-  AND tsz_field > $2
-  AND date_field > $3
-'''
+    name = "DateTimeArg"
+    body = '''
+    SELECT ts_field
+    FROM type_rainbow
+    WHERE ts_field > $1
+      AND tsz_field > $2
+      AND date_field > $3
+    '''
 # TODO: different postgres versions return different results when
 #       the time fields are compared against. My locally installed
 #       postgres `AND time_field < $4 AND timez_field < $5` and the
@@ -101,47 +101,47 @@ WHERE ts_field > $1
 #       I give it a 50/50 chance of this being a bug in pggen or lib/pq.
 
 [[query]]
-name = "BooleanArg"
-body = '''
-SELECT bool_field FROM type_rainbow WHERE bool_field = $1
-'''
+    name = "BooleanArg"
+    body = '''
+    SELECT bool_field FROM type_rainbow WHERE bool_field = $1
+    '''
 
 [[query]]
-name = "EnumArg"
-body = '''
-SELECT enum_field FROM type_rainbow WHERE enum_field = $1
-'''
+    name = "EnumArg"
+    body = '''
+    SELECT enum_field FROM type_rainbow WHERE enum_field = $1
+    '''
 
 [[query]]
-name = "UUIDArg"
-body = '''
-SELECT uuid_field FROM type_rainbow WHERE uuid_field = $1
-'''
+    name = "UUIDArg"
+    body = '''
+    SELECT uuid_field FROM type_rainbow WHERE uuid_field = $1
+    '''
 
 [[query]]
-name = "ByteaArg"
-body = '''
-SELECT bytea_field FROM type_rainbow WHERE bytea_field = $1
-'''
+    name = "ByteaArg"
+    body = '''
+    SELECT bytea_field FROM type_rainbow WHERE bytea_field = $1
+    '''
 
 [[query]]
-name = "NumberArgs"
-body = '''
-SELECT
-    smallint_field
-FROM type_rainbow
-WHERE smallint_field > $1
-  AND integer_field > $2
-  AND bigint_field > $3
-  AND decimal_field > $4
-  AND numeric_field > $5
-  AND numeric_prec_field > $6
-  AND numeric_prec_scale_field > $7
-  AND real_field > $8
-  AND double_field > $9
-  AND serial_field > $10
-  AND big_serial_field > $11
-'''
+    name = "NumberArgs"
+    body = '''
+    SELECT
+        smallint_field
+    FROM type_rainbow
+    WHERE smallint_field > $1
+      AND integer_field > $2
+      AND bigint_field > $3
+      AND decimal_field > $4
+      AND numeric_field > $5
+      AND numeric_prec_field > $6
+      AND numeric_prec_scale_field > $7
+      AND real_field > $8
+      AND double_field > $9
+      AND serial_field > $10
+      AND big_serial_field > $11
+    '''
 
 [[query]]
 name = "HasNamedReturn1"
@@ -152,57 +152,79 @@ return_type = "SmallEntity"
 null_flags = "--"
 
 [[query]]
-name = "HasNamedReturn2"
-body = '''
-SELECT * FROM small_entities
-'''
-return_type = "SmallEntity"
-null_flags = "--"
+    name = "HasNamedReturn2"
+    body = '''
+    SELECT * FROM small_entities
+    '''
+    return_type = "SmallEntity"
+    null_flags = "--"
 
 [[stored_function]]
-name = "get_small_entity_1"
-null_flags = "--"
-return_type = "SmallEntity"
+    name = "get_small_entity_1"
+    null_flags = "--"
+    return_type = "SmallEntity"
 
 [[stored_function]]
-name = "get_small_entity_2"
-null_flags = "--"
-return_type = "SmallEntity"
+    name = "get_small_entity_2"
+    null_flags = "--"
+    return_type = "SmallEntity"
 
 [[statement]]
-name = "StmtInsertSmallEntity"
-body = '''
-INSERT INTO small_entities (anint) VALUES ($1)
-'''
+    name = "StmtInsertSmallEntity"
+    body = '''
+    INSERT INTO small_entities (anint) VALUES ($1)
+    '''
 
 [[query]]
-name = "GetSmallEntityByID"
-body = '''
-SELECT * FROM small_entities WHERE id = $1
-'''
-return_type = "SmallEntity"
-null_flags = "--"
+    name = "GetSmallEntityByID"
+    body = '''
+    SELECT * FROM small_entities WHERE id = $1
+    '''
+    return_type = "SmallEntity"
+    null_flags = "--"
 
 [[query]]
-name = "GetSmallEntityByAnint"
-body = '''
-SELECT * FROM small_entities WHERE anint = $1
-'''
-return_type = "SmallEntity"
-null_flags = "--"
+    name = "GetSmallEntityByAnint"
+    body = '''
+    SELECT * FROM small_entities WHERE anint = $1
+    '''
+    return_type = "SmallEntity"
+    null_flags = "--"
 
 #
 # Tables
 #
 
 [[table]]
-name = "small_entities"
+    name = "small_entities"
 
 [[table]]
-name = "attachments"
+    name = "attachments"
 
 [[table]]
-name = "single_attachments"
+    name = "single_attachments"
+
+[[table]]
+    name = "no_infer"
+    no_infer_belongs_to = true
+
+# the foreign key in the database does not actually have a foreign
+# key constraint, so we are going to explicitly configure it.
+[[table]]
+    name = "explicit_belongs_to"
+    [[table.belongs_to]]
+        table = "small_entities"
+        key_field = "small_entity_id"
+        one_to_one = true
+
+[[table]]
+    name = "explicit_belongs_to_many"
+    [[table.belongs_to]]
+        table = "small_entities"
+        key_field = "small_entity_id"
+
+# TODO: test explicit belongs to with one_to_one = false
+
 
 
 # TODO: it would be nice to support `INSERT ... RETURNING ...` queries, but
