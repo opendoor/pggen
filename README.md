@@ -21,6 +21,21 @@ codebase.
 
 # Using `pggen`
 
+The `pggen` command line tool has a fairly simple interface. You need
+to tell pggen how to connect to the postgres database that you want to
+generate code for either by passing the `--connection-string` option or
+by setting the `DB_URL` environment variable. It is a good idea to
+tell pggen where to put the code that it generates via the `-o` option,
+but you can also just accept the default output name. Finally, you must
+point `pggen` at a `toml` file which contains the bulk of the configuration
+telling `pggen` what part of the database schema to generate code for.
+
+`pggen` will not generate code for any database object unless it is explicitly
+asked do so so via an entry in the config file. Often, configuring `pggen`
+to generate code for an object is as simple as adding that object's name
+to the config file and letting `pggen` figure out the rest, but there are
+finer grained knobs if you want more control.
+
 ## Features
 
 `pggen` offers two main features: automatic generation of shims wrapping
@@ -282,6 +297,18 @@ in the configuration file
           passed to Update<Entity>.
     - <Entity>AllFields
         - A bitset with the bits for all the fields in <Entity> set
+
+#### Relationships Between Tables
+
+In addition to generating code to make working with the fields of a single struct easy,
+`pggen` can automatically detect relationships between tables via foreign key constraints
+in the database. If `pggen` notices a foreign key from table A to table B, it will assume
+that A belongs to B, and generate a member field in the generated struct for table B
+containing a slice of As. If there is a `UNIQUE` index on the foreign key, `pggen` will
+infer a 1-1 relationship rather than a 1-many relationship and generate a pointer member
+rather than a slice member. In the event that these defaults do not match up perfectly
+with your data model `pggen` provides configuration options to explicitly control the
+creation of 1-1 and 1-many relationships.
 
 ### [Prepared Functions](https://www.postgresql.org/docs/current/sql-createfunction.html)
 
