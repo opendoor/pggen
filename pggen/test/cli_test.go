@@ -216,6 +216,7 @@ func runCLITest(
 		return err
 	}
 
+	// check the exit code
 	matchedNonZeroExitCode := false
 	err = executableCmd.Wait()
 	if err != nil {
@@ -241,9 +242,9 @@ func runCLITest(
 		)
 	}
 
+	// execute regex assertions on the output
 	outTxt := outBuf.String()
 	errTxt := errBuf.String()
-
 	var err1, err2 error
 	if len(test.stdoutRE) > 0 {
 		matched, err := regexp.Match(test.stdoutRE, []byte(outTxt))
