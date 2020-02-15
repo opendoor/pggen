@@ -128,6 +128,10 @@ position in the null flags string indicates the nullability of the field, with
 '-' meaning that the field is NOT NULL and 'n' indicating that the field is
 nullable.
 
+When returning a type generated from a table, you do not need to set the
+null flags, as `pggen` will automatically infer the nullness of the fields
+from the nullness of the fields in the table.
+
 If you knew for a fact that the `id` and `created_at` fields could not be null
 in the above example, you could modify your toml entry to read
 
@@ -238,7 +242,7 @@ and which are singular.
 The second thing to note here is that `SmallEntity` has an `Attachments` field, which doesn't
 show up in the DDL for the database tables. This is because `pggen` has noticed the foreign
 key constraint on the `attachments` table and inferred that `Attachment` is a child entity
-of `SmallEntity`. Child entities are not automatically filled in by the various accessors
+of `SmallEntity`. Child entities are not automatically filled in by the various accessor
 methods when a record is fetched from the database, but `pggen` does provide utility code
 which can be invoked for populating them. Child entities are only attached to a generated
 struct if the table which holds the foreign key is also registered in the toml file.
