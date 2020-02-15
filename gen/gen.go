@@ -57,7 +57,7 @@ type Generator struct {
 // Print `output` at a normal verbosity level
 func (g *Generator) info(output string) {
 	if g.config.Verbosity >= 0 {
-		print(output)
+		fmt.Print(output)
 	}
 }
 
@@ -99,7 +99,7 @@ func (g *Generator) Gen() error {
 	var conf dbConfig
 	tomlMd, err := toml.Decode(string(confData), &conf)
 	if err != nil {
-		return fmt.Errorf("while decoding config file: %s", err.Error())
+		return fmt.Errorf("while parsing config file: %s", err.Error())
 	}
 	for _, unknownKey := range tomlMd.Undecoded() {
 		fmt.Fprintf(

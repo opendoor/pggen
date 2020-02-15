@@ -64,8 +64,8 @@ func (g *Generator) queryMeta(
 		ret.Args = args
 	}
 
-	// Resolve the return type by factoring in the null flags and whether or
-	// not it is an alias for a table type.
+	// Resolve the return type by factoring in the null flags and
+	// whether or not it is an alias for a table type.
 	nullFlags := config.NullFlags
 	pgTableName, isTable := g.tableTyNameToTableName[snakeToPascal(config.ReturnType)]
 	if isTable {

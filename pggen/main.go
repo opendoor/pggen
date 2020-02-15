@@ -35,7 +35,8 @@ Options:
 		fmt.Print(usage)
 		os.Exit(0)
 	} else {
-		log.Fatal(usage)
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(1)
 	}
 }
 
@@ -53,12 +54,14 @@ func main() {
 		}()
 
 		args := os.Args[1:]
+
+		if len(args) == 0 {
+			usage(false)
+		}
+
 		for len(args) > 0 {
 			if args[0] == "-c" || args[0] == "--connection-string" {
 				config.ConnectionString = args[1]
-				args = args[2:]
-			} else if args[0] == "-f" || args[0] == "--config-file" {
-				config.ConfigFilePath = args[1]
 				args = args[2:]
 			} else if args[0] == "-o" || args[0] == "--output-file" {
 				config.OutputFileName = args[1]
@@ -97,6 +100,7 @@ func main() {
 
 	err = g.Gen()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprint(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 }
