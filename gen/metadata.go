@@ -64,11 +64,23 @@ func (g *Generator) queryMeta(
 		ret.Args = args
 	}
 
+	// Resolve the return type by factoring in the null flags and whether or
+	// not it is an alias for a table type.
+	nullFlags := config.NullFlags
+	pgTableName, isTable := g.tableTyNameToTableName[snakeToPascal(config.ReturnType)]
+	if isTable {
+		if len(config.NullFlags) > 0 || len(config.NotNullFields) > 0 {
+			err = fmt.Errorf("don't set null flags on query returning table struct")
+			return
+		}
+
+		nullFlags = g.tables[pgTableName].nullFlags()
+	}
 	returnCols, err := g.queryReturns(config.Body)
 	if err != nil {
 		return
 	}
-	err = overrideNullability(returnCols, config.NullFlags, config.NotNullFields)
+	err = overrideNullability(returnCols, nullFlags, config.NotNullFields)
 	if err != nil {
 		return
 	}
@@ -379,10 +391,11 @@ func (g *Generator) queryReturns(query string) ([]colMeta, error) {
 		return nil, err
 	}
 
-	// This should be totally unneeded, but I have observed the tmp views popping
-	// up in psql sessions that were already active when pggen was run. We intentionally
-	// don't check the error code here because we really don't care too much if
-	// this doesn't work.
+	// This should be totally unneeded, but I have observed the tmp
+	// views popping up in psql sessions that were already active
+	// when pggen was run. We intentionally don't check the error
+	// code here because we really don't care too much if this
+	// doesn't work.
 	_, err = g.db.Exec(fmt.Sprintf(`DROP VIEW IF EXISTS %s`, viewName))
 	if err != nil {
 		return nil, err
@@ -403,8 +416,8 @@ type tableMeta struct {
 	References []refMeta
 }
 
-// colMeta contains metadata about postgres table columns such column names,
-// types, nullability, default...
+// colMeta contains metadata about postgres table columns such column
+// names, types, nullability, default...
 type colMeta struct {
 	ColNum      int32
 	GoName      string

@@ -40,6 +40,12 @@ type Generator struct {
 	// The database connection we use to gather information required
 	// for code generation.
 	db *sql.DB
+	// A table mapping go type name for a table struct to the postgres
+	// name for that table.
+	tableTyNameToTableName map[string]string
+	// Metadata about the tables to be generated, maps from the
+	// names of the tables in postgres to info about them.
+	tables map[string]tableGenInfo
 	// The packages which need to be imported into the emitted
 	// file.
 	imports map[string]bool
@@ -101,6 +107,13 @@ func (g *Generator) Gen() error {
 			"WARN: unknown config file key: '%s'\n",
 			unknownKey.String(),
 		)
+	}
+
+	// Place metadata about all tables in a hashtable to later
+	// access by the table and query generation phases.
+	err = g.populateTableInfo(conf.Tables)
+	if err != nil {
+		return err
 	}
 
 	// emit the prelude

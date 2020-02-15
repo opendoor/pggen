@@ -9,12 +9,6 @@ import (
 	"github.com/jinzhu/inflection"
 )
 
-type tableGenInfo struct {
-	config            *tableConfig
-	explicitBelongsTo []refMeta
-	meta              tableMeta
-}
-
 // Generate code for all of the tables
 func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	if len(tables) > 0 {
@@ -30,27 +24,8 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	g.imports[`"github.com/lib/pq"`] = true
 	g.imports[`"github.com/willf/bitset"`] = true
 
-	infoTab := map[string]tableGenInfo{}
-	for i, table := range tables {
-		info := tableGenInfo{}
-		info.config = &tables[i]
-
-		meta, err := g.tableMeta(table.Name)
-		if err != nil {
-			return fmt.Errorf("table '%s': %s", table.Name, err.Error())
-		}
-		info.meta = meta
-
-		infoTab[table.Name] = info
-	}
-
-	err := buildExplicitBelongsToMapping(tables, infoTab)
-	if err != nil {
-		return err
-	}
-
 	for _, table := range tables {
-		err := g.genTable(into, infoTab, &table)
+		err := g.genTable(into, &table)
 		if err != nil {
 			return err
 		}
@@ -59,60 +34,8 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	return nil
 }
 
-func buildExplicitBelongsToMapping(
-	tables []tableConfig,
-	infoTab map[string]tableGenInfo,
-) error {
-	for _, table := range tables {
-		for _, belongsTo := range table.BelongsTo {
-			if len(belongsTo.Table) == 0 {
-				return fmt.Errorf(
-					"%s: belongs_to requires 'name' key",
-					table.Name,
-				)
-			}
-
-			if len(belongsTo.KeyField) == 0 {
-				return fmt.Errorf(
-					"%s: belongs_to requires 'key_field' key",
-					table.Name,
-				)
-			}
-
-			pointsToMeta := infoTab[belongsTo.Table].meta
-			ref := refMeta{
-				PgPointsTo: belongsTo.Table,
-				GoPointsTo: snakeToPascal(inflection.Singular(belongsTo.Table)),
-				PointsToFields: []fieldNames{
-					{
-						PgName: pointsToMeta.PkeyCol.PgName,
-						GoName: pointsToMeta.PkeyCol.GoName,
-					},
-				},
-				PgPointsFrom:       table.Name,
-				GoPointsFrom:       snakeToPascal(inflection.Singular(table.Name)),
-				PluralGoPointsFrom: snakeToPascal(table.Name),
-				PointsFromFields: []fieldNames{
-					{
-						PgName: belongsTo.KeyField,
-						GoName: snakeToPascal(belongsTo.KeyField),
-					},
-				},
-				OneToOne: belongsTo.OneToOne,
-			}
-
-			info := infoTab[belongsTo.Table]
-			info.explicitBelongsTo = append(info.explicitBelongsTo, ref)
-			infoTab[belongsTo.Table] = info
-		}
-	}
-
-	return nil
-}
-
 func (g *Generator) genTable(
 	into io.Writer,
-	infoTab map[string]tableGenInfo,
 	table *tableConfig,
 ) (err error) {
 	g.infof("		generating table '%s'\n", table.Name)
@@ -123,15 +46,20 @@ func (g *Generator) genTable(
 		}
 	}()
 
-	meta := infoTab[table.Name].meta
+	meta := g.tables[table.Name].meta
+	if meta.PkeyCol == nil {
+		err = fmt.Errorf("no primary key for table")
+		return
+	}
 
-	// Filter out all the references from tables that are not mentioned in
-	// the TOML, or have explicitly asked us not to infer relationships.
-	// We only want to generate code about the part of the database schema
-	// that we have been explicitly asked to generate code for.
+	// Filter out all the references from tables that are not
+	// mentioned in the TOML, or have explicitly asked us not to
+	// infer relationships. We only want to generate code about the
+	// part of the database schema that we have been explicitly
+	// asked to generate code for.
 	kept := 0
 	for _, ref := range meta.References {
-		if fromTable, inMap := infoTab[ref.PgPointsFrom]; inMap {
+		if fromTable, inMap := g.tables[ref.PgPointsFrom]; inMap {
 			if !fromTable.config.NoInferBelongsTo {
 				meta.References[kept] = ref
 				kept++
@@ -147,13 +75,8 @@ func (g *Generator) genTable(
 
 	meta.References = append(
 		meta.References,
-		infoTab[table.Name].explicitBelongsTo...,
+		g.tables[table.Name].explicitBelongsTo...,
 	)
-
-	if meta.PkeyCol == nil {
-		err = fmt.Errorf("no primary key for table")
-		return
-	}
 
 	// Emit the type seperately to prevent double defintions
 	var tableType strings.Builder
@@ -540,3 +463,107 @@ func (p *PGClient) {{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 
 {{ end }}
 `))
+
+// Information about tables required for code generation.
+//
+// The reason there is both a *Meta and *GenInfo struct for tables
+// is that `tableMeta` is meant to be narrowly focused on metadata
+// that postgres provides us, while things in `tableGenInfo` are
+// more specific to `pggen`'s internal needs.
+type tableGenInfo struct {
+	config *tableConfig
+	// Table relationships that have been explicitly configured
+	// rather than infered from the database schema itself.
+	explicitBelongsTo []refMeta
+	meta              tableMeta
+}
+
+// nullFlags computes the null flags specifying the nullness of this
+// table in the same format used by the `null_flags` config option
+func (info tableGenInfo) nullFlags() string {
+	nf := make([]byte, len(info.meta.Cols))[:0]
+	for _, c := range info.meta.Cols {
+		if c.Nullable {
+			nf = append(nf, 'n')
+		} else {
+			nf = append(nf, '-')
+		}
+	}
+	return string(nf)
+}
+
+func (g *Generator) populateTableInfo(tables []tableConfig) error {
+	g.tables = map[string]tableGenInfo{}
+	g.tableTyNameToTableName = map[string]string{}
+	for i, table := range tables {
+		info := tableGenInfo{}
+		info.config = &tables[i]
+
+		meta, err := g.tableMeta(table.Name)
+		if err != nil {
+			return fmt.Errorf("table '%s': %s", table.Name, err.Error())
+		}
+		info.meta = meta
+
+		g.tables[table.Name] = info
+		g.tableTyNameToTableName[meta.GoName] = meta.PgName
+	}
+
+	err := buildExplicitBelongsToMapping(tables, g.tables)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func buildExplicitBelongsToMapping(
+	tables []tableConfig,
+	infoTab map[string]tableGenInfo,
+) error {
+	for _, table := range tables {
+		for _, belongsTo := range table.BelongsTo {
+			if len(belongsTo.Table) == 0 {
+				return fmt.Errorf(
+					"%s: belongs_to requires 'name' key",
+					table.Name,
+				)
+			}
+
+			if len(belongsTo.KeyField) == 0 {
+				return fmt.Errorf(
+					"%s: belongs_to requires 'key_field' key",
+					table.Name,
+				)
+			}
+
+			pointsToMeta := infoTab[belongsTo.Table].meta
+			ref := refMeta{
+				PgPointsTo: belongsTo.Table,
+				GoPointsTo: snakeToPascal(inflection.Singular(belongsTo.Table)),
+				PointsToFields: []fieldNames{
+					{
+						PgName: pointsToMeta.PkeyCol.PgName,
+						GoName: pointsToMeta.PkeyCol.GoName,
+					},
+				},
+				PgPointsFrom:       table.Name,
+				GoPointsFrom:       snakeToPascal(inflection.Singular(table.Name)),
+				PluralGoPointsFrom: snakeToPascal(table.Name),
+				PointsFromFields: []fieldNames{
+					{
+						PgName: belongsTo.KeyField,
+						GoName: snakeToPascal(belongsTo.KeyField),
+					},
+				},
+				OneToOne: belongsTo.OneToOne,
+			}
+
+			info := infoTab[belongsTo.Table]
+			info.explicitBelongsTo = append(info.explicitBelongsTo, ref)
+			infoTab[belongsTo.Table] = info
+		}
+	}
+
+	return nil
+}

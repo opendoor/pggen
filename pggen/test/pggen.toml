@@ -21,8 +21,8 @@
 
 [[stored_function]]
     name = "select_time"
-    # nullability of fields can be specified in a longer form way if the terse
-    # null flags syntax gets to confusing for a wide query.
+    # nullability of fields can be specified in a longer form way if
+    # the terse null flags syntax gets to confusing for a wide query.
     not_null_fields = [
         "ts_field_not_null",
         "tsz_field_not_null",
@@ -144,12 +144,11 @@
     '''
 
 [[query]]
-name = "HasNamedReturn1"
-body = '''
-SELECT * FROM small_entities
-'''
-return_type = "SmallEntity"
-null_flags = "--"
+    name = "HasNamedReturn1"
+    body = '''
+    SELECT * FROM small_entities
+    '''
+    return_type = "SmallEntity"
 
 [[query]]
     name = "HasNamedReturn2"
@@ -157,16 +156,13 @@ null_flags = "--"
     SELECT * FROM small_entities
     '''
     return_type = "SmallEntity"
-    null_flags = "--"
 
 [[stored_function]]
     name = "get_small_entity_1"
-    null_flags = "--"
     return_type = "SmallEntity"
 
 [[stored_function]]
     name = "get_small_entity_2"
-    null_flags = "--"
     return_type = "SmallEntity"
 
 [[statement]]
@@ -181,7 +177,6 @@ null_flags = "--"
     SELECT * FROM small_entities WHERE id = $1
     '''
     return_type = "SmallEntity"
-    null_flags = "--"
 
 [[query]]
     name = "GetSmallEntityByAnint"
@@ -189,7 +184,6 @@ null_flags = "--"
     SELECT * FROM small_entities WHERE anint = $1
     '''
     return_type = "SmallEntity"
-    null_flags = "--"
 
 #
 # Tables
@@ -222,10 +216,6 @@ null_flags = "--"
     [[table.belongs_to]]
         table = "small_entities"
         key_field = "small_entity_id"
-
-# TODO: test explicit belongs to with one_to_one = false
-
-
 
 # TODO: it would be nice to support `INSERT ... RETURNING ...` queries, but
 #       that breaks the way that we use tmp views to infer the result types
