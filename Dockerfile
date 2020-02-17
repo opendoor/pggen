@@ -8,6 +8,9 @@ RUN apk add --no-cache postgresql-client git musl-dev gcc bash
 # install golangci-lint
 RUN wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.23.3
 
+# Install delve, the golang debugger
+RUN go get -u github.com/go-delve/delve/cmd/dlv
+
 WORKDIR /pggen
 
 COPY go.sum .

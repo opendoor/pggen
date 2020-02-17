@@ -5,8 +5,9 @@ import (
 	"database/sql"
 )
 
-// DBHandle is an interface which contains the methods common to *sql.Tx and *sql.DB,
-// allowing for code to be generic over whether or no the user is operating in a transaction
+// DBHandle is an interface which contains the methods common to
+// *sql.Tx and *sql.DB, allowing for code to be generic over whether
+// or no the user is operating in a transaction
 type DBHandle interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)

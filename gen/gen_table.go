@@ -7,6 +7,8 @@ import (
 	"text/template"
 
 	"github.com/jinzhu/inflection"
+
+	"github.com/opendoor-labs/pggen/include"
 )
 
 // Generate code for all of the tables
@@ -20,8 +22,8 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	g.imports[`"database/sql"`] = true
 	g.imports[`"context"`] = true
 	g.imports[`"fmt"`] = true
-	g.imports[`"math"`] = true
 	g.imports[`"github.com/lib/pq"`] = true
+	g.imports[`"github.com/opendoor-labs/pggen/include"`] = true
 	g.imports[`"github.com/willf/bitset"`] = true
 
 	for _, table := range tables {
@@ -32,6 +34,27 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	}
 
 	return nil
+}
+
+type tableGenCtx struct {
+	PgName         string
+	GoName         string
+	PkeyCol        *colMeta
+	NumNonPrimary  int
+	Cols           []colMeta
+	References     []refMeta
+	AllIncludeSpec string
+}
+
+func tableGenCtxFromMeta(meta tableMeta) tableGenCtx {
+	return tableGenCtx{
+		PgName:        meta.PgName,
+		GoName:        meta.GoName,
+		PkeyCol:       meta.PkeyCol,
+		NumNonPrimary: meta.NumNonPrimary,
+		Cols:          meta.Cols,
+		References:    meta.References,
+	}
 }
 
 func (g *Generator) genTable(
@@ -46,8 +69,10 @@ func (g *Generator) genTable(
 		}
 	}()
 
-	meta := g.tables[table.Name].meta
-	if meta.PkeyCol == nil {
+	tableInfo := g.tables[table.Name]
+
+	genCtx := tableGenCtxFromMeta(tableInfo.meta)
+	if genCtx.PkeyCol == nil {
 		err = fmt.Errorf("no primary key for table")
 		return
 	}
@@ -58,10 +83,10 @@ func (g *Generator) genTable(
 	// part of the database schema that we have been explicitly
 	// asked to generate code for.
 	kept := 0
-	for _, ref := range meta.References {
+	for _, ref := range genCtx.References {
 		if fromTable, inMap := g.tables[ref.PgPointsFrom]; inMap {
 			if !fromTable.config.NoInferBelongsTo {
-				meta.References[kept] = ref
+				genCtx.References[kept] = ref
 				kept++
 			}
 		}
@@ -71,30 +96,32 @@ func (g *Generator) genTable(
 			return
 		}
 	}
-	meta.References = meta.References[:kept]
+	genCtx.References = genCtx.References[:kept]
 
-	meta.References = append(
-		meta.References,
+	genCtx.References = append(
+		genCtx.References,
 		g.tables[table.Name].explicitBelongsTo...,
 	)
 
+	genCtx.AllIncludeSpec = tableInfo.allIncludeSpec.String()
+
 	// Emit the type seperately to prevent double defintions
 	var tableType strings.Builder
-	err = tableTypeTmpl.Execute(&tableType, meta)
+	err = tableTypeTmpl.Execute(&tableType, genCtx)
 	if err != nil {
 		return
 	}
 	var tableSig strings.Builder
-	err = tableTypeFieldSigTmpl.Execute(&tableSig, meta)
+	err = tableTypeFieldSigTmpl.Execute(&tableSig, genCtx)
 	if err != nil {
 		return
 	}
-	err = g.types.emitType(meta.GoName, tableSig.String(), tableType.String())
+	err = g.types.emitType(genCtx.GoName, tableSig.String(), tableType.String())
 	if err != nil {
 		return
 	}
 
-	return tableShimTmpl.Execute(into, meta)
+	return tableShimTmpl.Execute(into, genCtx)
 }
 
 var tableTypeFieldSigTmpl *template.Template = template.Must(template.New("table-type-field-sig-tmpl").Parse(`
@@ -360,47 +387,61 @@ func (p *PGClient) BulkDelete{{ .GoName }}(
 	return err
 }
 
+var {{ .GoName }}AllIncludes *include.Spec = include.Must(include.Parse(
+	"{{ .AllIncludeSpec }}",
+))
 func (p *PGClient) {{ .GoName }}FillAll(
 	ctx context.Context,
 	rec *{{ .GoName }},
 ) error {
-	return p.{{ .GoName }}FillToDepth(ctx, []*{{ .GoName }}{rec}, math.MaxInt64)
+	return p.{{ .GoName }}FillIncludes(ctx, []*{{ .GoName }}{rec}, {{ .GoName }}AllIncludes)
 }
 
-func (p *PGClient) {{ .GoName }}FillToDepth(
+func (p *PGClient) {{ .GoName }}FillIncludes(
 	ctx context.Context,
 	recs []*{{ .GoName }},
-	maxDepth int64,
+	includes *include.Spec,
 ) (err error) {
-	if maxDepth <= 0 {
-		return
+	if includes.TableName != "{{ .PgName }}" {
+		return fmt.Errorf(
+			"expected includes for '{{ .PgName }}', got '%s'",
+			includes.TableName,
+		)
 	}
-{{- range .References }}
 
-	// Fill in the {{ .PluralGoPointsFrom }}
-	{{- if .OneToOne }}
-	err = p.{{ $.GoName }}Fill{{ .GoPointsFrom }}(ctx, recs)
-	{{- else }}
-	err = p.{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(ctx, recs)
+	{{- if .References }}
+	var subSpec *include.Spec
+	var inIncludeSet bool
 	{{- end }}
-	if err != nil {
-		return
-	}
-	var sub{{ .PluralGoPointsFrom }} []*{{ .GoPointsFrom }}
-	for _, outer := range recs {
+
+	{{- range .References }}
+	// Fill in the {{ .PluralGoPointsFrom }} if it is in includes
+	subSpec, inIncludeSet = includes.Includes["{{ .PgPointsFrom }}"]
+	if inIncludeSet {
 		{{- if .OneToOne }}
-		sub{{ .PluralGoPointsFrom }} = append(sub{{ .PluralGoPointsFrom }}, outer.{{ .GoPointsFrom }})
+		err = p.private{{ $.GoName }}Fill{{ .GoPointsFrom }}(ctx, recs)
 		{{- else }}
-		for i, _ := range outer.{{ .PluralGoPointsFrom }} {
-			sub{{ .PluralGoPointsFrom }} = append(sub{{ .PluralGoPointsFrom }}, &outer.{{ .PluralGoPointsFrom }}[i])
-		}
+		err = p.private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(ctx, recs)
 		{{- end }}
+		if err != nil {
+			return
+		}
+		var subRecs []*{{ .GoPointsFrom }}
+		for _, outer := range recs {
+			{{- if .OneToOne }}
+			subRecs = append(subRecs, outer.{{ .GoPointsFrom }})
+			{{- else }}
+			for i, _ := range outer.{{ .PluralGoPointsFrom }} {
+				subRecs = append(subRecs, &outer.{{ .PluralGoPointsFrom }}[i])
+			}
+			{{- end }}
+		}
+		err = p.{{ .GoPointsFrom }}FillIncludes(ctx, subRecs, subSpec)
+		if err != nil {
+			return
+		}
 	}
-	err = p.{{ .GoPointsFrom }}FillToDepth(ctx, sub{{ .PluralGoPointsFrom }}, maxDepth - 1)
-	if err != nil {
-		return
-	}
-{{- end }}
+	{{- end }}
 
 	return
 }
@@ -409,9 +450,9 @@ func (p *PGClient) {{ .GoName }}FillToDepth(
 // For a give set of {{ $.GoName }}, fill in all the {{ .GoPointsFrom }}
 // connected to them using a single query.
 {{- if .OneToOne }}
-func (p *PGClient) {{ $.GoName }}Fill{{ .GoPointsFrom }}(
+func (p *PGClient) private{{ $.GoName }}Fill{{ .GoPointsFrom }}(
 {{- else }}
-func (p *PGClient) {{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
+func (p *PGClient) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 {{- end }}
 	ctx context.Context,
 	parentRecs []*{{ $.GoName }},
@@ -475,6 +516,7 @@ type tableGenInfo struct {
 	// Table relationships that have been explicitly configured
 	// rather than infered from the database schema itself.
 	explicitBelongsTo []refMeta
+	allIncludeSpec    *include.Spec
 	meta              tableMeta
 }
 
@@ -493,10 +535,10 @@ func (info tableGenInfo) nullFlags() string {
 }
 
 func (g *Generator) populateTableInfo(tables []tableConfig) error {
-	g.tables = map[string]tableGenInfo{}
+	g.tables = map[string]*tableGenInfo{}
 	g.tableTyNameToTableName = map[string]string{}
 	for i, table := range tables {
-		info := tableGenInfo{}
+		info := &tableGenInfo{}
 		info.config = &tables[i]
 
 		meta, err := g.tableMeta(table.Name)
@@ -514,12 +556,69 @@ func (g *Generator) populateTableInfo(tables []tableConfig) error {
 		return err
 	}
 
+	// fill in all the allIncludeSpecs
+	for _, info := range g.tables {
+		err := ensureSpec(g.tables, info)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureSpec(tables map[string]*tableGenInfo, info *tableGenInfo) error {
+	if info.allIncludeSpec != nil {
+		// Some other `ensureSpec` already filled this in for us. Great!
+		return nil
+	}
+
+	info.allIncludeSpec = &include.Spec{
+		TableName: info.meta.PgName,
+		Includes:  map[string]*include.Spec{},
+	}
+
+	ensureReferencedSpec := func(ref *refMeta) error {
+		subInfo := tables[ref.PgPointsFrom]
+		if subInfo == nil {
+			// This table is referenced in the database schema but not in the
+			// config file.
+			return nil
+		}
+
+		err := ensureSpec(tables, subInfo)
+		if err != nil {
+			return err
+		}
+		subSpec := subInfo.allIncludeSpec
+		info.allIncludeSpec.Includes[subSpec.TableName] = subSpec
+
+		return nil
+	}
+
+	for _, ref := range info.meta.References {
+		err := ensureReferencedSpec(&ref)
+		if err != nil {
+			return err
+		}
+	}
+	for _, ref := range info.explicitBelongsTo {
+		err := ensureReferencedSpec(&ref)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(info.allIncludeSpec.Includes) == 0 {
+		info.allIncludeSpec.Includes = nil
+	}
+
 	return nil
 }
 
 func buildExplicitBelongsToMapping(
 	tables []tableConfig,
-	infoTab map[string]tableGenInfo,
+	infoTab map[string]*tableGenInfo,
 ) error {
 	for _, table := range tables {
 		for _, belongsTo := range table.BelongsTo {

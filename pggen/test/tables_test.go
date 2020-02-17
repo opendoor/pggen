@@ -10,6 +10,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/willf/bitset"
 
+	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
 )
 
@@ -199,8 +200,7 @@ func TestSmallEntityCreateDelete(t *testing.T) {
 	}
 }
 
-// A test of the "FillAll" functionality
-func TestFill(t *testing.T) {
+func TestFillAll(t *testing.T) {
 	txClient := newTx(t)
 	defer func() {
 		_ = txClient.DB.(*sql.Tx).Rollback()
@@ -257,6 +257,63 @@ func TestFill(t *testing.T) {
 			aTime.String(),
 			e.SingleAttachment.CreatedAt.String(),
 		)
+	}
+}
+
+func TestFillIncludes(t *testing.T) {
+	txClient := newTx(t)
+	defer func() {
+		_ = txClient.DB.(*sql.Tx).Rollback()
+	}()
+
+	entityID, err := txClient.InsertSmallEntity(ctx, db_shims.SmallEntity{
+		Anint: 129,
+	})
+	chkErr(t, err)
+
+	foo := "foo"
+	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
+		SmallEntityId: entityID,
+		Value:         &foo,
+	})
+	chkErr(t, err)
+
+	aTime := time.Unix(5432553, 0)
+	singleAttachmentID, err := txClient.InsertSingleAttachment(ctx, db_shims.SingleAttachment{
+		SmallEntityId: entityID,
+		CreatedAt:     aTime,
+	})
+	chkErr(t, err)
+
+	// we are going to use include specs to load the attachment, but no the SingleAttachment
+	includes := include.Must(include.Parse("small_entities.attachments"))
+	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
+	chkErr(t, err)
+	err = txClient.SmallEntityFillIncludes(ctx, []*db_shims.SmallEntity{&smallEntity}, includes)
+	chkErr(t, err)
+
+	if smallEntity.Attachments[0].Id != attachmentID1 {
+		t.Fatalf("failed to fetch attachment")
+	}
+	if smallEntity.SingleAttachment != nil {
+		t.Fatalf("fetched single attachment when it wasn't in the include set")
+	}
+
+	// now do load the single_attachments
+	includes = include.Must(include.Parse("small_entities.{attachments, single_attachments}"))
+	smallEntity, err = txClient.GetSmallEntity(ctx, entityID)
+	chkErr(t, err)
+	err = txClient.SmallEntityFillIncludes(ctx, []*db_shims.SmallEntity{&smallEntity}, includes)
+	chkErr(t, err)
+
+	if smallEntity.Attachments[0].Id != attachmentID1 {
+		t.Fatalf("failed to fetch attachment")
+	}
+	if smallEntity.SingleAttachment.Id != singleAttachmentID {
+		t.Fatalf("failed to fetch single attachment")
+	}
+	if smallEntity.ExplicitBelongsTo != nil || smallEntity.ExplicitBelongsToMany != nil {
+		t.Fatalf("shouldn't load ExplicitBelongsTo or ExplicitBelongsToMany")
 	}
 }
 

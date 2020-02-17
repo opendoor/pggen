@@ -41,3 +41,21 @@ or debug interactively by opening a bash shell with
 ```
 > docker-compose run test /bin/bash
 ```
+
+# CLI Tests
+
+`pggen/test/cli_test.go` contains some end-to-end tests of the `pggen` command
+line utility. These tests spawn subprocesses and then perform some assertions
+about the stdout, stderr, and return code of the subprocesses. If one of them
+fails, it will print the command used to execute the failing test, but you won't
+be able to re-run the command because the test will have cleaned up after
+itself. You can re-run the cli tests with
+
+```bash
+> cd pggen/test
+> PGGEN_DEBUG_CLI=1 go test --run TestCLI
+```
+
+This will both prevent the cli tests from removing their scratch dir and
+compile the binary under test in a debugger friendly format so that you can
+immediately point your debugger at it.

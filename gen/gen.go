@@ -45,7 +45,7 @@ type Generator struct {
 	tableTyNameToTableName map[string]string
 	// Metadata about the tables to be generated, maps from the
 	// names of the tables in postgres to info about them.
-	tables map[string]tableGenInfo
+	tables map[string]*tableGenInfo
 	// The packages which need to be imported into the emitted
 	// file.
 	imports map[string]bool
