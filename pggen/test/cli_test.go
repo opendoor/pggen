@@ -108,9 +108,17 @@ name = "small_entities"
 }
 
 func TestCLI(t *testing.T) {
+	debug := false
+	debugEnvVar := os.Getenv("PGGEN_DEBUG_CLI")
+	if debugEnvVar == "1" || debugEnvVar == "true" {
+		debug = true
+	}
+
 	testDir, err := ioutil.TempDir("", "pggen_cli_test")
 	chkErr(t, err)
-	defer os.RemoveAll(testDir)
+	if !debug {
+		defer os.RemoveAll(testDir)
+	}
 
 	repoRoot, err := getRepoRoot()
 	chkErr(t, err)
@@ -120,6 +128,10 @@ func TestCLI(t *testing.T) {
 
 	// build the executable we are going to be testing
 	cmd := exec.Command("go", "build", "-o", exe, mainSrc)
+	if debug {
+		cmd = exec.Command(
+			"go", "build", "-gcflags", "all=-N -l", "-o", exe, mainSrc)
+	}
 	err = cmd.Run()
 	chkErr(t, err)
 
