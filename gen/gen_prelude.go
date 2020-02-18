@@ -35,8 +35,6 @@ import (
 	"strings"
 	"fmt"
 
-	"github.com/willf/bitset"
-
 	"github.com/opendoor-labs/pggen"
 )
 
@@ -87,7 +85,7 @@ func genUpdateStmt(
 	table string,
 	pgPkey string,
 	fields []string,
-	fieldMask *bitset.BitSet,
+	fieldMask pggen.FieldSet,
 	pkeyName string,
 ) string {
 	var ret strings.Builder
@@ -100,7 +98,7 @@ func genUpdateStmt(
 	rhs := make([]string, len(fields))[:0]
 	argNo := 1
 	for i, f := range fields {
-		if fieldMask.Test(uint(i)) {
+		if fieldMask.Test(i) {
 			lhs = append(lhs, f)
 			rhs = append(rhs, fmt.Sprintf("$%d", argNo))
 			argNo++

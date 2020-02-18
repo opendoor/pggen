@@ -24,7 +24,7 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 	g.imports[`"fmt"`] = true
 	g.imports[`"github.com/lib/pq"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen/include"`] = true
-	g.imports[`"github.com/willf/bitset"`] = true
+	g.imports[`"github.com/opendoor-labs/pggen"`] = true
 
 	for _, table := range tables {
 		err := g.genTable(into, &table)
@@ -286,30 +286,23 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 // bit indicies for 'fieldMask' parameters
 const (
 	{{- range $i, $c := .Cols }}
-	{{ $.GoName }}{{ $c.GoName }}FieldIndex uint = {{ $i }}
+	{{ $.GoName }}{{ $c.GoName }}FieldIndex int = {{ $i }}
 	{{- end }}
 )
 
-// A bitset saying that all fields in {{ .GoName }} should be updated.
+// A field set saying that all fields in {{ .GoName }} should be updated.
 // For use as a 'fieldMask' parameter
-var {{ .GoName }}AllFields *bitset.BitSet = func() *bitset.BitSet {
-	ret := bitset.New({{ len .Cols }})
-	var i uint
-	for i = 0; i < uint({{ len .Cols }}); i++ {
-		ret.Set(i)
-	}
-	return ret
-}()
+var {{ .GoName }}AllFields pggen.FieldSet = pggen.NewFieldSetFilled({{ len .Cols }})
 
 // Update a {{ .GoName }}. 'value' must at the least have
-// a primary key set. The 'fieldMask' bitset indicates which fields
+// a primary key set. The 'fieldMask' field set indicates which fields
 // should be updated in the database.
 //
 // Returns the primary key of the updated row.
 func (p *PGClient) Update{{ .GoName }}(
 	ctx context.Context,
 	value {{ .GoName }},
-	fieldMask *bitset.BitSet,
+	fieldMask pggen.FieldSet,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var fields []string = []string{
 		{{- range .Cols }}

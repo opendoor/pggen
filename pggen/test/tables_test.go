@@ -8,8 +8,8 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/willf/bitset"
 
+	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
 )
@@ -116,8 +116,8 @@ func TestSmallEntityUpdate(t *testing.T) {
 	fetched, err := txClient.GetSmallEntityByAnint(ctx, 1232)
 	chkErr(t, err)
 
-	noOpBitset := bitset.New(2)
-	noOpBitset.Set(db_shims.SmallEntityIdFieldIndex)
+	noOpBitset := pggen.NewFieldSet(2)
+	noOpBitset.Set(db_shims.SmallEntityIdFieldIndex, true)
 
 	fetched[0].Anint = 34
 	id, err := txClient.UpdateSmallEntity(ctx, fetched[0], noOpBitset)
