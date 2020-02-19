@@ -185,7 +185,7 @@ func (p *PGClient) List{{ .GoName }}(
 ) ([]{{ .GoName }}, error) {
 	rows, err := p.DB.QueryContext(
 		ctx,
-		"SELECT * FROM \"{{ .PgName }}\" WHERE {{ .PkeyCol.PgName }} = ANY($1)",
+		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -243,7 +243,7 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 	var fields []string = []string{
 		{{- range .Cols }}
 		{{- if (not .IsPrimary) }}
-		"{{ .PgName }}",
+		` + "`" + `{{ .PgName }}` + "`" + `,
 		{{- end }}
 		{{- end }}
 	}
@@ -306,7 +306,7 @@ func (p *PGClient) Update{{ .GoName }}(
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var fields []string = []string{
 		{{- range .Cols }}
-		"{{ .PgName }}",
+		` + "`" + `{{ .PgName }}` + "`" + `,
 		{{- end }}
 	}
 
@@ -357,7 +357,7 @@ func (p *PGClient) BulkDelete{{ .GoName }}(
 ) error {
 	res, err := p.DB.ExecContext(
 		ctx,
-		"DELETE FROM \"{{ .PgName }}\" WHERE {{ .PkeyCol.PgName }} = ANY($1)",
+		"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -381,7 +381,7 @@ func (p *PGClient) BulkDelete{{ .GoName }}(
 }
 
 var {{ .GoName }}AllIncludes *include.Spec = include.Must(include.Parse(
-	"{{ .AllIncludeSpec }}",
+	` + "`" + `{{ .AllIncludeSpec }}` + "`" + `,
 ))
 func (p *PGClient) {{ .GoName }}FillAll(
 	ctx context.Context,
@@ -632,7 +632,7 @@ func buildExplicitBelongsToMapping(
 			pointsToMeta := infoTab[belongsTo.Table].meta
 			ref := refMeta{
 				PgPointsTo: belongsTo.Table,
-				GoPointsTo: snakeToPascal(inflection.Singular(belongsTo.Table)),
+				GoPointsTo: pgToGoName(inflection.Singular(belongsTo.Table)),
 				PointsToFields: []fieldNames{
 					{
 						PgName: pointsToMeta.PkeyCol.PgName,
@@ -640,12 +640,12 @@ func buildExplicitBelongsToMapping(
 					},
 				},
 				PgPointsFrom:       table.Name,
-				GoPointsFrom:       snakeToPascal(inflection.Singular(table.Name)),
-				PluralGoPointsFrom: snakeToPascal(table.Name),
+				GoPointsFrom:       pgToGoName(inflection.Singular(table.Name)),
+				PluralGoPointsFrom: pgToGoName(table.Name),
 				PointsFromFields: []fieldNames{
 					{
 						PgName: belongsTo.KeyField,
-						GoName: snakeToPascal(belongsTo.KeyField),
+						GoName: pgToGoName(belongsTo.KeyField),
 					},
 				},
 				OneToOne: belongsTo.OneToOne,

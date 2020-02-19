@@ -351,3 +351,46 @@ func TestExplicitBelongsToMany(t *testing.T) {
 		t.Fatalf("pggen generated a 1-1 instead of 1-many")
 	}
 }
+
+func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
+	txClient := newTx(t)
+	defer func() {
+		_ = txClient.DB.(*sql.Tx).Rollback()
+	}()
+
+	funnyID, err := txClient.InsertWeirdNaMe(ctx, db_shims.WeirdNaMe{
+		WearetalkingReallyBadstyle: 1923,
+		GotWhitespace:              "yes",
+		ButWhyTho:                  &[]int64{19}[0],
+	})
+	chkErr(t, err)
+
+	funny, err := txClient.GetWeirdNaMe(ctx, funnyID)
+	chkErr(t, err)
+
+	funny.GotWhitespace = "no"
+
+	funnyID, err = txClient.UpdateWeirdNaMe(
+		ctx, funny, db_shims.WeirdNaMeAllFields)
+	chkErr(t, err)
+
+	funny, err = txClient.GetWeirdNaMe(ctx, funnyID)
+	chkErr(t, err)
+
+	if funny.GotWhitespace != "no" {
+		t.Fatalf("update failed")
+	}
+
+	kidID, err := txClient.InsertWeirdKid(ctx, db_shims.WeirdKid{
+		Daddy: funny.Evenidisweird,
+	})
+	chkErr(t, err)
+	err = txClient.WeirdNaMeFillAll(ctx, &funny)
+	chkErr(t, err)
+
+	err = txClient.DeleteWeirdKid(ctx, kidID)
+	chkErr(t, err)
+
+	err = txClient.DeleteWeirdNaMe(ctx, funny.Evenidisweird)
+	chkErr(t, err)
+}

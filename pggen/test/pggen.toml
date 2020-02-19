@@ -217,6 +217,12 @@
         table = "small_entities"
         key_field = "small_entity_id"
 
+[[table]]
+    name = "Weird NaMeS"
+
+[[table]]
+    name = "Weird?! Kid"
+
 # TODO: it would be nice to support `INSERT ... RETURNING ...` queries, but
 #       that breaks the way that we use tmp views to infer the result types
 #       of queries. At the very least we should throw an error for queries

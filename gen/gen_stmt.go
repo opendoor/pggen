@@ -28,7 +28,7 @@ func (g *Generator) genStmts(into io.Writer, stmts []stmtConfig) error {
 func (g *Generator) genStmt(into io.Writer, stmt *stmtConfig) error {
 	g.infof("		generating statement '%s'\n", stmt.Name)
 
-	stmt.Name = snakeToPascal(stmt.Name)
+	stmt.Name = pgToGoName(stmt.Name)
 
 	meta, err := g.stmtMeta(stmt)
 	if err != nil {

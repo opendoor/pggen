@@ -28,6 +28,11 @@
 // spec := include.Must(include.Parse("foos.{bars.quxes, bazes}"))
 // ```
 //
+// In order to match the semantics of SQL, include specs allow quoted
+// identifiers, so the spec `"space table".{"how odd", "right?"}` is
+// a valid include spec. Just like in SQL, you can escape a `"` in a
+// quoted identifier with `""`.
+//
 // More formally, the grammar for include specs is:
 //
 // spec ::= id
@@ -40,6 +45,8 @@ package include
 
 import (
 	"fmt"
+	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -59,8 +66,19 @@ func (s *Spec) String() string {
 	s.writeToBuilder(&out)
 	return out.String()
 }
+
+var unquotedIdentRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_$]*$")
+
 func (s *Spec) writeToBuilder(b *strings.Builder) {
-	b.WriteString(s.TableName)
+	if unquotedIdentRE.Match([]byte(s.TableName)) {
+		b.WriteString(s.TableName)
+	} else {
+		quotedQuotes := strings.Replace(
+			s.TableName, `"`, `""`, int(math.MinInt64))
+		b.WriteByte('"')
+		b.WriteString(quotedQuotes)
+		b.WriteByte('"')
+	}
 
 	if len(s.Includes) == 1 {
 		b.WriteByte('.')
@@ -288,8 +306,39 @@ func parseSpecList(src string, idx int) (specs []*Spec, nextIdx int, err error) 
 	return
 }
 
-// parse [a-zA-Z_][a-zA-Z0-9_]*
+// parse: [a-zA-Z_][a-zA-Z0-9_$]* | "[^"]"
 func parseID(src string, idx int) (id string, nextIdx int, err error) {
+	// first, we'll see if we are dealing with a quoted identifier
+	if src[idx] == '"' {
+		var idBuilder strings.Builder
+		for {
+			idx++
+			if idx >= len(src) {
+				err = &parseError{
+					pos: idx,
+					msg: "unexpected end of input in quoted identifier",
+				}
+				return
+			}
+
+			if src[idx] == '"' {
+				if idx+1 < len(src) && src[idx+1] == '"' {
+					idx++
+					idBuilder.WriteByte('"')
+				} else {
+					id = idBuilder.String()
+					nextIdx = idx + 1
+					return
+				}
+			} else {
+				idBuilder.WriteByte(src[idx])
+			}
+		}
+	}
+
+	// if it wasn't a quoted identifier we will fall through to looking
+	// for a normal identifier
+
 	seenFirst := false
 	max := 0
 	for i, r := range src[idx:] {
@@ -297,7 +346,7 @@ func parseID(src string, idx int) (id string, nextIdx int, err error) {
 		if unicode.IsLetter(r) || r == '_' {
 			stop = false
 		}
-		if seenFirst && unicode.IsNumber(r) {
+		if seenFirst && (unicode.IsNumber(r) || r == '$') {
 			stop = false
 		}
 

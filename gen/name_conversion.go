@@ -12,16 +12,19 @@ import (
 // with a given stored function or prepared statement.
 //
 
-// Convert a snake_case name to a PascalCaseName
-func snakeToPascal(snakeName string) string {
-	return snakeToMixed(snakeName, true)
-}
+// Convert a postgres name (assumed to be snake_case)
+// to a PascalCaseName
+func pgToGoName(snakeName string) string {
+	needsUpper := true
 
-func snakeToMixed(snakeName string, needsUpper bool) string {
 	var res strings.Builder
 	for _, r := range snakeName {
-		if r == '_' {
+		if unicode.IsSpace(r) {
+			continue
+		} else if r == '_' {
 			needsUpper = true
+		} else if unicode.IsPunct(r) {
+			continue
 		} else if needsUpper {
 			res.WriteRune(unicode.ToUpper(r))
 			needsUpper = false
