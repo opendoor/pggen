@@ -79,8 +79,8 @@ CREATE TABLE foo (
 
 ```golang
 type GetIdAndCreatedRow struct {
-    Id *int64 `gorm:"column:id" gorm:"is_primary"`
-    CreatedAt *time.Time `gorm:"column:created_at"`
+    Id *int64
+    CreatedAt *time.Time
 }
 ```
 
