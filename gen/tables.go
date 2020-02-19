@@ -28,8 +28,8 @@ func (g *Generator) typeInfoOf(pgTypeName string) (goTypeInfo, error) {
 	// if there are no variants, then it is not an enum
 	if len(variants) > 0 {
 		typeInfo := goTypeInfo{
-			Name:        snakeToPascal(pgTypeName),
-			NullName:    "*" + snakeToPascal(pgTypeName),
+			Name:        pgToGoName(pgTypeName),
+			NullName:    "*" + pgToGoName(pgTypeName),
 			SqlReceiver: refWrap,
 		}
 
@@ -62,7 +62,7 @@ const (
 		var evs []enumVar
 		for _, v := range variants {
 			evs = append(evs, enumVar{
-				GoName: snakeToPascal(v),
+				GoName: pgToGoName(v),
 				PgName: v,
 			})
 		}

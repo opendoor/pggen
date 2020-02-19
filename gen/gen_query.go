@@ -39,7 +39,7 @@ func (g *Generator) genQuery(
 	g.infof("		generating query '%s'\n", config.Name)
 
 	// ensure that the query name is in the right format for go
-	config.Name = snakeToPascal(config.Name)
+	config.Name = pgToGoName(config.Name)
 
 	// not needed, but it does make the generated code a little nicer
 	config.Body = strings.TrimSpace(config.Body)

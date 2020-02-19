@@ -52,10 +52,17 @@ func genBulkInsert(
 ) string {
 	var ret strings.Builder
 
-	ret.WriteString("INSERT INTO ")
+	ret.WriteString("INSERT INTO \"")
 	ret.WriteString(table)
-	ret.WriteString(" (")
-	ret.WriteString(strings.Join(fields, ", "))
+	ret.WriteString("\" (")
+	for i, field := range fields {
+		ret.WriteRune('"')
+		ret.WriteString(field)
+		ret.WriteRune('"')
+		if i + 1 < len(fields) {
+			ret.WriteRune(',')
+		}
+	}
 	ret.WriteString(") VALUES ")
 
 	for recNo := 0; recNo < nrecords; recNo++ {
@@ -75,8 +82,9 @@ func genBulkInsert(
 		}
 	}
 
-	ret.WriteString(" RETURNING ")
+	ret.WriteString(" RETURNING \"")
 	ret.WriteString(pkeyName)
+	ret.WriteRune('"')
 
 	return ret.String()
 }
@@ -90,9 +98,9 @@ func genUpdateStmt(
 ) string {
 	var ret strings.Builder
 
-	ret.WriteString("UPDATE ")
+	ret.WriteString("UPDATE \"")
 	ret.WriteString(table)
-	ret.WriteString(" SET ")
+	ret.WriteString("\" SET ")
 
 	lhs := make([]string, len(fields))[:0]
 	rhs := make([]string, len(fields))[:0]
@@ -106,9 +114,20 @@ func genUpdateStmt(
 	}
 
 	if len(lhs) > 1 {
-		ret.WriteString(parenWrap(strings.Join(lhs, ", ")))
+		ret.WriteRune('(')
+		for i, f := range lhs {
+			ret.WriteRune('"')
+			ret.WriteString(f)
+			ret.WriteRune('"')
+			if i + 1 < len(lhs) {
+				ret.WriteRune(',')
+			}
+		}
+		ret.WriteRune(')')
 	} else {
+		ret.WriteRune('"')
 		ret.WriteString(lhs[0])
+		ret.WriteRune('"')
 	}
 	ret.WriteString(" = ")
 	if len(rhs) > 1 {
@@ -116,13 +135,14 @@ func genUpdateStmt(
 	} else {
 		ret.WriteString(rhs[0])
 	}
-	ret.WriteString(" WHERE ")
+	ret.WriteString(" WHERE \"")
 	ret.WriteString(pgPkey)
-	ret.WriteString(" = ")
+	ret.WriteString("\" = ")
 	ret.WriteString(fmt.Sprintf("$%d", argNo))
 
-	ret.WriteString(" RETURNING ")
+	ret.WriteString(" RETURNING \"")
 	ret.WriteString(pkeyName)
+	ret.WriteRune('"')
 
 	return ret.String()
 }

@@ -277,6 +277,9 @@ in the configuration file
     - Delete<Entity>
         - Given the id of an entity, Delete<Entity> deletes it and returns an error on failure or
           nil on success.
+    - BulkDelete<Entity>
+        - Given a list of entity ids, deletes all of the entities and returns an error on failure
+          or nil on success.
     - <Entity>FillAll
         - Given an entity, <Entity>FillAll fills in all the attached decendant entities.
           For entities without children, this is a no-op. This method is recursive, so

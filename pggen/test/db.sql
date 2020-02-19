@@ -129,6 +129,25 @@ CREATE TABLE explicit_belongs_to_many (
     small_entity_id integer NOT NULL
 );
 
+-- SQL has the best identifier rules. Sigh. Let's support them.
+-- At least you don't seem to be able to start with a number
+-- without quoting.
+CREATE TABLE "Weird NaMeS" (
+    "even id is weird" SERIAL PRIMARY KEY,
+    WeAreTalking___REALLY_badstyle integer NOT NULL,
+    "Got Whitespace?" text NOT NULL,
+    "But
+    Why
+    Tho" integer
+);
+
+CREATE TABLE "Weird?! Kid" (
+    "space id" SERIAL PRIMARY KEY,
+    "Daddy" integer NOT NULL
+        REFERENCES "Weird NaMeS"("even id is weird")
+            ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
 --
 -- Load Data
 --

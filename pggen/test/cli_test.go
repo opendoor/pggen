@@ -105,6 +105,15 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: "while parsing config file",
 	},
+	{
+		// missing table
+		toml: `
+[[table]]
+    name = "dne"
+		`,
+		exitCode: 1,
+		stderrRE: "could not find table 'dne' in the database",
+	},
 }
 
 func TestCLI(t *testing.T) {

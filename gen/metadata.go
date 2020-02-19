@@ -67,7 +67,7 @@ func (g *Generator) queryMeta(
 	// Resolve the return type by factoring in the null flags and
 	// whether or not it is an alias for a table type.
 	nullFlags := config.NullFlags
-	pgTableName, isTable := g.tableTyNameToTableName[snakeToPascal(config.ReturnType)]
+	pgTableName, isTable := g.tableTyNameToTableName[pgToGoName(config.ReturnType)]
 	if isTable {
 		if len(config.NullFlags) > 0 || len(config.NotNullFields) > 0 {
 			err = fmt.Errorf("don't set null flags on query returning table struct")
@@ -359,7 +359,7 @@ func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 		}
 
 		a.Idx = i
-		a.GoName = snakeToPascal(a.PgName)
+		a.GoName = pgToGoName(a.PgName)
 		typeInfo, err := g.typeInfoOf(pgTypeName)
 		if err != nil {
 			return nil, err
@@ -501,8 +501,14 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 			return tableMeta{}, err
 		}
 		col.TypeInfo = typeInfo
-		col.GoName = snakeToPascal(col.PgName)
+		col.GoName = pgToGoName(col.PgName)
 		cols = append(cols, col)
+	}
+	if len(cols) == 0 {
+		return tableMeta{}, fmt.Errorf(
+			"could not find table '%s' in the database",
+			table,
+		)
 	}
 
 	var pkeyCol *colMeta
@@ -518,7 +524,7 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 
 	meta := tableMeta{
 		PgName:  table,
-		GoName:  snakeToPascal(inflection.Singular(table)),
+		GoName:  pgToGoName(inflection.Singular(table)),
 		PkeyCol: pkeyCol,
 		Cols:    cols,
 	}
@@ -564,8 +570,8 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 		if err != nil {
 			return err
 		}
-		ref.GoPointsTo = snakeToPascal(inflection.Singular(ref.PgPointsTo))
-		ref.PluralGoPointsFrom = snakeToPascal(ref.PgPointsFrom)
+		ref.GoPointsTo = pgToGoName(inflection.Singular(ref.PgPointsTo))
+		ref.PluralGoPointsFrom = pgToGoName(ref.PgPointsFrom)
 		ref.GoPointsFrom = inflection.Singular(ref.PluralGoPointsFrom)
 
 		for _, idx := range pointsToIdxs {
@@ -651,7 +657,7 @@ func (g *Generator) pointsFromColMeta(table string) (
 		if err != nil {
 			return nil, err
 		}
-		col.name.GoName = snakeToPascal(col.name.PgName)
+		col.name.GoName = pgToGoName(col.name.PgName)
 		cols = append(cols, col)
 	}
 

@@ -70,6 +70,23 @@ func TestParseSuccess(t *testing.T) {
 			src:    "  foos.{bars .blip. flip.dip ,bim.{a, b   ,c.{d   ,    e}}}    ",
 			result: "foos.{bars.blip.flip.dip,bim.{a,b,c.{d,e}}}",
 		},
+		// funny names
+		{
+			src: "f$",
+		},
+		{
+			src: "_f",
+		},
+		{
+			src:    `"foo"`,
+			result: `foo`,
+		},
+		{
+			src: `"123 _f"`,
+		},
+		{
+			src: `"123 "" _f"`,
+		},
 	}
 
 	for i, c := range cases {
@@ -137,6 +154,10 @@ func TestParseErrors(t *testing.T) {
 		{
 			src: "foos.{}",
 			re:  "empty spec list",
+		},
+		{
+			src: `"blah balhjl`,
+			re:  "unexpected end of input in quoted identifier",
 		},
 	}
 
