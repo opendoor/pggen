@@ -383,14 +383,16 @@ func (p *PGClient) BulkDelete{{ .GoName }}(
 var {{ .GoName }}AllIncludes *include.Spec = include.Must(include.Parse(
 	` + "`" + `{{ .AllIncludeSpec }}` + "`" + `,
 ))
-func (p *PGClient) {{ .GoName }}FillAll(
-	ctx context.Context,
-	rec *{{ .GoName }},
-) error {
-	return p.{{ .GoName }}FillIncludes(ctx, []*{{ .GoName }}{rec}, {{ .GoName }}AllIncludes)
-}
 
 func (p *PGClient) {{ .GoName }}FillIncludes(
+	ctx context.Context,
+	rec *{{ .GoName }},
+	includes *include.Spec,
+) error {
+	return p.{{ .GoName }}BulkFillIncludes(ctx, []*{{ .GoName }}{rec}, includes)
+}
+
+func (p *PGClient) {{ .GoName }}BulkFillIncludes(
 	ctx context.Context,
 	recs []*{{ .GoName }},
 	includes *include.Spec,
@@ -429,7 +431,7 @@ func (p *PGClient) {{ .GoName }}FillIncludes(
 			}
 			{{- end }}
 		}
-		err = p.{{ .GoPointsFrom }}FillIncludes(ctx, subRecs, subSpec)
+		err = p.{{ .GoPointsFrom }}BulkFillIncludes(ctx, subRecs, subSpec)
 		if err != nil {
 			return
 		}

@@ -234,7 +234,7 @@ func TestFillAll(t *testing.T) {
 
 	e, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillAll(ctx, &e)
+	err = txClient.SmallEntityFillIncludes(ctx, &e, db_shims.SmallEntityAllIncludes)
 	chkErr(t, err)
 
 	if len(e.Attachments) != 2 {
@@ -289,7 +289,7 @@ func TestFillIncludes(t *testing.T) {
 	includes := include.Must(include.Parse("small_entities.attachments"))
 	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillIncludes(ctx, []*db_shims.SmallEntity{&smallEntity}, includes)
+	err = txClient.SmallEntityFillIncludes(ctx, &smallEntity, includes)
 	chkErr(t, err)
 
 	if smallEntity.Attachments[0].Id != attachmentID1 {
@@ -303,7 +303,7 @@ func TestFillIncludes(t *testing.T) {
 	includes = include.Must(include.Parse("small_entities.{attachments, single_attachments}"))
 	smallEntity, err = txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillIncludes(ctx, []*db_shims.SmallEntity{&smallEntity}, includes)
+	err = txClient.SmallEntityFillIncludes(ctx, &smallEntity, includes)
 	chkErr(t, err)
 
 	if smallEntity.Attachments[0].Id != attachmentID1 {
@@ -385,7 +385,7 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 		Daddy: funny.Evenidisweird,
 	})
 	chkErr(t, err)
-	err = txClient.WeirdNaMeFillAll(ctx, &funny)
+	err = txClient.WeirdNaMeFillIncludes(ctx, &funny, db_shims.WeirdNaMeAllIncludes)
 	chkErr(t, err)
 
 	err = txClient.DeleteWeirdKid(ctx, kidID)

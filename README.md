@@ -280,17 +280,16 @@ in the configuration file
     - BulkDelete<Entity>
         - Given a list of entity ids, deletes all of the entities and returns an error on failure
           or nil on success.
-    - <Entity>FillAll
-        - Given an entity, <Entity>FillAll fills in all the attached decendant entities.
-          For entities without children, this is a no-op. This method is recursive, so
-          grandchildren and great-grandchildren will be filled in as well.
-          It returns an error on failure and nil on success.
     - <Entity>FillIncludes
-        - Given a list of pointers to entities and an include spec, <Entity>FillIncludes fills
+        - Given a pointer to an entity and an include spec, <Entity>FillIncludes fills
           in all the decendant entities in the spec recursivly. This api allows finer grained
           control over which decendant entities are loaded from the database. For more infomation
           about include specs see [the README for that package](include/README.md).
           For entities without children, this routine is a no-op. It returns an error on failure and
+          nil on success. It returns an error on failure and nil on success.
+    - <Entity>BulkFillIncludes
+        - Given a list of pointers to entities and an include spec, <Entity>BulkFillIncludes fills
+          in all the decendant entities in the spec recursivly. It returns an error on failure and
           nil on success.
 - Values (constant or variable definitions)
     - <Entity><FieldName>FieldIndex
