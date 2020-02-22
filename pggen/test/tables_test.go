@@ -214,14 +214,14 @@ func TestFillAll(t *testing.T) {
 	foo := "foo"
 	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
 		SmallEntityId: entityID,
-		Value:         &foo,
+		Value:         sql.NullString{String: foo, Valid: true},
 	})
 	chkErr(t, err)
 
 	bar := "bar"
 	attachmentID2, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
 		SmallEntityId: entityID,
-		Value:         &bar,
+		Value:         sql.NullString{String: bar, Valid: true},
 	})
 	chkErr(t, err)
 
@@ -274,7 +274,7 @@ func TestFillIncludes(t *testing.T) {
 	foo := "foo"
 	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
 		SmallEntityId: entityID,
-		Value:         &foo,
+		Value:         sql.NullString{String: foo, Valid: true},
 	})
 	chkErr(t, err)
 
@@ -361,7 +361,7 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 	funnyID, err := txClient.InsertWeirdNaMe(ctx, db_shims.WeirdNaMe{
 		WearetalkingReallyBadstyle: 1923,
 		GotWhitespace:              "yes",
-		ButWhyTho:                  &[]int64{19}[0],
+		ButWhyTho:                  sql.NullInt64{Int64: 19, Valid: true},
 	})
 	chkErr(t, err)
 

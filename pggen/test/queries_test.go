@@ -25,7 +25,7 @@ func TestMixedNullText(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.MixedNullText(ctx)
 		},
-		expected: `\["foo",null\]`,
+		expected: `\[.*String":"foo".*Valid":true.*Valid":false.*\]`,
 	}.test(t)
 }
 
@@ -34,7 +34,7 @@ func TestMultiReturn(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.MultiReturn(ctx)
 		},
-		expected: `\[{.*?"foo".*?1.*?},{.*?null.*?null.*?}\]`,
+		expected: `\[.*String":"foo".*Int64":1.*Valid":false.*Valid":false.*\]`,
 	}.test(t)
 }
 
@@ -43,7 +43,7 @@ func TestTextArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.TextArg(ctx, "foo")
 		},
-		expected: `\["foo"\]`,
+		expected: `\[.*"String":"foo".*\]`,
 	}.test(t)
 
 	Expectation{
@@ -59,7 +59,7 @@ func TestMoneyArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.MoneyArg(ctx, "3.50")
 		},
-		expected: `\["\$3.50"\]`,
+		expected: `\[.*String":"\$3.50".*\]`,
 	}.test(t)
 }
 
@@ -71,7 +71,7 @@ func TestDateTimeArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.DateTimeArg(ctx, early, early, early)
 		},
-		expected: `\["1999-01-08T04:05:06Z"\]`,
+		expected: `\[.*"Time":"1999-01-08T04:05:06Z".*\]`,
 	}.test(t)
 
 	Expectation{
@@ -87,7 +87,7 @@ func TestBooleanArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.BooleanArg(ctx, true)
 		},
-		expected: `\[true\]`,
+		expected: `\[.*"Bool":true.*\]`,
 	}.test(t)
 }
 
@@ -107,7 +107,7 @@ func TestUUIDArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.UUIDArg(ctx, uuid.Must(uuid.FromString(id)))
 		},
-		expected: fmt.Sprintf(`\["%s"\]`, id),
+		expected: fmt.Sprintf(`\[.*"UUID":"%s".*\]`, id),
 	}.test(t)
 }
 
@@ -126,22 +126,44 @@ func TestNumbersArgs(t *testing.T) {
 			return pgClient.NumberArgs(
 				ctx, 0, 0, 0, "0", "0", "0", "0", 0.0, 0.0, 0, 0)
 		},
-		expected: `\[1\]`,
+		expected: `\[.*Int64":1.*\]`,
 	}.test(t)
 }
 
 func TestNamedReturnQuery(t *testing.T) {
 	ret1, err := pgClient.HasNamedReturn1(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	chkErr(t, err)
 
 	ret2, err := pgClient.HasNamedReturn2(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	chkErr(t, err)
 
 	if !reflect.DeepEqual(ret1, ret2) {
 		t.Fatalf("results not equal (ret1 = %v, ret2 = %v)", ret1, ret2)
 	}
 }
+
+func TestListText(t *testing.T) {
+	ids, err := pgClient.TypeRainbowIDs(ctx)
+	chkErr(t, err)
+
+	Expectation{
+		call: func() (interface{}, error) {
+			return pgClient.ListText(ctx, ids)
+		},
+		expected: `\[.*String":"foo".*Valid":true.*Valid":false.*\]`,
+	}.test(t)
+}
+
+func TestRollUpNums(t *testing.T) {
+	Expectation{
+		call: func() (interface{}, error) {
+			return pgClient.RollUpNums(ctx)
+		},
+		expected: `Int64":3.*Int64":0.*String":"15.4.*String":"".*`,
+	}.test(t)
+}
+
+// TODO: test a query that returns an array (with array_agg)
+// TODO: test array of enums
+// TODO: test nested arrays
+// TODO: write an error test for a nested array

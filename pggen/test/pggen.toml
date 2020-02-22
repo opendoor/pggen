@@ -185,6 +185,24 @@
     '''
     return_type = "SmallEntity"
 
+[[query]]
+    name = "TypeRainbowIDs"
+    body = "SELECT id FROM type_rainbow"
+    null_flags = "-"
+
+[[query]]
+    name = "ListText"
+    body = '''
+    SELECT text_field FROM type_rainbow WHERE id = ANY($1)
+    '''
+
+[[query]]
+    name = "RollUpNums"
+    body = '''
+    SELECT array_agg(bigint_field) as ints, array_agg(decimal_field) as decs
+    FROM type_rainbow
+    '''
+
 #
 # Tables
 #
