@@ -156,7 +156,7 @@ func (p *PGClient) {{ .ConfigData.Name }}Query(
 	`{{ .ConfigData.Body }}` +
 	"`" + `,
 		{{- range .Args }}
-		{{ .GoName }},
+		{{ call .TypeInfo.SqlArgument .GoName }},
 		{{- end }}
 	)
 }

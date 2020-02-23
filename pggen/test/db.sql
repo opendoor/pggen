@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TYPE enum_type as ENUM ('option1', 'option2');
 CREATE TABLE type_rainbow (
-	id SERIAL PRIMARY KEY NOT NULL,
+    id SERIAL PRIMARY KEY NOT NULL,
 
     -- string types
     text_field TEXT,

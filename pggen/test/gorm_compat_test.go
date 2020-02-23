@@ -55,8 +55,12 @@ func TestGormPreload(t *testing.T) {
 		"text 3": true,
 	}
 	for _, a := range smallEntity.Attachments {
-		if !allowedValues[*a.Value] {
-			t.Fatalf("unexpected value: '%s'", *a.Value)
+		if !a.Value.Valid {
+			t.Fatalf("unexpected null")
+		}
+
+		if !allowedValues[a.Value.String] {
+			t.Fatalf("unexpected value: '%s'", a.Value.String)
 		}
 	}
 }

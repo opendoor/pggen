@@ -187,7 +187,7 @@ func (g *Generator) argsOfStmt(body string) ([]arg, error) {
 			Idx:      i + 1,
 			GoName:   name,
 			PgName:   name,
-			TypeInfo: typeInfo,
+			TypeInfo: *typeInfo,
 		})
 	}
 
@@ -364,7 +364,7 @@ func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 		if err != nil {
 			return nil, err
 		}
-		a.TypeInfo = typeInfo
+		a.TypeInfo = *typeInfo
 
 		i++
 		args = append(args, a)
@@ -500,7 +500,7 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 		if err != nil {
 			return tableMeta{}, err
 		}
-		col.TypeInfo = typeInfo
+		col.TypeInfo = *typeInfo
 		col.GoName = pgToGoName(col.PgName)
 		cols = append(cols, col)
 	}
