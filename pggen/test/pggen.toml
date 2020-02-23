@@ -48,6 +48,14 @@
 [[stored_function]]
     name = "select_blobs"
 
+[[stored_function]]
+    name = "get_small_entity_1"
+    return_type = "SmallEntity"
+
+[[stored_function]]
+    name = "get_small_entity_2"
+    return_type = "SmallEntity"
+
 #
 # Queries
 #
@@ -157,20 +165,6 @@
     '''
     return_type = "SmallEntity"
 
-[[stored_function]]
-    name = "get_small_entity_1"
-    return_type = "SmallEntity"
-
-[[stored_function]]
-    name = "get_small_entity_2"
-    return_type = "SmallEntity"
-
-[[statement]]
-    name = "StmtInsertSmallEntity"
-    body = '''
-    INSERT INTO small_entities (anint) VALUES ($1)
-    '''
-
 [[query]]
     name = "GetSmallEntityByID"
     body = '''
@@ -201,6 +195,34 @@
     body = '''
     SELECT array_agg(bigint_field) as ints, array_agg(decimal_field) as decs
     FROM type_rainbow
+    '''
+
+[[query]]
+    name = "ListEnumAsArray"
+    body = '''
+    SELECT array_agg(enum_field_not_null) as enums
+    FROM type_rainbow
+    WHERE enum_field_not_null = ANY($1)
+    '''
+    # we are deliberately not setting the null flags to exercise
+    # NullEnumType
+    #
+[[query]]
+    name = "ListEnumAsArrayWithNulls"
+    body = '''
+    SELECT array_agg(enum_field) as enums
+    FROM type_rainbow
+    WHERE enum_field_not_null = ANY($1)
+    '''
+
+#
+# Statements
+#
+
+[[statement]]
+    name = "StmtInsertSmallEntity"
+    body = '''
+    INSERT INTO small_entities (anint) VALUES ($1)
     '''
 
 #

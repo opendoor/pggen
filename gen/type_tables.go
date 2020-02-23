@@ -69,7 +69,7 @@ func (g *Generator) maybeEmitEnumType(
 	if len(variants) > 0 {
 		typeInfo := goTypeInfo{
 			Name:        pgToGoName(pgTypeName),
-			NullName:    "*" + pgToGoName(pgTypeName),
+			NullName:    "Null" + pgToGoName(pgTypeName),
 			SqlReceiver: refWrap,
 			SqlArgument: idWrap,
 		}
@@ -80,11 +80,13 @@ func (g *Generator) maybeEmitEnumType(
 			return &typeInfo, nil
 		}
 
-		enumSigTmpl := template.Must(template.New("enum-tmpl").Parse(`
+		enumSigTmpl := template.Must(template.New("enum-sig-tmpl").Parse(`
 {{- range (index . "Variants") }}
 {{ index $ "TypeName" }}{{ .GoName }} {{ index $ "TypeName" }} = "{{ .PgName }}"
 {{- end }}
 `))
+
+		g.imports[`"database/sql/driver"`] = true
 
 		enumTmpl := template.Must(template.New("enum-tmpl").Parse(`
 type {{ index . "TypeName" }} string
@@ -94,6 +96,34 @@ const (
 {{- end }}
 )
 
+type Null{{ index . "TypeName" }} struct {
+	{{ index . "TypeName" }} string
+	Valid bool
+}
+// Scan implements the sql.Scanner interface
+func (n *Null{{ index . "TypeName"}}) Scan(value interface{}) error {
+	if value == nil {
+		n.{{ index . "TypeName" }}, n.Valid = "", false
+		return nil
+	}
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf(
+			"Null{{ index . "TypeName" }}.Scan: expected a []byte",
+		)
+	}
+
+	n.Valid = true
+	n.{{ index . "TypeName" }} = string(buff)
+	return nil
+}
+// Value implements the sql.Valuer interface
+func (n Null{{ index . "TypeName" }}) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.{{ index . "TypeName" }}, nil
+}
 `))
 
 		type enumVar struct {

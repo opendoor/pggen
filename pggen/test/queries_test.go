@@ -96,7 +96,7 @@ func TestEnumArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.EnumArg(ctx, db_shims.EnumTypeOption1)
 		},
-		expected: `\["option1"\]`,
+		expected: `\[.*EnumType":"option1","Valid":true.*\]`,
 	}.test(t)
 }
 
@@ -163,7 +163,24 @@ func TestRollUpNums(t *testing.T) {
 	}.test(t)
 }
 
-// TODO: test a query that returns an array (with array_agg)
-// TODO: test array of enums
-// TODO: test nested arrays
-// TODO: write an error test for a nested array
+func TestEnumArrays(t *testing.T) {
+	Expectation{
+		call: func() (interface{}, error) {
+			return pgClient.ListEnumAsArray(
+				ctx,
+				[]db_shims.EnumType{"option1", "option2"},
+			)
+		},
+		expected: `"option2","Valid":true.*"option1","Valid":true`,
+	}.test(t)
+
+	Expectation{
+		call: func() (interface{}, error) {
+			return pgClient.ListEnumAsArrayWithNulls(
+				ctx,
+				[]db_shims.EnumType{"option1", "option2"},
+			)
+		},
+		expected: `"option1","Valid":true.*"","Valid":false`,
+	}.test(t)
+}

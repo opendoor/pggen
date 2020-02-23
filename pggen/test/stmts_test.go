@@ -35,3 +35,6 @@ func TestStmtInsertSmallEntity(t *testing.T) {
 		t.Fatalf("Unexpected entity (Anint = %d)", smallEntities[0].Anint)
 	}
 }
+
+// TODO: once #20 is done, test inserting null enum values using the
+//       NullEnumType generated type
