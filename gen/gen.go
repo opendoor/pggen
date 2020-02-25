@@ -50,8 +50,13 @@ type Generator struct {
 	// file.
 	imports map[string]bool
 	// The clearing house for types that we emit. They all go here
-	// before being generated for real.
+	// before being generated for real. We do this to prevent generating
+	// the same type twice.
 	types typeSet
+	// A table mapping postgres primitive types to go types. Produced
+	// by taking a default table an applying the user-provided type
+	// overrides to it.
+	pgType2GoType map[string]*goTypeInfo
 }
 
 // Print `output` at a normal verbosity level
@@ -89,7 +94,7 @@ func FromConfig(config Config) (*Generator, error) {
 
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
-	g.infof("using config '%s'\n", g.config.ConfigFilePath)
+	g.infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
 	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)
 	if err != nil {
 		return err
@@ -107,6 +112,12 @@ func (g *Generator) Gen() error {
 			"WARN: unknown config file key: '%s'\n",
 			unknownKey.String(),
 		)
+	}
+
+	// Apply the type overrides
+	err = g.initTypeTable(conf.TypeOverrides)
+	if err != nil {
+		return err
 	}
 
 	// Place metadata about all tables in a hashtable to later

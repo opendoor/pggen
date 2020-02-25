@@ -1,0 +1,23 @@
+
+[[type_override]]
+    postgres_type_name = "uuid"
+    pkg = "\"github.com/google/uuid\""
+    type_name = "uuid.UUID"
+    nullable_type_name = "*uuid.UUID"
+
+# a useful override if you are running go 1.12 or below
+[[type_override]]
+    postgres_type_name = "time without time zone"
+    pkg = "\"time\""
+    type_name = "time.Time"
+    nullable_type_name = "*time.Time"
+
+[[stored_function]]
+    name = "select_uuid"
+    null_flags = "n-"
+
+[[query]]
+    name = "GetTimes"
+    body = '''
+    SELECT ts_field_not_null, ts_field FROM type_rainbow
+    '''

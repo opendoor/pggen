@@ -31,14 +31,88 @@ func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 	return g.primTypeInfoOf(pgTypeName)
 }
 
-func (g *Generator) primTypeInfoOf(pgTypeName string) (*goTypeInfo, error) {
-	typeInfo, ok := pgType2GoType[pgTypeName]
-	if ok {
-		if typeInfo.Name == "time.Time" {
-			g.imports[`"time"`] = true
+func (g *Generator) initTypeTable(overrides []typeOverride) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("while applying type overrides: %s", err.Error())
 		}
-		if typeInfo.Name == "uuid.UUID" {
-			g.imports[`uuid "github.com/satori/go.uuid"`] = true
+	}()
+
+	g.pgType2GoType = map[string]*goTypeInfo{}
+	// just for the sake of cleanliness, let's avoid aliasing a global
+	for k, v := range defaultPgType2GoType {
+		g.pgType2GoType[k] = v
+	}
+
+	for _, override := range overrides {
+		if len(override.PgTypeName) == 0 {
+			return fmt.Errorf("type overrides must include a postgres type")
+		}
+		if len(override.TypeName) == 0 && len(override.NullableTypeName) == 0 {
+			return fmt.Errorf(
+				"type override must override the type or the nullable type")
+		}
+		if len(override.Pkg) == 0 && !primitveGoTypes[override.TypeName] {
+			return fmt.Errorf(
+				"type override must include a package unless the type is a primitive")
+		}
+
+		if len(override.Pkg) == 0 {
+			g.imports[override.Pkg] = true
+		}
+		if len(override.NullPkg) == 0 {
+			g.imports[override.NullPkg] = true
+		}
+
+		info, inMap := g.pgType2GoType[override.PgTypeName]
+		if inMap {
+			if len(override.TypeName) > 0 {
+				info.Name = override.TypeName
+			}
+			if len(override.NullableTypeName) > 0 {
+				info.NullName = override.NullableTypeName
+			}
+			if len(override.Pkg) > 0 {
+				info.Pkg = override.Pkg
+			}
+			if len(override.NullPkg) > 0 {
+				info.NullPkg = override.NullPkg
+			}
+		} else {
+			if len(override.TypeName) == 0 ||
+				len(override.NullableTypeName) == 0 {
+				return fmt.Errorf(
+					"`type_name` and `nullable_type_name` must both be " +
+						"provided for a type that pggen does not have default " +
+						"values for.")
+			}
+
+			g.pgType2GoType[override.PgTypeName] = &goTypeInfo{
+				Name:        override.TypeName,
+				Pkg:         override.Pkg,
+				NullName:    override.NullableTypeName,
+				NullPkg:     override.NullPkg,
+				SqlReceiver: refWrap,
+				SqlArgument: idWrap,
+			}
+		}
+	}
+
+	return nil
+}
+
+//
+// functions and values internal to this file
+//
+
+func (g *Generator) primTypeInfoOf(pgTypeName string) (*goTypeInfo, error) {
+	typeInfo, ok := g.pgType2GoType[pgTypeName]
+	if ok {
+		if len(typeInfo.Pkg) > 0 {
+			g.imports[typeInfo.Pkg] = true
+		}
+		if len(typeInfo.NullPkg) > 0 {
+			g.imports[typeInfo.NullPkg] = true
 		}
 		return typeInfo, nil
 	}
@@ -173,8 +247,13 @@ func (n Null{{ index . "TypeName" }}) Value() (driver.Value, error) {
 type goTypeInfo struct {
 	// The Name of the type
 	Name string
+	// The package that the type with Name is in
+	Pkg string
 	// The name of a nullable version of the type
 	NullName string
+	// The package that the type with NullName is in (may be blank if
+	// the same as Pkg)
+	NullPkg string
 	// Given a variable name, SqlReceiver must return an appropriate wrapper
 	// around that variable which can be passed as a parameter to Rows.scan.
 	// For many simple types, SqlReceiver will just wrap the variable in a
@@ -216,6 +295,7 @@ var boolGoTypeInfo goTypeInfo = goTypeInfo{
 }
 
 var timeGoTypeInfo goTypeInfo = goTypeInfo{
+	Pkg:         `"time"`,
 	Name:        "time.Time",
 	NullName:    "sql.NullTime",
 	SqlReceiver: refWrap,
@@ -237,6 +317,7 @@ var float64GoTypeInfo goTypeInfo = goTypeInfo{
 }
 
 var uuidGoTypeInfo goTypeInfo = goTypeInfo{
+	Pkg:         `uuid "github.com/satori/go.uuid"`,
 	Name:        "uuid.UUID",
 	NullName:    "uuid.NullUUID",
 	SqlReceiver: refWrap,
@@ -250,7 +331,19 @@ var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlArgument: idWrap,
 }
 
-var pgType2GoType = map[string]*goTypeInfo{
+var primitveGoTypes = map[string]bool{
+	"string":  true,
+	"byte":    true,
+	"[]byte":  true,
+	"int64":   true,
+	"int32":   true,
+	"int":     true,
+	"bool":    true,
+	"float64": true,
+	"float32": true,
+}
+
+var defaultPgType2GoType = map[string]*goTypeInfo{
 	"text":              &stringGoTypeInfo,
 	"character varying": &stringGoTypeInfo,
 	"bpchar":            &stringGoTypeInfo,

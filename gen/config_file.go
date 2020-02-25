@@ -3,10 +3,31 @@ package gen
 // The configuration file format used to specify the database objects
 // to generate code for.
 type dbConfig struct {
+	TypeOverrides   []typeOverride     `toml:"type_override"`
 	StoredFunctions []storedFuncConfig `toml:"stored_function"`
 	Queries         []queryConfig      `toml:"query"`
 	Stmts           []stmtConfig       `toml:"statement"`
 	Tables          []tableConfig      `toml:"table"`
+}
+
+type typeOverride struct {
+	// The name of the type in postgres
+	PgTypeName string `toml:"postgres_type_name"`
+	// The name of the package in which the type appears as it would
+	// appear in an import list, including quotes. The package name
+	// may include an alias just like an import might.
+	//
+	// Examples:
+	//   - '"github.com/google/uuid"'
+	//   - 'my_uuid_alias "github.com/google/uuid"'
+	Pkg string `toml:"pkg"`
+	// The go name for the type, including package name
+	TypeName string `toml:"type_name"`
+	// The name of the package in which the nullable version of the type
+	// appears. If `pkg` was already provided, `nullable_pkg` may be omitted.
+	NullPkg string `toml:"nullable_pkg"`
+	// The name of a go type which might be null (often Null<TypeName>)
+	NullableTypeName string `toml:"nullable_type_name"`
 }
 
 // Stored functions are a special case of queries. The main advantage

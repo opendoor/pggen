@@ -114,6 +114,57 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: "could not find table 'dne' in the database",
 	},
+	{
+		toml: `
+[[unknown_key]]
+    also_unknwon = "dne"
+		`,
+		exitCode: 0,
+		stderrRE: "WARN: unknown config file key: 'unknown_key'",
+	},
+	{
+		toml: `
+[[type_override]]
+	type_name = "bogus"
+		`,
+		exitCode: 1,
+		stderrRE: "type overrides must include a postgres type",
+	},
+	{
+		// ok to omit the package when the go type is a primitive
+		toml: `
+[[type_override]]
+	postgres_type_name = "integer"
+	type_name = "int"
+		`,
+	},
+	{
+		toml: `
+[[type_override]]
+	postgres_type_name = "foo_bar"
+	type_name = "foo.Bar"
+		`,
+		exitCode: 1,
+		stderrRE: "type override must include a package unless .*a primitive",
+	},
+	{
+		toml: `
+[[type_override]]
+	postgres_type_name = "foo_bar"
+		`,
+		exitCode: 1,
+		stderrRE: "type override must override the type or the nullable type",
+	},
+	{
+		toml: `
+[[type_override]]
+	postgres_type_name = "foo_bar"
+	pkg = "\"fake.com/foo\""
+	type_name = "foo.Bar"
+		`,
+		exitCode: 1,
+		stderrRE: "`type_name` and `nullable_type_name` must both be provided",
+	},
 }
 
 func TestCLI(t *testing.T) {
@@ -237,6 +288,8 @@ func runCLITest(
 		return err
 	}
 
+	errs := []error{}
+
 	// check the exit code
 	matchedNonZeroExitCode := false
 	err = executableCmd.Wait()
@@ -257,27 +310,23 @@ func runCLITest(
 		matchedNonZeroExitCode = true
 	}
 	if test.exitCode != 0 && !matchedNonZeroExitCode {
-		return fmt.Errorf(
-			"expected exit code %d, got 0",
-			test.exitCode,
-		)
+		errs = append(errs, fmt.Errorf("expecting non-zero exit code"))
 	}
 
 	// execute regex assertions on the output
 	outTxt := outBuf.String()
 	errTxt := errBuf.String()
-	var err1, err2 error
 	if len(test.stdoutRE) > 0 {
 		matched, err := regexp.Match(test.stdoutRE, []byte(outTxt))
 		if err != nil {
 			return err
 		}
 		if !matched {
-			err1 = fmt.Errorf(
+			errs = append(errs, fmt.Errorf(
 				"/%s/ failed to match stdout.\nSTDOUT:\n%s\n",
 				test.stdoutRE,
 				outTxt,
-			)
+			))
 		}
 	}
 	if len(test.stderrRE) > 0 {
@@ -286,21 +335,23 @@ func runCLITest(
 			return err
 		}
 		if !matched {
-			err2 = fmt.Errorf(
+			errs = append(errs, fmt.Errorf(
 				"/%s/ failed to match stderr.\nSTDERR:\n%s\n",
 				test.stderrRE,
 				errTxt,
-			)
+			))
 		}
 	}
-	if err1 != nil && err2 != nil {
-		return fmt.Errorf("%s\n%s", err1, err2)
-	}
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil {
-		return err2
+
+	if len(errs) > 0 {
+		var errTxt strings.Builder
+
+		for _, e := range errs {
+			errTxt.WriteString(e.Error())
+			errTxt.WriteByte('\n')
+		}
+
+		return fmt.Errorf(errTxt.String())
 	}
 
 	return nil
