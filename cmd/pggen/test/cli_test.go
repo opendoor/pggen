@@ -184,7 +184,7 @@ func TestCLI(t *testing.T) {
 	chkErr(t, err)
 
 	exe := path.Join(testDir, "pggen")
-	mainSrc := path.Join(repoRoot, "pggen", "main.go")
+	mainSrc := path.Join(repoRoot, "cmd", "pggen", "main.go")
 
 	// build the executable we are going to be testing
 	cmd := exec.Command("go", "build", "-o", exe, mainSrc)

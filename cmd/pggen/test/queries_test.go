@@ -8,7 +8,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/opendoor-labs/pggen/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
 )
 
 func TestNonNullText(t *testing.T) {

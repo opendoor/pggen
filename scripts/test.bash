@@ -22,7 +22,7 @@ done
 # If the database already exists, don't bring the script down.
 createdb -h postgres -U postgres -w -e pggen_test || /bin/true
 
-psql $DB_URL < pggen/test/db.sql
+psql $DB_URL < cmd/pggen/test/db.sql
 
 go generate ./...
 

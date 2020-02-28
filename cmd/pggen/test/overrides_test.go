@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/opendoor-labs/pggen/pggen/test/overridden_db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/overridden_db_shims"
 )
 
 func TestOverriddenGetTimes(t *testing.T) {
