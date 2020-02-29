@@ -24,7 +24,10 @@ Options:
 
 -c, --connection-string <connection-string>  The connection string to use to attach
                                              to the postgres instance we will
-                                             generate shims for. Defaults to $DB_URL.
+                                             generate shims for. May be specified more
+                                             than once, in which case the connection
+                                             strings are tried in order until one that
+                                             works is found. Defaults to $DB_URL.
 
 -o, --output-file <file-name>                The name of the file to write the shims to.
                                              If the file name ends with .go it will be
@@ -61,7 +64,7 @@ func main() {
 
 		for len(args) > 0 {
 			if args[0] == "-c" || args[0] == "--connection-string" {
-				config.ConnectionString = args[1]
+				config.ConnectionStrings = append(config.ConnectionStrings, args[1])
 				args = args[2:]
 			} else if args[0] == "-o" || args[0] == "--output-file" {
 				config.OutputFileName = args[1]
@@ -77,9 +80,9 @@ func main() {
 		}
 	}()
 
-	if config.ConnectionString == "" {
-		config.ConnectionString = os.Getenv("DB_URL")
-		if len(config.ConnectionString) == 0 {
+	if len(config.ConnectionStrings) == 0 {
+		config.ConnectionStrings = []string{os.Getenv("DB_URL")}
+		if len(config.ConnectionStrings[0]) == 0 {
 			log.Fatal("No connection string. Either pass '-c' or set DB_URL in the environment.")
 		}
 	}
@@ -95,7 +98,8 @@ func main() {
 
 	g, err := gen.FromConfig(config)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprint(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 
 	err = g.Gen()

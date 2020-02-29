@@ -22,8 +22,9 @@ type Config struct {
 	ConfigFilePath string
 	// The name of the file to which the output should be written.
 	OutputFileName string
-	// A postgres connection string to be used to connect to the database
-	ConnectionString string
+	// A list of postgres connection strings to be used to connect to the
+	// database. They tried in order until one is found where `DB.Ping` works.
+	ConnectionStrings []string
 	// The verbosity level of the code generator. -1 means quiet mode,
 	// 0 (the default) means normal mode, and 1 means verbose mode.
 	Verbosity int
@@ -73,9 +74,31 @@ func (g *Generator) infof(format string, a ...interface{}) {
 }
 
 func FromConfig(config Config) (*Generator, error) {
-	db, err := sql.Open("postgres", config.ConnectionString)
-	if err != nil {
-		return nil, fmt.Errorf("while creating pggen Generator: %s", err.Error())
+	var err error
+	var db *sql.DB
+	for _, connStr := range config.ConnectionStrings {
+		if len(connStr) > 0 && connStr[0] == '$' {
+			connStr = os.Getenv(connStr[1:])
+		}
+
+		db, err = sql.Open("postgres", connStr)
+		if err != nil {
+			db = nil
+			continue
+		}
+
+		err = db.Ping()
+		if err == nil {
+			break
+		} else {
+			db = nil
+			continue
+		}
+	}
+	if db == nil {
+		return nil, fmt.Errorf(
+			"unable to connect with any of the provided connection strings",
+		)
 	}
 
 	pkg, err := dirOf(config.OutputFileName)

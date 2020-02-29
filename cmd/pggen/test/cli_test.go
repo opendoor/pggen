@@ -165,6 +165,35 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: "`type_name` and `nullable_type_name` must both be provided",
 	},
+	{
+		// test that we expand $ENV_VAR connection strings
+		cmd: "{{ .Exe }} -o {{ .Output }} -c $DB_URL {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "concats_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "concats_text",
+	},
+	{
+		// test that we try the connection strings in order
+		cmd: "{{ .Exe }} -o {{ .Output }} -c bad -c $DB_URL {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "concats_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "concats_text",
+	},
+	{
+		cmd: "{{ .Exe }} -o {{ .Output }} -c bad -c bader -c badest {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "concats_text"
+		`,
+		exitCode: 1,
+		stderrRE: "unable to connect with any",
+	},
 }
 
 func TestCLI(t *testing.T) {
