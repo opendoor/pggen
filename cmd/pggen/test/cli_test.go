@@ -165,6 +165,16 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: "`type_name` and `nullable_type_name` must both be provided",
 	},
+	{
+		// just a random valid toml file
+		toml: `
+[[stored_function]]
+    name = "select_bool"
+		`,
+		cmd:      "{{ .Exe }} -s 'echo foo' -o {{ .Output }} {{ .Toml }}",
+		exitCode: 0,
+		stdoutRE: "foo",
+	},
 }
 
 func TestCLI(t *testing.T) {
@@ -257,7 +267,10 @@ func runCLITest(
 	}()
 
 	// convert the command text into an `exec.Cmd`
-	cmdBits := strings.Split(cmdTxt, " ")
+	cmdBits, err := parseCmdLine(cmdTxt)
+	if err != nil {
+		return err
+	}
 	executableCmd := exec.Command(cmdBits[0], cmdBits[1:]...) // nolint: gosec
 
 	// get ready to capture the output
@@ -355,4 +368,77 @@ func runCLITest(
 	}
 
 	return nil
+}
+
+// parse a string into an array of command line arguments, respecting
+// ' and " quoting as well as \ escapes
+//
+// NOTE: copy-pasted from `gen/startup_hook.go` so we don't have to make
+//       this routine public. It's just test code, fight me.
+func parseCmdLine(cmd string) ([]string, error) {
+	if len(strings.TrimSpace(cmd)) == 0 {
+		return nil, fmt.Errorf("blank cmd string")
+	}
+
+	chunks := []string{}
+
+	inChunk := false
+	quoteChar := 'X'
+	chunk := strings.Builder{}
+	for i, r := range cmd {
+		if !inChunk {
+			if quoteChar == 'X' {
+				if (i == 0 || cmd[i-1] != '\\') && isQuoteRune(r) {
+					quoteChar = r
+					continue
+				}
+			} else {
+				if r == quoteChar && (i == 0 || cmd[i-1] != '\\') {
+					chunks = append(chunks, chunk.String())
+					chunk.Reset()
+					quoteChar = 'X'
+				} else if !(r == '\\' && i+1 < len(cmd) && cmd[i+1] == byte(quoteChar)) {
+					chunk.WriteRune(r)
+				}
+
+				// we are in a quote, so skip the standard chunking
+				// logic below
+				continue
+			}
+		}
+
+		if r == ' ' && (i == 0 || cmd[i-1] != '\\') {
+			if inChunk {
+				chunks = append(chunks, chunk.String())
+				chunk.Reset()
+				inChunk = false
+			}
+			continue
+		} else if !inChunk {
+			inChunk = true
+		}
+
+		if !(r == '\\' && i+1 < len(cmd) && (isQuoteByte(cmd[i+1]) || cmd[i+1] == ' ')) {
+			chunk.WriteRune(r)
+		}
+	}
+
+	if quoteChar != 'X' {
+		return nil, fmt.Errorf(
+			"unmatched quote char: %s", string([]rune{quoteChar}))
+	}
+
+	if inChunk {
+		chunks = append(chunks, chunk.String())
+	}
+
+	return chunks, nil
+}
+
+func isQuoteRune(r rune) bool {
+	return r == '"' || r == '\''
+}
+
+func isQuoteByte(b byte) bool {
+	return b == '"' || b == '\''
 }

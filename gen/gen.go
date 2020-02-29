@@ -24,6 +24,9 @@ type Config struct {
 	OutputFileName string
 	// A postgres connection string to be used to connect to the database
 	ConnectionString string
+	// A command to run before attempting any code generation actions.
+	// Useful for setting up a database with the right schema in place.
+	StartupHook string
 	// The verbosity level of the code generator. -1 means quiet mode,
 	// 0 (the default) means normal mode, and 1 means verbose mode.
 	Verbosity int
@@ -94,6 +97,11 @@ func FromConfig(config Config) (*Generator, error) {
 
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
+	err := runStartupHook(g.config.StartupHook)
+	if err != nil {
+		return err
+	}
+
 	g.infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
 	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)
 	if err != nil {

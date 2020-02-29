@@ -22,6 +22,10 @@ Args:
 Options:
 -h, --help                                   Print this message.
 
+-s, --startup-hook <hook-cmd>                A command to run before code generation.
+                                             Useful for setting up a database with the
+                                             right schema in place.
+
 -c, --connection-string <connection-string>  The connection string to use to attach
                                              to the postgres instance we will
                                              generate shims for. Defaults to $DB_URL.
@@ -68,6 +72,9 @@ func main() {
 				args = args[2:]
 			} else if args[0] == "-h" || args[0] == "--help" {
 				usage(true)
+			} else if args[0] == "-s" || args[0] == "--startup-hook" {
+				config.StartupHook = args[1]
+				args = args[2:]
 			} else if len(args) == 1 {
 				config.ConfigFilePath = args[0]
 				break
