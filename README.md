@@ -56,13 +56,13 @@ If you have the following entry in your toml file
 
 ```toml
 [[query]]
-name = "GetIdAndCreated"
-body = '''
-SELECT id, created_at
-FROM foo
-WHERE ID = $1
-ORDER BY created_at
-'''
+    name = "GetIdAndCreated"
+    body = '''
+    SELECT id, created_at
+    FROM foo
+    WHERE ID = $1
+    ORDER BY created_at
+    '''
 ```
 
 and the following DDL to define your database schema
@@ -79,8 +79,8 @@ CREATE TABLE foo (
 
 ```golang
 type GetIdAndCreatedRow struct {
-    Id *int64
-    CreatedAt *time.Time
+    Id sql.NullInt64
+    CreatedAt sql.NullTime
 }
 ```
 
@@ -137,28 +137,28 @@ in the above example, you could modify your toml entry to read
 
 ```toml
 [[query]]
-name = "GetIdAndCreated"
-body = '''
-SELECT id, created_at
-FROM foo
-WHERE ID = $1
-ORDER BY created_at
-'''
-null_flags = "--"
+    name = "GetIdAndCreated"
+    body = '''
+    SELECT id, created_at
+    FROM foo
+    WHERE ID = $1
+    ORDER BY created_at
+    '''
+    null_flags = "--"
 ```
 
 or equivalently
 
 ```toml
 [[query]]
-name = "GetIdAndCreated"
-body = '''
-SELECT id, created_at
-FROM foo
-WHERE ID = $1
-ORDER BY created_at
-'''
-not_null_fields = ["id", "created_at"]
+    name = "GetIdAndCreated"
+    body = '''
+    SELECT id, created_at
+    FROM foo
+    WHERE ID = $1
+    ORDER BY created_at
+    '''
+    not_null_fields = ["id", "created_at"]
 ```
 
 which would cause the result type
@@ -334,10 +334,10 @@ the following in your config file
 
 ```toml
 [[statement]]
-name = "MyInsertSmallEntity"
-body = '''
-INSERT INTO small_entities (anint) VALUES ($1)
-'''
+    name = "MyInsertSmallEntity"
+    body = '''
+    INSERT INTO small_entities (anint) VALUES ($1)
+    '''
 ```
 
 which would generate a shim with the signature
