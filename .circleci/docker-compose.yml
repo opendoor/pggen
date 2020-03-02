@@ -4,7 +4,7 @@ services:
   test:
     image: pggen_source
     environment:
-      DB_URL: "postgres://postgres:@postgres/pggen_test?sslmode=disable"
+      DB_URL: "postgres://postgres:test@postgres/postgres?sslmode=disable"
     links:
       - "postgres"
     depends_on:
@@ -12,3 +12,5 @@ services:
 
   postgres:
     image: postgres:11
+    environment:
+      POSTGRES_PASSWORD: "test"
