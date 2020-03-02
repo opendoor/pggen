@@ -120,7 +120,7 @@ func FromConfig(config Config) (*Generator, error) {
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
 	if anyVarPatternMatches(g.config.DisableVars) {
-		g.info("pggen: doing nothing because a disable var matched")
+		g.info("pggen: doing nothing because a disable var matched\n")
 		return nil
 	}
 
