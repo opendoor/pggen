@@ -198,7 +198,6 @@ name = "small_entities"
 		stderrRE: "unable to connect with any",
 	},
 	{
-		// test that we expand $ENV_VAR connection strings
 		extraEnv: []string{"FOO=b"},
 		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO {{ .Toml }}",
 		toml: `
@@ -209,9 +208,18 @@ name = "small_entities"
 		stdoutRE: "doing nothing because a disable var matched",
 	},
 	{
-		// test that we expand $ENV_VAR connection strings
 		extraEnv: []string{"FOO=b", "BLIP=baz"},
 		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO --disable-var BLIP=baz {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "concats_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "doing nothing because a disable var matched",
+	},
+	{
+		extraEnv: []string{"FOO=b"},
+		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO -c bad {{ .Toml }}",
 		toml: `
 [[stored_function]]
     name = "concats_text"

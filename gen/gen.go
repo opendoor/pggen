@@ -60,6 +60,8 @@ type Generator struct {
 	// by taking a default table an applying the user-provided type
 	// overrides to it.
 	pgType2GoType map[string]*goTypeInfo
+	// If true, this generator's Gen() method should do nothing.
+	disabled bool
 }
 
 // Print `output` at a normal verbosity level
@@ -76,6 +78,10 @@ func (g *Generator) infof(format string, a ...interface{}) {
 }
 
 func FromConfig(config Config) (*Generator, error) {
+	if anyVarPatternMatches(config.DisableVars) {
+		return &Generator{disabled: true}, nil
+	}
+
 	var err error
 	var db *sql.DB
 	for _, connStr := range config.ConnectionStrings {
@@ -119,7 +125,7 @@ func FromConfig(config Config) (*Generator, error) {
 
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
-	if anyVarPatternMatches(g.config.DisableVars) {
+	if g.disabled {
 		g.info("pggen: doing nothing because a disable var matched\n")
 		return nil
 	}
