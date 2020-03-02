@@ -19,6 +19,9 @@ import (
 // situations.
 
 type cliCase struct {
+	// A list of VAR=value environment variables to inject into the environment
+	// the command executes in.
+	extraEnv []string
 	// The contents of the toml file to use
 	toml string
 	// A template string to use to create the the command line flags.
@@ -194,6 +197,28 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: "unable to connect with any",
 	},
+	{
+		// test that we expand $ENV_VAR connection strings
+		extraEnv: []string{"FOO=b"},
+		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "concats_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "doing nothing because a disable var matched",
+	},
+	{
+		// test that we expand $ENV_VAR connection strings
+		extraEnv: []string{"FOO=b", "BLIP=baz"},
+		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO --disable-var BLIP=baz {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "concats_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "doing nothing because a disable var matched",
+	},
 }
 
 func TestCLI(t *testing.T) {
@@ -284,6 +309,20 @@ func runCLITest(
 			err = fmt.Errorf("CMD: %s\n%s", cmdTxt, err.Error())
 		}
 	}()
+
+	// set up the environment
+	for _, setting := range test.extraEnv {
+		eqIdx := strings.Index(setting, "=")
+		if eqIdx == -1 {
+			return fmt.Errorf("expected = in env setting")
+		}
+
+		key := setting[:eqIdx]
+		os.Setenv(key, setting[eqIdx+1:])
+		defer func() {
+			os.Setenv(key, "") // close enough for government work
+		}()
+	}
 
 	// convert the command text into an `exec.Cmd`
 	cmdBits := strings.Split(cmdTxt, " ")

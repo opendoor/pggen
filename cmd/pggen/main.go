@@ -22,6 +22,14 @@ Args:
 Options:
 -h, --help                                   Print this message.
 
+-d, --disable-var <var-pattern>              If <var-pattern> matches against the environment,
+                                             don't do anything. The pattern 'VAR' matches if
+                                             there are any env vars of that name. The pattern
+                                             'VAR=value' matches if there are any env vars
+                                             with value 'value'. May be provided more
+                                             than once, in which case pggen is disabled if any
+                                             match against the environment.
+
 -c, --connection-string <connection-string>  The connection string to use to attach
                                              to the postgres instance we will
                                              generate shims for. May be specified more
@@ -68,6 +76,9 @@ func main() {
 				args = args[2:]
 			} else if args[0] == "-o" || args[0] == "--output-file" {
 				config.OutputFileName = args[1]
+				args = args[2:]
+			} else if args[0] == "-d" || args[0] == "--disable-var" {
+				config.DisableVars = append(config.DisableVars, args[1])
 				args = args[2:]
 			} else if args[0] == "-h" || args[0] == "--help" {
 				usage(true)

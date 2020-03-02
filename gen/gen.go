@@ -25,6 +25,8 @@ type Config struct {
 	// A list of postgres connection strings to be used to connect to the
 	// database. They tried in order until one is found where `DB.Ping` works.
 	ConnectionStrings []string
+	// A list of var patterns to match against the environment.
+	DisableVars []string
 	// The verbosity level of the code generator. -1 means quiet mode,
 	// 0 (the default) means normal mode, and 1 means verbose mode.
 	Verbosity int
@@ -117,6 +119,11 @@ func FromConfig(config Config) (*Generator, error) {
 
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
+	if anyVarPatternMatches(g.config.DisableVars) {
+		g.info("pggen: doing nothing because a disable var matched")
+		return nil
+	}
+
 	g.infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
 	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)
 	if err != nil {
