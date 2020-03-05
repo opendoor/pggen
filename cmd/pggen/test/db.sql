@@ -129,6 +129,12 @@ CREATE TABLE explicit_belongs_to_many (
     small_entity_id integer NOT NULL
 );
 
+CREATE TABLE array_members (
+    id SERIAL PRIMARY KEY,
+    text_array text[] NOT NULL,
+    int_array int[]
+);
+
 -- SQL has the best identifier rules. Sigh. Let's support them.
 -- At least you don't seem to be able to start with a number
 -- without quoting.

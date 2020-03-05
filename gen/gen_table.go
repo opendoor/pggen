@@ -252,7 +252,7 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 	for _, v := range values {
 		{{- range .Cols }}
 		{{- if (not .IsPrimary) }}
-		args = append(args, v.{{ .GoName }})
+		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
 		{{- end }}
 		{{- end }}
 	}
@@ -327,7 +327,7 @@ func (p *PGClient) Update{{ .GoName }}(
 
 	{{- range .Cols }}
 	if fieldMask.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
-		args = append(args, value.{{ .GoName }})
+		args = append(args, {{ call .TypeInfo.SqlArgument (printf "value.%s" .GoName) }})
 	}
 	{{- end }}
 

@@ -394,3 +394,26 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 	err = txClient.DeleteWeirdNaMe(ctx, funny.Evenidisweird)
 	chkErr(t, err)
 }
+
+func TestArrayMembers(t *testing.T) {
+	txClient := newTx(t)
+	defer func() {
+		_ = txClient.DB.(*sql.Tx).Rollback()
+	}()
+
+	id, err := txClient.InsertArrayMember(ctx, db_shims.ArrayMember{
+		TextArray: []string{"foo", "bar"},
+		IntArray: []sql.NullInt64{
+			sql.NullInt64{Int64: 19, Valid: true},
+			sql.NullInt64{},
+		},
+	})
+	chkErr(t, err)
+
+	arrayMember, err := txClient.GetArrayMember(ctx, id)
+	chkErr(t, err)
+
+	_, err = txClient.UpdateArrayMember(
+		ctx, arrayMember, db_shims.ArrayMemberAllFields)
+	chkErr(t, err)
+}

@@ -263,6 +263,9 @@
 [[table]]
     name = "Weird?! Kid"
 
+[[table]]
+    name = "array_members"
+
 # TODO: it would be nice to support `INSERT ... RETURNING ...` queries, but
 #       that breaks the way that we use tmp views to infer the result types
 #       of queries. At the very least we should throw an error for queries
