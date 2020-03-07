@@ -79,8 +79,8 @@ CREATE TABLE foo (
 
 ```golang
 type GetIdAndCreatedRow struct {
-    Id sql.NullInt64
-    CreatedAt sql.NullTime
+    Id *int64
+    CreatedAt *time.Time
 }
 ```
 
@@ -186,7 +186,7 @@ attached to all of them.
 
 The generated struct for a postgres table is very similar to the generated
 struct for a query return value. Postgres does expose the nullability of table
-columns, so you don't have to worry about setting explicitly setting null flags
+columns, so you don't have to worry about explicitly setting null flags
 for a table.
 
 If you had the DDL
@@ -278,8 +278,8 @@ in the configuration file
         - Given the id of an entity, Delete<Entity> deletes it and returns an error on failure or
           nil on success.
     - BulkDelete<Entity>
-        - Given a list of entity ids, deletes all of the entities and returns an error on failure
-          or nil on success.
+        - Given a list of entity ids, BulkDelete<Entity> deletes all of the entities
+          and returns an error on failure or nil on success.
     - <Entity>FillIncludes
         - Given a pointer to an entity and an include spec, <Entity>FillIncludes fills
           in all the decendant entities in the spec recursivly. This api allows finer grained
