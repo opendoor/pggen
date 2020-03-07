@@ -373,7 +373,7 @@ var timeGoTypeInfo goTypeInfo = goTypeInfo{
 	Pkg:             `"time"`,
 	Name:            "time.Time",
 	NullName:        "*time.Time",
-	ScanNullName:    "sql.NullTime",
+	ScanNullName:    "pggenNullTime",
 	ScanNullPkg:     `"database/sql"`,
 	NullConvertFunc: convertCall("convertNullTime"),
 	SqlReceiver:     refWrap,

@@ -33,6 +33,7 @@ package {{ .Pkg }}
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"strings"
 	"time"
@@ -168,7 +169,35 @@ func convertNullBool(b sql.NullBool) *bool {
 	return nil
 }
 
-func convertNullTime(t sql.NullTime) *time.Time {
+// PggenPolyNullTime is shipped as sql.NullTime in go 1.13, but
+// older versions of go don't have it yet, so we just roll it ourselves
+// for compatibility.
+type pggenNullTime struct {
+	Time time.Time
+	Valid bool
+}
+func (n *pggenNullTime) Scan(value interface{}) error {
+	if value == nil {
+		n.Time, n.Valid = time.Time{}, false
+		return nil
+	}
+	n.Valid = true
+
+	t, ok := value.(time.Time)
+	if !ok {
+		return fmt.Errorf("scanning to NullTime: expected time.Time")
+	}
+	n.Time = t
+	return nil
+}
+func (n pggenNullTime) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Time, nil
+}
+
+func convertNullTime(t pggenNullTime) *time.Time {
 	if t.Valid {
 		return &t.Time
 	}
