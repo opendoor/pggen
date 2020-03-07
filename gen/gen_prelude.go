@@ -32,8 +32,11 @@ var preludeTmpl *template.Template = template.Must(template.New("prelude-tmpl").
 package {{ .Pkg }}
 
 import (
-	"strings"
+	"database/sql"
 	"fmt"
+	"strings"
+	"time"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/opendoor-labs/pggen"
 )
@@ -149,5 +152,47 @@ func genUpdateStmt(
 
 func parenWrap(in string) string {
 	return "(" + in + ")"
+}
+
+func convertNullString(s sql.NullString) *string {
+	if s.Valid {
+		return &s.String
+	}
+	return nil
+}
+
+func convertNullBool(b sql.NullBool) *bool {
+	if b.Valid {
+		return &b.Bool
+	}
+	return nil
+}
+
+func convertNullTime(t sql.NullTime) *time.Time {
+	if t.Valid {
+		return &t.Time
+	}
+	return nil
+}
+
+func convertNullFloat64(f sql.NullFloat64) *float64 {
+	if f.Valid {
+		return &f.Float64
+	}
+	return nil
+}
+
+func convertNullInt64(i sql.NullInt64) *int64 {
+	if i.Valid {
+		return &i.Int64
+	}
+	return nil
+}
+
+func convertNullUUID(u uuid.NullUUID) *uuid.UUID {
+	if u.Valid {
+		return &u.UUID
+	}
+	return nil
 }
 `))

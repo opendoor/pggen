@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestMixedNullText(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.MixedNullText(ctx)
 		},
-		expected: `\[.*String":"foo".*Valid":true.*Valid":false.*\]`,
+		expected: `\["foo",null\]`,
 	}.test(t)
 }
 
@@ -34,7 +35,7 @@ func TestMultiReturn(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.MultiReturn(ctx)
 		},
-		expected: `\[.*String":"foo".*Int64":1.*Valid":false.*Valid":false.*\]`,
+		expected: `\[.*TextField":"foo".*SmallintField":1.*TextField":null.*SmallintField":null.*\]`,
 	}.test(t)
 }
 
@@ -43,7 +44,7 @@ func TestTextArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.TextArg(ctx, "foo")
 		},
-		expected: `\[.*"String":"foo".*\]`,
+		expected: `\["foo"\]`,
 	}.test(t)
 
 	Expectation{
@@ -59,7 +60,7 @@ func TestMoneyArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.MoneyArg(ctx, "3.50")
 		},
-		expected: `\[.*String":"\$3.50".*\]`,
+		expected: `\["\$3.50"\]`,
 	}.test(t)
 }
 
@@ -71,7 +72,7 @@ func TestDateTimeArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.DateTimeArg(ctx, early, early, early)
 		},
-		expected: `\[.*"Time":"1999-01-08T04:05:06Z".*\]`,
+		expected: `\["1999-01-08T04:05:06Z"\]`,
 	}.test(t)
 
 	Expectation{
@@ -87,7 +88,7 @@ func TestBooleanArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.BooleanArg(ctx, true)
 		},
-		expected: `\[.*"Bool":true.*\]`,
+		expected: `\[true\]`,
 	}.test(t)
 }
 
@@ -96,7 +97,7 @@ func TestEnumArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.EnumArg(ctx, db_shims.EnumTypeOption1)
 		},
-		expected: `\[.*EnumType":"option1","Valid":true.*\]`,
+		expected: `\["option1"\]`,
 	}.test(t)
 }
 
@@ -107,7 +108,7 @@ func TestUUIDArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.UUIDArg(ctx, uuid.Must(uuid.FromString(id)))
 		},
-		expected: fmt.Sprintf(`\[.*"UUID":"%s".*\]`, id),
+		expected: fmt.Sprintf(`\["%s"\]`, id),
 	}.test(t)
 }
 
@@ -126,7 +127,7 @@ func TestNumbersArgs(t *testing.T) {
 			return pgClient.NumberArgs(
 				ctx, 0, 0, 0, "0", "0", "0", "0", 0.0, 0.0, 0, 0)
 		},
-		expected: `\[.*Int64":1.*\]`,
+		expected: `\[1\]`,
 	}.test(t)
 }
 
@@ -150,7 +151,7 @@ func TestListText(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.ListText(ctx, ids)
 		},
-		expected: `\[.*String":"foo".*Valid":true.*Valid":false.*\]`,
+		expected: `\["foo",null\]`,
 	}.test(t)
 }
 
@@ -159,7 +160,7 @@ func TestRollUpNums(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.RollUpNums(ctx)
 		},
-		expected: `Int64":3.*Int64":0.*String":"15.4.*String":"".*`,
+		expected: regexp.QuoteMeta(`[{"Ints":[3,null],"Decs":["15.4",null]}]`),
 	}.test(t)
 }
 
@@ -171,7 +172,7 @@ func TestEnumArrays(t *testing.T) {
 				[]db_shims.EnumType{"option1", "option2"},
 			)
 		},
-		expected: `"option2","Valid":true.*"option1","Valid":true`,
+		expected: regexp.QuoteMeta(`[["option2","option1"]]`),
 	}.test(t)
 
 	Expectation{
@@ -181,6 +182,6 @@ func TestEnumArrays(t *testing.T) {
 				[]db_shims.EnumType{"option1", "option2"},
 			)
 		},
-		expected: `"option1","Valid":true.*"","Valid":false`,
+		expected: regexp.QuoteMeta(`[["option1",null]]`),
 	}.test(t)
 }

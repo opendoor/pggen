@@ -95,11 +95,32 @@ type {{ .ReturnTypeName }} struct {
 	{{- end }}
 }
 func (r *{{ .ReturnTypeName }}) Scan(rs *sql.Rows) error {
-	return rs.Scan(
+	{{- range .ReturnCols }}
+	{{- if .Nullable }}
+	var scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
+	{{- end }}
+	{{- end }}
+
+	err := rs.Scan(
 		{{- range .ReturnCols }}
+		{{- if .Nullable }}
+		{{ call .TypeInfo.SqlReceiver (printf "scan%s" .GoName) }},
+		{{- else }}
 		{{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }},
 		{{- end }}
+		{{- end }}
 	)
+	if err != nil {
+		return err
+	}
+
+	{{- range .ReturnCols }}
+	{{- if .Nullable }}
+	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "scan%s" .GoName) }}
+	{{- end }}
+	{{- end }}
+
+	return nil
 }
 `))
 
@@ -134,11 +155,20 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 		{{- if .MultiReturn }}
 		err = row.Scan(rows)
 		{{- else }}
-		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "row" }})
-		{{- end }}
+		{{- if (index .ReturnCols 0).Nullable }}
+		var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
+		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "scanTgt" }})
 		if err != nil {
 			return nil, err
 		}
+		row = {{ call (index .ReturnCols 0).TypeInfo.NullConvertFunc "scanTgt" }}
+		{{- else }}
+		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "row" }})
+		if err != nil {
+			return nil, err
+		}
+		{{- end }}
+		{{- end }}
 		ret = append(ret, row)
 	}
 
