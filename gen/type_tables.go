@@ -19,8 +19,10 @@ func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 			}
 
 			return &goTypeInfo{
-				Name:     "[]" + tyInfo.Name,
-				NullName: "[]" + tyInfo.NullName,
+				Name:            "[]" + tyInfo.Name,
+				NullName:        "[]" + tyInfo.NullName,
+				ScanNullName:    "[]" + tyInfo.ScanNullName,
+				NullConvertFunc: arrayConvert(tyInfo.NullConvertFunc, tyInfo.NullName),
 				// arrays need special wrappers
 				SqlReceiver: arrayRefWrap,
 				SqlArgument: arrayWrap,
@@ -71,6 +73,8 @@ func (g *Generator) initTypeTable(overrides []typeOverride) (err error) {
 			}
 			if len(override.NullableTypeName) > 0 {
 				info.NullName = override.NullableTypeName
+				info.ScanNullName = override.NullableTypeName
+				info.NullConvertFunc = identityConvert
 			}
 			if len(override.Pkg) > 0 {
 				info.Pkg = override.Pkg
@@ -88,12 +92,14 @@ func (g *Generator) initTypeTable(overrides []typeOverride) (err error) {
 			}
 
 			g.pgType2GoType[override.PgTypeName] = &goTypeInfo{
-				Name:        override.TypeName,
-				Pkg:         override.Pkg,
-				NullName:    override.NullableTypeName,
-				NullPkg:     override.NullPkg,
-				SqlReceiver: refWrap,
-				SqlArgument: idWrap,
+				Name:            override.TypeName,
+				Pkg:             override.Pkg,
+				NullName:        override.NullableTypeName,
+				ScanNullName:    override.NullableTypeName,
+				NullConvertFunc: identityConvert,
+				NullPkg:         override.NullPkg,
+				SqlReceiver:     refWrap,
+				SqlArgument:     idWrap,
 			}
 		}
 	}
@@ -141,11 +147,15 @@ func (g *Generator) maybeEmitEnumType(
 	}
 	// if there are no variants, then it is not an enum
 	if len(variants) > 0 {
+		goName := pgToGoName(pgTypeName)
+
 		typeInfo := goTypeInfo{
-			Name:        pgToGoName(pgTypeName),
-			NullName:    "Null" + pgToGoName(pgTypeName),
-			SqlReceiver: refWrap,
-			SqlArgument: idWrap,
+			Name:            goName,
+			NullName:        "*" + goName,
+			ScanNullName:    "Null" + goName,
+			NullConvertFunc: convertCall("convertNull" + goName),
+			SqlReceiver:     refWrap,
+			SqlArgument:     idWrap,
 		}
 
 		if g.types.probe(typeInfo.Name) {
@@ -197,6 +207,13 @@ func (n Null{{ index . "TypeName" }}) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return n.{{ index . "TypeName" }}, nil
+}
+func convertNull{{ index . "TypeName" }}(v Null{{ index . "TypeName" }}) *{{ index . "TypeName" }} {
+	if v.Valid {
+		ret := {{ index . "TypeName" }}(v.{{ index . "TypeName" }})
+		return &ret
+	}
+	return nil
 }
 `))
 
@@ -254,6 +271,18 @@ type goTypeInfo struct {
 	// The package that the type with NullName is in (may be blank if
 	// the same as Pkg)
 	NullPkg string
+	// The name of a nullable version of the type that should be used
+	// for interfacing with the database. This type will get converted
+	// into `NullName` before it reaches any public-facing part of the
+	// generated code.
+	ScanNullName string
+	// The package that the type with ScanNullName type is in. May be
+	// blank if same as either one of the other two packages.
+	ScanNullPkg string
+	// A function for transforming a variable with the given name of type
+	// ScanNullName into a block of code which evaluates to a value of type
+	// NullName
+	NullConvertFunc func(string) string
 	// Given a variable name, SqlReceiver must return an appropriate wrapper
 	// around that variable which can be passed as a parameter to Rows.scan.
 	// For many simple types, SqlReceiver will just wrap the variable in a
@@ -280,55 +309,114 @@ func arrayRefWrap(variable string) string {
 	return fmt.Sprintf("pq.Array(&(%s))", variable)
 }
 
+func convertCall(fun string) func(string) string {
+	return func(v string) string {
+		return fmt.Sprintf("%s(%s)", fun, v)
+	}
+}
+
+func identityConvert(v string) string {
+	return v
+}
+
+func arrayConvert(
+	elemConvert func(string) string,
+	nullName string,
+) func(string) string {
+	type tmplCtx struct {
+		ElemConvert    func(string) string
+		NullName       string
+		InputArrayName string
+	}
+	tmpl := template.Must(template.New("array-convert-tmpl").Parse(
+		`func() []{{ .NullName }} {
+		out := make([]{{ .NullName }}, len({{ .InputArrayName }}))[:0]
+		for _, elem := range {{ .InputArrayName }} {
+			out = append(out, {{ call .ElemConvert "elem" }})
+		}
+		return out
+	}()`))
+
+	return func(v string) string {
+		var out strings.Builder
+		ctx := tmplCtx{
+			ElemConvert:    elemConvert,
+			NullName:       nullName,
+			InputArrayName: v,
+		}
+		_ = tmpl.Execute(&out, ctx)
+		return out.String()
+	}
+}
+
 var stringGoTypeInfo goTypeInfo = goTypeInfo{
-	Name:        "string",
-	NullName:    "sql.NullString",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Name:            "string",
+	NullName:        "*string",
+	ScanNullName:    "sql.NullString",
+	ScanNullPkg:     `"database/sql"`,
+	NullConvertFunc: convertCall("convertNullString"),
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var boolGoTypeInfo goTypeInfo = goTypeInfo{
-	Name:        "bool",
-	NullName:    "sql.NullBool",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Name:            "bool",
+	NullName:        "*bool",
+	ScanNullName:    "sql.NullBool",
+	ScanNullPkg:     `"database/sql"`,
+	NullConvertFunc: convertCall("convertNullBool"),
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var timeGoTypeInfo goTypeInfo = goTypeInfo{
-	Pkg:         `"time"`,
-	Name:        "time.Time",
-	NullName:    "sql.NullTime",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Pkg:             `"time"`,
+	Name:            "time.Time",
+	NullName:        "*time.Time",
+	ScanNullName:    "sql.NullTime",
+	ScanNullPkg:     `"database/sql"`,
+	NullConvertFunc: convertCall("convertNullTime"),
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var int64GoTypeInfo goTypeInfo = goTypeInfo{
-	Name:        "int64",
-	NullName:    "sql.NullInt64",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Name:            "int64",
+	NullName:        "*int64",
+	ScanNullName:    "sql.NullInt64",
+	ScanNullPkg:     `"database/sql"`,
+	NullConvertFunc: convertCall("convertNullInt64"),
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var float64GoTypeInfo goTypeInfo = goTypeInfo{
-	Name:        "float64",
-	NullName:    "sql.NullFloat64",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Name:            "float64",
+	NullName:        "*float64",
+	ScanNullName:    "sql.NullFloat64",
+	ScanNullPkg:     `"database/sql"`,
+	NullConvertFunc: convertCall("convertNullFloat64"),
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var uuidGoTypeInfo goTypeInfo = goTypeInfo{
-	Pkg:         `uuid "github.com/satori/go.uuid"`,
-	Name:        "uuid.UUID",
-	NullName:    "uuid.NullUUID",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Pkg:             `uuid "github.com/satori/go.uuid"`,
+	Name:            "uuid.UUID",
+	NullName:        "*uuid.UUID",
+	ScanNullName:    "uuid.NullUUID",
+	NullConvertFunc: convertCall("convertNullUUID"),
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
-	Name:        "[]byte",
-	NullName:    "*[]byte",
-	SqlReceiver: refWrap,
-	SqlArgument: idWrap,
+	Name:            "[]byte",
+	NullName:        "*[]byte",
+	ScanNullName:    "*[]byte",
+	NullConvertFunc: identityConvert,
+	SqlReceiver:     refWrap,
+	SqlArgument:     idWrap,
 }
 
 var primitveGoTypes = map[string]bool{

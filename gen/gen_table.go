@@ -155,11 +155,32 @@ type {{ .GoName }} struct {
 	{{- end }}
 }
 func (r *{{ .GoName }}) Scan(rs *sql.Rows) error {
-	return rs.Scan(
+	{{- range .Cols }}
+	{{- if .Nullable }}
+	var scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
+	{{- end }}
+	{{- end }}
+
+	err := rs.Scan(
 		{{- range .Cols }}
+		{{- if .Nullable }}
+		{{ call .TypeInfo.SqlReceiver (printf "scan%s" .GoName) }},
+		{{- else }}
 		{{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }},
 		{{- end }}
+		{{- end }}
 	)
+	if err != nil {
+		return err
+	}
+
+	{{- range .Cols }}
+	{{- if .Nullable }}
+	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "scan%s" .GoName) }}
+	{{- end }}
+	{{- end }}
+
+	return nil
 }
 `))
 

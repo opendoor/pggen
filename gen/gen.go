@@ -225,7 +225,9 @@ import (
 	}
 	sortedPkgs := make([]string, len(g.imports))[:0]
 	for pkg := range g.imports {
-		sortedPkgs = append(sortedPkgs, pkg)
+		if len(pkg) > 0 {
+			sortedPkgs = append(sortedPkgs, pkg)
+		}
 	}
 	sort.Strings(sortedPkgs)
 	for _, pkg := range sortedPkgs {

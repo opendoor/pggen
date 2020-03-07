@@ -214,14 +214,14 @@ func TestFillAll(t *testing.T) {
 	foo := "foo"
 	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
 		SmallEntityId: entityID,
-		Value:         sql.NullString{String: foo, Valid: true},
+		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	bar := "bar"
 	attachmentID2, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
 		SmallEntityId: entityID,
-		Value:         sql.NullString{String: bar, Valid: true},
+		Value:         &bar,
 	})
 	chkErr(t, err)
 
@@ -274,7 +274,7 @@ func TestFillIncludes(t *testing.T) {
 	foo := "foo"
 	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
 		SmallEntityId: entityID,
-		Value:         sql.NullString{String: foo, Valid: true},
+		Value:         &foo,
 	})
 	chkErr(t, err)
 
@@ -358,10 +358,11 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
+	var nineteen int64 = 19
 	funnyID, err := txClient.InsertWeirdNaMe(ctx, db_shims.WeirdNaMe{
 		WearetalkingReallyBadstyle: 1923,
 		GotWhitespace:              "yes",
-		ButWhyTho:                  sql.NullInt64{Int64: 19, Valid: true},
+		ButWhyTho:                  &nineteen,
 	})
 	chkErr(t, err)
 
@@ -401,12 +402,10 @@ func TestArrayMembers(t *testing.T) {
 		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
+	var nineteen int64 = 19
 	id, err := txClient.InsertArrayMember(ctx, db_shims.ArrayMember{
 		TextArray: []string{"foo", "bar"},
-		IntArray: []sql.NullInt64{
-			{Int64: 19, Valid: true},
-			{},
-		},
+		IntArray:  []*int64{&nineteen, nil},
 	})
 	chkErr(t, err)
 

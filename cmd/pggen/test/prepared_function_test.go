@@ -1,7 +1,6 @@
 package test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"reflect"
 	"regexp"
@@ -40,7 +39,7 @@ func TestConcatText(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.ConcatsText(ctx, "", "")
 		},
-		expected: `\[.*"".*Valid.*true.*]`,
+		expected: `\[""\]`,
 	}.test(t)
 }
 
@@ -49,17 +48,17 @@ func TestSelectStringTypes(t *testing.T) {
 	fooPad := "foo                                     "
 	expected := []db_shims.SelectStringTypesRow{
 		{
-			TextField:           sql.NullString{String: foo, Valid: true},
-			TextFieldNotNull:    sql.NullString{String: foo, Valid: true},
-			VarcharField:        sql.NullString{String: foo, Valid: true},
-			VarcharFieldNotNull: sql.NullString{String: foo, Valid: true},
-			CharField:           sql.NullString{String: fooPad, Valid: true},
-			CharFieldNotNull:    sql.NullString{String: fooPad, Valid: true},
+			TextField:           &foo,
+			TextFieldNotNull:    &foo,
+			VarcharField:        &foo,
+			VarcharFieldNotNull: &foo,
+			CharField:           &fooPad,
+			CharFieldNotNull:    &fooPad,
 		},
 		{
-			TextFieldNotNull:    sql.NullString{String: foo, Valid: true},
-			VarcharFieldNotNull: sql.NullString{String: foo, Valid: true},
-			CharFieldNotNull:    sql.NullString{String: fooPad, Valid: true},
+			TextFieldNotNull:    &foo,
+			VarcharFieldNotNull: &foo,
+			CharFieldNotNull:    &fooPad,
 		},
 	}
 	txt, err := json.Marshal(expected)
@@ -97,15 +96,15 @@ func TestSelectTime(t *testing.T) {
 	chkErr(t, err)
 
 	ti := times[0]
-	if ti.TsField.Time.String() != "1999-01-08 04:05:06 +0000 +0000" {
-		t.Fatalf("0: tsfield (actual = '%s')", ti.TsField.Time.String())
+	if ti.TsField.String() != "1999-01-08 04:05:06 +0000 +0000" {
+		t.Fatalf("0: tsfield (actual = '%s')", ti.TsField.String())
 	}
 	if ti.TsFieldNotNull.String() != "1999-01-08 04:05:06 +0000 +0000" {
 		t.Fatalf("0: tsfieldnn (actual = '%s'", ti.TsFieldNotNull.String())
 	}
 
 	ti = times[1]
-	if ti.TsField.Valid {
+	if ti.TsField != nil {
 		t.Fatalf("1: tsfield unexpectedly valid")
 	}
 	if ti.TsFieldNotNull.String() != "1999-01-08 04:05:06 +0000 +0000" {
@@ -120,7 +119,7 @@ func TestSelectBool(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.SelectBool(ctx)
 		},
-		expected: `.*true.*false.*Valid":false.*true.*`,
+		expected: `.*true.*false.*null.*true.*`,
 	}.test(t)
 }
 
@@ -129,7 +128,7 @@ func TestSelectEnum(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.SelectEnum(ctx)
 		},
-		expected: `EnumType":"option1.*EnumType":"option2.*Valid":false.*option1`,
+		expected: `option1.*option2.*null.*option1`,
 	}.test(t)
 }
 
@@ -139,7 +138,7 @@ func TestSelectUUID(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.SelectUuid(ctx)
 		},
-		expected: id + ".*" + id + ".*Valid\":false.*" + id,
+		expected: id + ".*" + id + ".*null.*" + id,
 	}.test(t)
 }
 
@@ -151,92 +150,56 @@ func TestSelectNumbers(t *testing.T) {
 		t.Fatal("wrong len")
 	}
 
-	one := sql.NullInt64{Int64: 1, Valid: true}
-	two := sql.NullInt64{Int64: 2, Valid: true}
-	three := sql.NullInt64{Int64: 3, Valid: true}
-	n154 := sql.NullString{String: "15.4", Valid: true}
-	n164 := sql.NullString{String: "16.4", Valid: true}
-	n999 := sql.NullString{String: "999", Valid: true}
-	n19d99 := sql.NullString{String: "19.99", Valid: true}
-	n2d3 := sql.NullFloat64{Float64: 2.3, Valid: true}
-	n9d3 := sql.NullFloat64{Float64: 9.3, Valid: true}
+	n154 := "15.4"
+	n164 := "16.4"
+	n999 := "999"
+	n19d99 := "19.99"
+	n2d3 := 2.3
+	n9d3 := 9.3
 
 	for i, n := range numbers {
-
-		if (i == 0 && !reflect.DeepEqual(n.SmallintField, one)) ||
-			!reflect.DeepEqual(n.SmallintFieldNotNull, one) {
+		if i == 0 && *n.SmallintField != 1 || *n.SmallintFieldNotNull != 1 {
 			t.Fatalf("%d: small int mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.IntegerField, two)) ||
-			!reflect.DeepEqual(n.IntegerFieldNotNull, two) {
+		if i == 0 && *n.IntegerField != 2 || *n.IntegerFieldNotNull != 2 {
 			t.Fatalf("%d: integer mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.BigintField, three)) ||
-			!reflect.DeepEqual(n.BigintFieldNotNull, three) {
+		if i == 0 && *n.BigintField != 3 || *n.BigintFieldNotNull != 3 {
 			t.Fatalf("%d: big int mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.DecimalField, n154)) ||
-			!reflect.DeepEqual(n.DecimalFieldNotNull, n154) {
+		if (i == 0 && !reflect.DeepEqual(n.DecimalField, &n154)) ||
+			!reflect.DeepEqual(n.DecimalFieldNotNull, &n154) {
 			t.Fatalf("%d: decimal mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.NumericField, n164)) ||
-			!reflect.DeepEqual(n.NumericFieldNotNull, n164) {
+		if (i == 0 && !reflect.DeepEqual(n.NumericField, &n164)) ||
+			!reflect.DeepEqual(n.NumericFieldNotNull, &n164) {
 			t.Fatalf("%d: numeric mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.NumericPrecField, n999)) ||
-			!reflect.DeepEqual(n.NumericPrecFieldNotNull, n999) {
+		if (i == 0 && !reflect.DeepEqual(n.NumericPrecField, &n999)) ||
+			!reflect.DeepEqual(n.NumericPrecFieldNotNull, &n999) {
 			t.Fatalf("%d: numeric prec mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.NumericPrecScaleField, n19d99)) ||
-			!reflect.DeepEqual(n.NumericPrecScaleFieldNotNull, n19d99) {
+		if (i == 0 && !reflect.DeepEqual(n.NumericPrecScaleField, &n19d99)) ||
+			!reflect.DeepEqual(n.NumericPrecScaleFieldNotNull, &n19d99) {
 			t.Fatalf("%d: numeric prec scale mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.RealField, n2d3)) ||
-			!reflect.DeepEqual(n.RealFieldNotNull, n2d3) {
+		if (i == 0 && !reflect.DeepEqual(n.RealField, &n2d3)) ||
+			!reflect.DeepEqual(n.RealFieldNotNull, &n2d3) {
 			t.Fatalf("%d: real mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.DoubleField, n9d3)) ||
-			!reflect.DeepEqual(n.DoubleFieldNotNull, n9d3) {
+		if (i == 0 && !reflect.DeepEqual(n.DoubleField, &n9d3)) ||
+			!reflect.DeepEqual(n.DoubleFieldNotNull, &n9d3) {
 			t.Fatalf("%d: real mismatch", i)
 		}
 	}
-
-	/*
-		numberStrings := []string{
-			"1", "2", "3", `15\.4`, `16\.4`, "999", `19\.99`,
-			`(:?2\.2999|2.3)`, `9\.3`,
-		}
-
-		var re strings.Builder
-		for _, ns := range numberStrings {
-			re.WriteString(ns)
-			re.WriteString(".*?")
-			re.WriteString(ns)
-			re.WriteString(".*?")
-		}
-		re.WriteString("1.*?1.*?1.*?1.*?},{.*?") // serial fields, divider
-		for _, ns := range numberStrings {
-			re.WriteString("null.*?")
-			re.WriteString(ns)
-			re.WriteString(".*?")
-		}
-		re.WriteString(`2.*?2.*?2.*?2.*?}\]`) // serial fields
-
-		Expectation{
-			call: func() (interface{}, error) {
-				return pgClient.SelectNumbers(ctx)
-			},
-			expected: re.String(),
-		}.test(t)
-	*/
 }
 
 func TestSelectBlob(t *testing.T) {
