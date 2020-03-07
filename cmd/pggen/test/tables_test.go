@@ -24,7 +24,7 @@ func TestInsertSmallEntity(t *testing.T) {
 		Anint: 129,
 	}
 
-	id, err := txClient.InsertSmallEntity(ctx, entity)
+	id, err := txClient.InsertSmallEntity(ctx, &entity)
 	chkErr(t, err)
 
 	entity.Id = id
@@ -120,7 +120,7 @@ func TestSmallEntityUpdate(t *testing.T) {
 	noOpBitset.Set(db_shims.SmallEntityIdFieldIndex, true)
 
 	fetched[0].Anint = 34
-	id, err := txClient.UpdateSmallEntity(ctx, fetched[0], noOpBitset)
+	id, err := txClient.UpdateSmallEntity(ctx, &fetched[0], noOpBitset)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestSmallEntityUpdate(t *testing.T) {
 	}
 
 	fetched[1].Anint = 42
-	id, err = txClient.UpdateSmallEntity(ctx, fetched[1], db_shims.SmallEntityAllFields)
+	id, err = txClient.UpdateSmallEntity(ctx, &fetched[1], db_shims.SmallEntityAllFields)
 	chkErr(t, err)
 	if id != fetched[1].Id {
 		t.Fatalf("id mismatch (passed in %d, got back %d)", fetched[1].Id, id)
@@ -206,27 +206,27 @@ func TestFillAll(t *testing.T) {
 		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
-	entityID, err := txClient.InsertSmallEntity(ctx, db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
 		Anint: 129,
 	})
 	chkErr(t, err)
 
 	foo := "foo"
-	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
+	attachmentID1, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
 		SmallEntityId: entityID,
 		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	bar := "bar"
-	attachmentID2, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
+	attachmentID2, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
 		SmallEntityId: entityID,
 		Value:         &bar,
 	})
 	chkErr(t, err)
 
 	aTime := time.Unix(5432553, 0)
-	_, err = txClient.InsertSingleAttachment(ctx, db_shims.SingleAttachment{
+	_, err = txClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
 		SmallEntityId: entityID,
 		CreatedAt:     aTime,
 	})
@@ -234,7 +234,7 @@ func TestFillAll(t *testing.T) {
 
 	e, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillIncludes(ctx, &e, db_shims.SmallEntityAllIncludes)
+	err = txClient.SmallEntityFillIncludes(ctx, e, db_shims.SmallEntityAllIncludes)
 	chkErr(t, err)
 
 	if len(e.Attachments) != 2 {
@@ -266,20 +266,20 @@ func TestFillIncludes(t *testing.T) {
 		_ = txClient.DB.(*sql.Tx).Rollback()
 	}()
 
-	entityID, err := txClient.InsertSmallEntity(ctx, db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
 		Anint: 129,
 	})
 	chkErr(t, err)
 
 	foo := "foo"
-	attachmentID1, err := txClient.InsertAttachment(ctx, db_shims.Attachment{
+	attachmentID1, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
 		SmallEntityId: entityID,
 		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	aTime := time.Unix(5432553, 0)
-	singleAttachmentID, err := txClient.InsertSingleAttachment(ctx, db_shims.SingleAttachment{
+	singleAttachmentID, err := txClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
 		SmallEntityId: entityID,
 		CreatedAt:     aTime,
 	})
@@ -289,7 +289,7 @@ func TestFillIncludes(t *testing.T) {
 	includes := include.Must(include.Parse("small_entities.attachments"))
 	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillIncludes(ctx, &smallEntity, includes)
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, includes)
 	chkErr(t, err)
 
 	if smallEntity.Attachments[0].Id != attachmentID1 {
@@ -303,7 +303,7 @@ func TestFillIncludes(t *testing.T) {
 	includes = include.Must(include.Parse("small_entities.{attachments, single_attachments}"))
 	smallEntity, err = txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillIncludes(ctx, &smallEntity, includes)
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, includes)
 	chkErr(t, err)
 
 	if smallEntity.Attachments[0].Id != attachmentID1 {
@@ -359,7 +359,7 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 	}()
 
 	var nineteen int64 = 19
-	funnyID, err := txClient.InsertWeirdNaMe(ctx, db_shims.WeirdNaMe{
+	funnyID, err := txClient.InsertWeirdNaMe(ctx, &db_shims.WeirdNaMe{
 		WearetalkingReallyBadstyle: 1923,
 		GotWhitespace:              "yes",
 		ButWhyTho:                  &nineteen,
@@ -382,11 +382,11 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 		t.Fatalf("update failed")
 	}
 
-	kidID, err := txClient.InsertWeirdKid(ctx, db_shims.WeirdKid{
+	kidID, err := txClient.InsertWeirdKid(ctx, &db_shims.WeirdKid{
 		Daddy: funny.Evenidisweird,
 	})
 	chkErr(t, err)
-	err = txClient.WeirdNaMeFillIncludes(ctx, &funny, db_shims.WeirdNaMeAllIncludes)
+	err = txClient.WeirdNaMeFillIncludes(ctx, funny, db_shims.WeirdNaMeAllIncludes)
 	chkErr(t, err)
 
 	err = txClient.DeleteWeirdKid(ctx, kidID)
@@ -403,7 +403,7 @@ func TestArrayMembers(t *testing.T) {
 	}()
 
 	var nineteen int64 = 19
-	id, err := txClient.InsertArrayMember(ctx, db_shims.ArrayMember{
+	id, err := txClient.InsertArrayMember(ctx, &db_shims.ArrayMember{
 		TextArray: []string{"foo", "bar"},
 		IntArray:  []*int64{&nineteen, nil},
 	})

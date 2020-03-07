@@ -189,15 +189,15 @@ var tableShimTmpl *template.Template = template.Must(template.New("table-shim-tm
 func (p *PGClient) Get{{ .GoName }}(
 	ctx context.Context,
 	id {{ .PkeyCol.TypeInfo.Name }},
-) ({{ .GoName }}, error) {
+) (*{{ .GoName }}, error) {
 	values, err := p.List{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
 	if err != nil {
-		return {{ .GoName }}{}, err
+		return nil, err
 	}
 
 	// List{{ .GoName }} always returns the same number of records as were
 	// requested, so this is safe.
-	return values[0], err
+	return &values[0], err
 }
 
 func (p *PGClient) List{{ .GoName }}(
@@ -239,10 +239,10 @@ func (p *PGClient) List{{ .GoName }}(
 // key of the inserted row.
 func (p *PGClient) Insert{{ .GoName }}(
 	ctx context.Context,
-	value {{ .GoName }},
+	value *{{ .GoName }},
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var ids []{{ .PkeyCol.TypeInfo.Name }}
-	ids, err = p.BulkInsert{{ .GoName }}(ctx, []{{ .GoName }}{value})
+	ids, err = p.BulkInsert{{ .GoName }}(ctx, []{{ .GoName }}{*value})
 	if err != nil {
 		return
 	}
@@ -322,7 +322,7 @@ var {{ .GoName }}AllFields pggen.FieldSet = pggen.NewFieldSetFilled({{ len .Cols
 // Returns the primary key of the updated row.
 func (p *PGClient) Update{{ .GoName }}(
 	ctx context.Context,
-	value {{ .GoName }},
+	value *{{ .GoName }},
 	fieldMask pggen.FieldSet,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var fields []string = []string{
