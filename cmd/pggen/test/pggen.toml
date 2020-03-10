@@ -215,6 +215,10 @@
     WHERE enum_field_not_null = ANY($1)
     '''
 
+[[query]]
+    name = "ForceError"
+    body = "SELECT * FROM inject_sql('ya done goofed')"
+
 #
 # Statements
 #

@@ -203,7 +203,7 @@ func (p *PGClient) Get{{ .GoName }}(
 func (p *PGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
-) ([]{{ .GoName }}, error) {
+) (ret []{{ .GoName }}, err error) {
 	rows, err := p.DB.QueryContext(
 		ctx,
 		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
@@ -212,9 +212,21 @@ func (p *PGClient) List{{ .GoName }}(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err == nil {
+			err = rows.Close()
+			if err != nil {
+				ret = nil
+			}
+		} else {
+			rowErr := rows.Close()
+			if rowErr != nil {
+				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+			}
+		}
+	}()
 
-	ret := make([]{{ .GoName }}, len(ids))[:0]
+	ret = make([]{{ .GoName }}, len(ids))[:0]
 	for rows.Next() {
 		var value {{ .GoName }}
 		err = value.Scan(rows)

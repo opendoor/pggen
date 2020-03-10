@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,4 +185,15 @@ func TestEnumArrays(t *testing.T) {
 		},
 		expected: regexp.QuoteMeta(`[["option1",null]]`),
 	}.test(t)
+}
+
+func TestQueryErrors(t *testing.T) {
+	res, err := pgClient.ForceError(ctx)
+	if res != nil {
+		t.Fatalf("unexpected result")
+	}
+
+	if !strings.Contains(err.Error(), `column "injection" does not exist`) {
+		t.Fatalf("unexpected err: %s", err.Error())
+	}
 }

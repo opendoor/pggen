@@ -18,6 +18,7 @@ func (g *Generator) genQueries(
 
 	g.imports[`"database/sql"`] = true
 	g.imports[`"context"`] = true
+	g.imports[`"fmt"`] = true
 
 	for _, query := range queries {
 		err := g.genQuery(into, &query, nil)
@@ -144,9 +145,16 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 		return nil, err
 	}
 	defer func() {
-		err = rows.Close()
-		if err != nil {
-			ret = nil
+		if err == nil {
+			err = rows.Close()
+			if err != nil {
+				ret = nil
+			}
+		} else {
+			rowErr := rows.Close()
+			if rowErr != nil {
+				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+			}
 		}
 	}()
 

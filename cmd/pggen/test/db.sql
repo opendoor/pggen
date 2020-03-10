@@ -498,3 +498,15 @@ RETURNS TABLE (
 SELECT * FROM small_entities
 $$
 LANGUAGE sql;
+
+-- Don't do this irl. We just need to be able to force errors within
+-- the db for testing purposes.
+CREATE OR REPLACE FUNCTION inject_sql(indection text)
+RETURNS integer
+AS $$
+BEGIN
+    EXECUTE(injection);
+    RETURN 1;
+END
+$$
+LANGUAGE plpgsql;
