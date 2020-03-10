@@ -416,3 +416,9 @@ func TestArrayMembers(t *testing.T) {
 		ctx, arrayMember, db_shims.ArrayMemberAllFields)
 	chkErr(t, err)
 }
+
+func TestMaxFieldIndex(t *testing.T) {
+	if db_shims.SmallEntityMaxFieldIndex != db_shims.SmallEntityAnintFieldIndex {
+		t.Fatalf("max field index mismatch")
+	}
+}

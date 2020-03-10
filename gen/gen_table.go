@@ -309,6 +309,7 @@ const (
 	{{- range $i, $c := .Cols }}
 	{{ $.GoName }}{{ $c.GoName }}FieldIndex int = {{ $i }}
 	{{- end }}
+	{{ $.GoName }}MaxFieldIndex int = ({{ len .Cols }} - 1)
 )
 
 // A field set saying that all fields in {{ .GoName }} should be updated.

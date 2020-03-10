@@ -296,6 +296,8 @@ in the configuration file
         - For each field in the entity, `pggen` generates a constant indicating the field's
           index (0-based). These constants are useful when working with the bitset that gets
           passed to Update<Entity>.
+    - <Entity>MaxFieldIndex
+        - The largest valid field index for the given entity.
     - <Entity>AllFields
         - A bitset with the bits for all the fields in <Entity> set
     - <Entity>AllIncludes
