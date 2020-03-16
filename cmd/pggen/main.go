@@ -109,13 +109,13 @@ func main() {
 
 	g, err := gen.FromConfig(config)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err.Error())
+		fmt.Fprint(os.Stderr, err.Error()+"\n")
 		os.Exit(1)
 	}
 
 	err = g.Gen()
 	if err != nil {
-		fmt.Fprint(os.Stderr, err.Error())
+		fmt.Fprint(os.Stderr, err.Error()+"\n")
 		os.Exit(1)
 	}
 }

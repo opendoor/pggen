@@ -135,6 +135,25 @@ CREATE TABLE array_members (
     int_array int[]
 );
 
+CREATE TABLE timestamps_both (
+    id SERIAL PRIMARY KEY,
+    created_at timestamp,
+    updated_at timestamp NOT NULL,
+    payload text
+);
+
+CREATE TABLE timestamps_just_created (
+    id SERIAL PRIMARY KEY,
+    made_at timestamp NOT NULL,
+    payload text
+);
+
+CREATE TABLE timestamps_just_updated (
+    id SERIAL PRIMARY KEY,
+    last_touched timestamp with time zone,
+    payload text
+);
+
 -- SQL has the best identifier rules. Sigh. Let's support them.
 -- At least you don't seem to be able to start with a number
 -- without quoting.

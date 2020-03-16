@@ -130,40 +130,11 @@ func (g *Generator) Gen() error {
 		return nil
 	}
 
-	g.infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
-	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)
+	conf, err := g.setupGenEnv()
 	if err != nil {
 		return err
 	}
 
-	// parse the config file
-	var conf dbConfig
-	tomlMd, err := toml.Decode(string(confData), &conf)
-	if err != nil {
-		return fmt.Errorf("while parsing config file: %s", err.Error())
-	}
-	for _, unknownKey := range tomlMd.Undecoded() {
-		fmt.Fprintf(
-			os.Stderr,
-			"WARN: unknown config file key: '%s'\n",
-			unknownKey.String(),
-		)
-	}
-
-	// Apply the type overrides
-	err = g.initTypeTable(conf.TypeOverrides)
-	if err != nil {
-		return err
-	}
-
-	// Place metadata about all tables in a hashtable to later
-	// access by the table and query generation phases.
-	err = g.populateTableInfo(conf.Tables)
-	if err != nil {
-		return err
-	}
-
-	// emit the prelude
 	err = g.genPrelude()
 	if err != nil {
 		return err
@@ -198,7 +169,7 @@ func (g *Generator) Gen() error {
 	}
 
 	//
-	// Write the generate code to the file
+	// Write the generated code to the file
 	//
 
 	// set up output
@@ -252,4 +223,45 @@ import (
 	}
 
 	return nil
+}
+
+func (g *Generator) setupGenEnv() (*dbConfig, error) {
+	g.infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
+	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse the config file
+	var conf dbConfig
+	tomlMd, err := toml.Decode(string(confData), &conf)
+	if err != nil {
+		return nil, fmt.Errorf("while parsing config file: %s", err.Error())
+	}
+	for _, unknownKey := range tomlMd.Undecoded() {
+		fmt.Fprintf(
+			os.Stderr,
+			"WARN: unknown config file key: '%s'\n",
+			unknownKey.String(),
+		)
+	}
+	err = conf.normalize()
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply the type overrides
+	err = g.initTypeTable(conf.TypeOverrides)
+	if err != nil {
+		return nil, err
+	}
+
+	// Place metadata about all tables in a hashtable to later
+	// access by the table and query generation phases.
+	err = g.populateTableInfo(conf.Tables)
+	if err != nil {
+		return nil, err
+	}
+
+	return &conf, nil
 }

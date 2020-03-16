@@ -3,6 +3,14 @@ package gen
 // The configuration file format used to specify the database objects
 // to generate code for.
 type dbConfig struct {
+	// The name of the field that should be updated by pggen's generated
+	// `Insert` methods. Overridden by the config option of the same name
+	// on tableConfig.
+	CreatedAtField string `toml:"created_at_field"`
+	// The name of the field that should be updated by pggen's generated
+	// `Update` and `Insert` methods. Overridden by the config option of
+	// the same name on tableConfig.
+	UpdatedAtField  string             `toml:"updated_at_field"`
 	TypeOverrides   []typeOverride     `toml:"type_override"`
 	StoredFunctions []storedFuncConfig `toml:"stored_function"`
 	Queries         []queryConfig      `toml:"query"`
@@ -97,6 +105,11 @@ type tableConfig struct {
 	NoInferBelongsTo bool `toml:"no_infer_belongs_to"`
 	// A list of tables that this table belongs to
 	BelongsTo []belongsTo `toml:"belongs_to"`
+	// The timestamp to update in `Insert`. Overriddes global version.
+	CreatedAtField string `toml:"created_at_field"`
+	// The timestamp to update in `Update` and `Insert`.
+	// Overriddes global version.
+	UpdatedAtField string `toml:"updated_at_field"`
 }
 
 // An explicitly configured foreign key relationship which can be attached
@@ -109,4 +122,23 @@ type belongsTo struct {
 	KeyField string `toml:"key_field"`
 	// If true the owning table has at most one of this table
 	OneToOne bool `toml:"one_to_one"`
+}
+
+// Given a user provided configuration, convert it into a nomralized form that
+// is suitable for use by pggen.
+//
+// In particular we:
+//   - resolve timestamp overrides and inheritance
+func (c *dbConfig) normalize() error {
+	for _, tc := range c.Tables {
+		if len(tc.CreatedAtField) == 0 && len(c.CreatedAtField) > 0 {
+			tc.CreatedAtField = c.CreatedAtField
+		}
+
+		if len(tc.UpdatedAtField) == 0 && len(c.UpdatedAtField) > 0 {
+			tc.UpdatedAtField = c.UpdatedAtField
+		}
+	}
+
+	return nil
 }

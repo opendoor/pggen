@@ -270,7 +270,15 @@
 [[table]]
     name = "array_members"
 
-# TODO: it would be nice to support `INSERT ... RETURNING ...` queries, but
-#       that breaks the way that we use tmp views to infer the result types
-#       of queries. At the very least we should throw an error for queries
-#       that don't start with SELECT
+[[table]]
+    name = "timestamps_both"
+    created_at_field = "created_at"
+    updated_at_field = "updated_at"
+
+[[table]]
+    name = "timestamps_just_created"
+    created_at_field = "made_at"
+
+[[table]]
+    name = "timestamps_just_updated"
+    updated_at_field = "last_touched"

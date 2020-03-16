@@ -304,6 +304,32 @@ in the configuration file
         - An include spec specifying all decendant tables for use with the <Entity>FillIncludes
           method.
 
+#### Special Fields
+
+Mostly, `pggen` doesn't know anything about the semantics about the fields of the tables
+it generates code for, it just generates type safe converters for the fields and leaves
+the semantics up to higher level code. There are a few types of fields that `pggen` will
+manipulate or rely on though.
+
+##### Primary Keys
+
+Every table that `pggen` generates a model for must have exactly one primary key field.
+This is needed in order to generate all the appropriate CRUD methods, as well as for
+resolving relationships between tables.
+
+##### Foreign Keys
+
+`pggen` will infer relationships between tables based on the foreign key constraints
+established between different tables in postgres.
+
+##### Timestamps
+
+It is very common for database objects to have some timestamps associated with them for
+tracking the life cycle of the object. By default, `pggen` won't do anything with timestamps,
+but if the `created_at_field` or `updated_at_field` keys are set, either globally or on a
+specific table in the toml file, `pggen` will generate `Update` and `Insert` methods that
+automatically keep the corresponding timestamp fields up to date.
+
 #### Relationships Between Tables
 
 In addition to generating code to make working with the fields of a single struct easy,

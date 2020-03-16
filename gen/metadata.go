@@ -409,11 +409,15 @@ type tableMeta struct {
 	PgName string
 	GoName string
 	// metadata for the primary key column
-	PkeyCol       *colMeta
-	NumNonPrimary int
-	Cols          []colMeta
+	PkeyCol *colMeta
+	// Metadata about the tables columns
+	Cols []colMeta
 	// A list of the postgres names of tables which reference this one
 	References []refMeta
+	// If true, this table does have an update timestamp field
+	HasUpdateAtField bool
+	// If true, this table does have a create timestamp field
+	HasCreatedAtField bool
 }
 
 // colMeta contains metadata about postgres table columns such column

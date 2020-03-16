@@ -37,23 +37,47 @@ func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
 }
 
 type tableGenCtx struct {
-	PgName         string
-	GoName         string
-	PkeyCol        *colMeta
-	NumNonPrimary  int
-	Cols           []colMeta
-	References     []refMeta
-	AllIncludeSpec string
+	// taken from tableMeta
+	PgName string
+	// taken from tableMeta
+	GoName string
+	// taken from tableMeta
+	PkeyCol *colMeta
+	// taken from tableMeta
+	Cols []colMeta
+	// taken from tableMeta
+	References []refMeta
+	// The include spec which represents the transitive closure of
+	// this tables family
+	AllIncludeSpec           string
+	HasCreatedAtField        bool
+	CreatedAtFieldIsNullable bool
+	CreatedAtHasTimezone     bool
+	CreatedAtField           string
+	HasUpdatedAtField        bool
+	UpdatedAtHasTimezone     bool
+	UpdatedAtFieldIsNullable bool
+	UpdatedAtField           string
 }
 
-func tableGenCtxFromMeta(meta tableMeta) tableGenCtx {
+func tableGenCtxFromInfo(info *tableGenInfo) tableGenCtx {
 	return tableGenCtx{
-		PgName:        meta.PgName,
-		GoName:        meta.GoName,
-		PkeyCol:       meta.PkeyCol,
-		NumNonPrimary: meta.NumNonPrimary,
-		Cols:          meta.Cols,
-		References:    meta.References,
+		PgName:         info.meta.PgName,
+		GoName:         info.meta.GoName,
+		PkeyCol:        info.meta.PkeyCol,
+		Cols:           info.meta.Cols,
+		References:     info.meta.References,
+		AllIncludeSpec: info.allIncludeSpec.String(),
+
+		HasCreatedAtField:        info.hasCreatedAtField,
+		CreatedAtField:           pgToGoName(info.config.CreatedAtField),
+		CreatedAtFieldIsNullable: info.createdAtFieldIsNullable,
+		CreatedAtHasTimezone:     info.createdAtHasTimezone,
+
+		HasUpdatedAtField:        info.hasUpdateAtField,
+		UpdatedAtField:           pgToGoName(info.config.UpdatedAtField),
+		UpdatedAtFieldIsNullable: info.updatedAtFieldIsNullable,
+		UpdatedAtHasTimezone:     info.updatedAtHasTimezone,
 	}
 }
 
@@ -71,7 +95,7 @@ func (g *Generator) genTable(
 
 	tableInfo := g.tables[table.Name]
 
-	genCtx := tableGenCtxFromMeta(tableInfo.meta)
+	genCtx := tableGenCtxFromInfo(tableInfo)
 	if genCtx.PkeyCol == nil {
 		err = fmt.Errorf("no primary key for table")
 		return
@@ -103,7 +127,9 @@ func (g *Generator) genTable(
 		g.tables[table.Name].explicitBelongsTo...,
 	)
 
-	genCtx.AllIncludeSpec = tableInfo.allIncludeSpec.String()
+	if tableInfo.hasUpdateAtField || tableInfo.hasCreatedAtField {
+		g.imports[`"time"`] = true
+	}
 
 	// Emit the type seperately to prevent double defintions
 	var tableType strings.Builder
@@ -281,6 +307,44 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 		{{- end }}
 	}
 
+	{{- if (or .HasCreatedAtField .HasUpdatedAtField) }}
+	var now time.Time
+	{{- end }}
+
+	{{- if .HasCreatedAtField }}
+	{{- if .CreatedAtHasTimezone }}
+	now = time.Now()
+	{{- else }}
+	now = time.Now().UTC()
+	{{- end }}
+	for i, _ := range values {
+		{{- if .HasCreatedAtField }}
+		{{- if .CreatedAtFieldIsNullable }}
+		values[i].{{ .CreatedAtField }} = &now
+		{{- else }}
+		values[i].{{ .CreatedAtField }} = now
+		{{- end }}
+		{{- end }}
+	}
+	{{- end }}
+
+	{{- if .HasUpdatedAtField }}
+	{{- if .UpdatedAtHasTimezone }}
+	now = time.Now()
+	{{- else }}
+	now = time.Now().UTC()
+	{{- end}}
+	for i, _ := range values {
+		{{- if .HasUpdatedAtField }}
+		{{- if .UpdatedAtFieldIsNullable }}
+		values[i].{{ .UpdatedAtField }} = &now
+		{{- else }}
+		values[i].{{ .UpdatedAtField }} = now
+		{{- end }}
+		{{- end }}
+	}
+	{{- end }}
+
 	args := make([]interface{}, {{ len .Cols }} * len(values))[:0]
 	for _, v := range values {
 		{{- range .Cols }}
@@ -348,6 +412,20 @@ func (p *PGClient) Update{{ .GoName }}(
 		err = fmt.Errorf("primary key required for updates to '{{ .PgName }}'")
 		return
 	}
+
+	{{- if .HasUpdatedAtField }}
+	{{- if .UpdatedAtHasTimezone }}
+	now := time.Now()
+	{{- else }}
+	now := time.Now().UTC()
+	{{- end }}
+	{{- if .UpdatedAtFieldIsNullable }}
+	value.{{ .UpdatedAtField }} = &now
+	{{- else }}
+	value.{{ .UpdatedAtField }} = now
+	{{- end }}
+	fieldMask.Set({{ .GoName }}{{ .UpdatedAtField }}FieldIndex, true)
+	{{- end }}
 
 	updateStmt := genUpdateStmt(
 		"{{ .PgName }}",
@@ -545,8 +623,23 @@ type tableGenInfo struct {
 	// Table relationships that have been explicitly configured
 	// rather than infered from the database schema itself.
 	explicitBelongsTo []refMeta
-	allIncludeSpec    *include.Spec
-	meta              tableMeta
+	// The include spec which represents the transitive closure of
+	// this tables family
+	allIncludeSpec *include.Spec
+	// If true, this table does have an update timestamp field
+	hasUpdateAtField bool
+	// True if the update at field can be null
+	updatedAtFieldIsNullable bool
+	// True if the updated at field has a time zone
+	updatedAtHasTimezone bool
+	// If true, this table does have a create timestamp field
+	hasCreatedAtField bool
+	// True if the created at field can be null
+	createdAtFieldIsNullable bool
+	// True if the created at field has a time zone
+	createdAtHasTimezone bool
+	// The table metadata as postgres reports it
+	meta tableMeta
 }
 
 // nullFlags computes the null flags specifying the nullness of this
@@ -593,7 +686,35 @@ func (g *Generator) populateTableInfo(tables []tableConfig) error {
 		}
 	}
 
+	for _, info := range g.tables {
+		setTimestampFlags(info)
+	}
+
 	return nil
+}
+
+func setTimestampFlags(info *tableGenInfo) {
+	if len(info.config.CreatedAtField) > 0 {
+		for _, cm := range info.meta.Cols {
+			if cm.PgName == info.config.CreatedAtField {
+				info.hasCreatedAtField = true
+				info.createdAtFieldIsNullable = cm.Nullable
+				info.createdAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+				break
+			}
+		}
+	}
+
+	if len(info.config.UpdatedAtField) > 0 {
+		for _, cm := range info.meta.Cols {
+			if cm.PgName == info.config.UpdatedAtField {
+				info.hasUpdateAtField = true
+				info.updatedAtFieldIsNullable = cm.Nullable
+				info.updatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+				break
+			}
+		}
+	}
 }
 
 func ensureSpec(tables map[string]*tableGenInfo, info *tableGenInfo) error {

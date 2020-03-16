@@ -291,6 +291,9 @@ type goTypeInfo struct {
 	// Given a variable name, SqlArgument must return an appropriate wrapper
 	// around that variable which can be passed as a parameter to `sql.Query`
 	SqlArgument func(string) string
+	// If this is a timestamp type, it has a time zone, otherwise this field
+	// is meaningless.
+	IsTimestampWithZone bool
 }
 
 func idWrap(variable string) string {
@@ -374,10 +377,22 @@ var timeGoTypeInfo goTypeInfo = goTypeInfo{
 	Name:            "time.Time",
 	NullName:        "*time.Time",
 	ScanNullName:    "pggenNullTime",
-	ScanNullPkg:     `"database/sql"`,
+	ScanNullPkg:     "",
 	NullConvertFunc: convertCall("convertNullTime"),
 	SqlReceiver:     refWrap,
 	SqlArgument:     idWrap,
+}
+
+var timezGoTypeInfo goTypeInfo = goTypeInfo{
+	Pkg:                 `"time"`,
+	Name:                "time.Time",
+	NullName:            "*time.Time",
+	ScanNullName:        "pggenNullTime",
+	ScanNullPkg:         "",
+	NullConvertFunc:     convertCall("convertNullTime"),
+	SqlReceiver:         refWrap,
+	SqlArgument:         idWrap,
+	IsTimestampWithZone: true,
 }
 
 var int64GoTypeInfo goTypeInfo = goTypeInfo{
@@ -441,9 +456,9 @@ var defaultPgType2GoType = map[string]*goTypeInfo{
 	"money": &stringGoTypeInfo,
 
 	"time without time zone":      &timeGoTypeInfo,
-	"time with time zone":         &timeGoTypeInfo,
+	"time with time zone":         &timezGoTypeInfo,
 	"timestamp without time zone": &timeGoTypeInfo,
-	"timestamp with time zone":    &timeGoTypeInfo,
+	"timestamp with time zone":    &timezGoTypeInfo,
 	"date":                        &timeGoTypeInfo,
 
 	"boolean": &boolGoTypeInfo,
