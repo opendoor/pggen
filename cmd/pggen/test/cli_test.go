@@ -227,6 +227,24 @@ name = "small_entities"
 		exitCode: 0,
 		stdoutRE: "doing nothing because a disable var matched",
 	},
+	{
+		toml: `
+[[table]]
+    name = "timestamps_both"
+	created_at_field = "does_not_exist"
+		`,
+		exitCode: 0,
+		stderrRE: "WARN.*no.*does_not_exist.*created at",
+	},
+	{
+		toml: `
+[[table]]
+    name = "timestamps_both"
+	updated_at_field = "does_not_exist"
+		`,
+		exitCode: 0,
+		stderrRE: "WARN.*no.*does_not_exist.*updated at",
+	},
 }
 
 func TestCLI(t *testing.T) {

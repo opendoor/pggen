@@ -687,13 +687,13 @@ func (g *Generator) populateTableInfo(tables []tableConfig) error {
 	}
 
 	for _, info := range g.tables {
-		setTimestampFlags(info)
+		g.setTimestampFlags(info)
 	}
 
 	return nil
 }
 
-func setTimestampFlags(info *tableGenInfo) {
+func (g *Generator) setTimestampFlags(info *tableGenInfo) {
 	if len(info.config.CreatedAtField) > 0 {
 		for _, cm := range info.meta.Cols {
 			if cm.PgName == info.config.CreatedAtField {
@@ -702,6 +702,14 @@ func setTimestampFlags(info *tableGenInfo) {
 				info.createdAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
 				break
 			}
+		}
+
+		if !info.hasCreatedAtField {
+			g.warnf(
+				"table '%s' has no '%s' created at timestamp\n",
+				info.config.Name,
+				info.config.CreatedAtField,
+			)
 		}
 	}
 
@@ -713,6 +721,14 @@ func setTimestampFlags(info *tableGenInfo) {
 				info.updatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
 				break
 			}
+		}
+
+		if !info.hasUpdateAtField {
+			g.warnf(
+				"table '%s' has no '%s' updated at timestamp\n",
+				info.config.Name,
+				info.config.UpdatedAtField,
+			)
 		}
 	}
 }

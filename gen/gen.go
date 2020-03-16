@@ -77,6 +77,16 @@ func (g *Generator) infof(format string, a ...interface{}) {
 	g.info(fmt.Sprintf(format, a...))
 }
 
+func (g *Generator) warn(output string) {
+	if g.config.Verbosity >= -1 {
+		fmt.Fprint(os.Stderr, output)
+	}
+}
+
+func (g *Generator) warnf(format string, a ...interface{}) {
+	g.warn(fmt.Sprintf("WARN: "+format, a...))
+}
+
 func FromConfig(config Config) (*Generator, error) {
 	if anyVarPatternMatches(config.DisableVars) {
 		return &Generator{disabled: true}, nil
