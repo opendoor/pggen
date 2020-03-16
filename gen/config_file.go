@@ -130,13 +130,13 @@ type belongsTo struct {
 // In particular we:
 //   - resolve timestamp overrides and inheritance
 func (c *dbConfig) normalize() error {
-	for _, tc := range c.Tables {
+	for i, tc := range c.Tables {
 		if len(tc.CreatedAtField) == 0 && len(c.CreatedAtField) > 0 {
-			tc.CreatedAtField = c.CreatedAtField
+			c.Tables[i].CreatedAtField = c.CreatedAtField
 		}
 
 		if len(tc.UpdatedAtField) == 0 && len(c.UpdatedAtField) > 0 {
-			tc.UpdatedAtField = c.UpdatedAtField
+			c.Tables[i].UpdatedAtField = c.UpdatedAtField
 		}
 	}
 

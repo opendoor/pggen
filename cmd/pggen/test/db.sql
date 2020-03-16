@@ -142,6 +142,13 @@ CREATE TABLE timestamps_both (
     payload text
 );
 
+CREATE TABLE timestamps_global (
+    id SERIAL PRIMARY KEY,
+    created_at timestamp,
+    updated_at timestamp NOT NULL,
+    payload text
+);
+
 CREATE TABLE timestamps_just_created (
     id SERIAL PRIMARY KEY,
     made_at timestamp NOT NULL,

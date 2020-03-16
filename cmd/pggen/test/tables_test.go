@@ -563,3 +563,31 @@ func TestTimestampsJustUpdated(t *testing.T) {
 		)
 	}
 }
+
+func TestTimestampsGlobal(t *testing.T) {
+	txClient := newTx(t)
+	defer func() {
+		_ = txClient.DB.(*sql.Tx).Rollback()
+	}()
+
+	now := time.Now()
+	blah := "blah"
+	id, err := txClient.InsertTimestampsGlobal(ctx, &db_shims.TimestampsGlobal{
+		Payload: &blah,
+	})
+	chkErr(t, err)
+
+	fetched, err := txClient.GetTimestampsGlobal(ctx, id)
+	chkErr(t, err)
+
+	if !fetched.UpdatedAt.Equal(*fetched.CreatedAt) {
+		t.Fatalf("expeced same updated and created timestamps")
+	}
+
+	if now.Add(-time.Second).After(fetched.UpdatedAt) {
+		t.Fatalf("1 expected timestamp within about a second")
+	}
+	if now.Add(time.Second).Before(fetched.UpdatedAt) {
+		t.Fatalf("2 expected timestamp within about a second")
+	}
+}

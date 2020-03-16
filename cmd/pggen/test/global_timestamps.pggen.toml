@@ -1,0 +1,6 @@
+
+created_at_field = "created_at"
+updated_at_field = "updated_at"
+
+[[table]]
+    name = "timestamps_global"
