@@ -317,7 +317,7 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 	{{- else }}
 	now = time.Now().UTC()
 	{{- end }}
-	for i, _ := range values {
+	for i := range values {
 		{{- if .HasCreatedAtField }}
 		{{- if .CreatedAtFieldIsNullable }}
 		values[i].{{ .CreatedAtField }} = &now
@@ -334,7 +334,7 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 	{{- else }}
 	now = time.Now().UTC()
 	{{- end}}
-	for i, _ := range values {
+	for i := range values {
 		{{- if .HasUpdatedAtField }}
 		{{- if .UpdatedAtFieldIsNullable }}
 		values[i].{{ .UpdatedAtField }} = &now

@@ -2,12 +2,29 @@ package gen
 
 import (
 	"fmt"
+	"go/format"
 	"io"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
 )
+
+func writeGoFile(path string, src []byte) error {
+	outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	formatedSrc, err := format.Source(src)
+	if err != nil {
+		return fmt.Errorf("internal pggen error: %s", err.Error())
+	}
+
+	return writeCompletely(outFile, formatedSrc)
+}
 
 func writeCompletely(w io.Writer, data []byte) error {
 	for len(data) > 0 {

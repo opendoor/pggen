@@ -1,21 +1,13 @@
 package gen
 
 import (
-	"bufio"
-	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
 func (g *Generator) genPrelude() error {
-	preludeName := filepath.Join(filepath.Dir(g.config.OutputFileName), "pggen_prelude.gen.go")
-	outFile, err := os.OpenFile(preludeName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-	out := bufio.NewWriter(outFile)
-	defer out.Flush()
+	var out strings.Builder
 
 	type PreludeTmplCtx struct {
 		Pkg string
@@ -23,7 +15,13 @@ func (g *Generator) genPrelude() error {
 	tmplCtx := PreludeTmplCtx{
 		Pkg: g.pkg,
 	}
-	return preludeTmpl.Execute(out, tmplCtx)
+	err := preludeTmpl.Execute(&out, tmplCtx)
+	if err != nil {
+		return err
+	}
+
+	preludeName := filepath.Join(filepath.Dir(g.config.OutputFileName), "pggen_prelude.gen.go")
+	return writeGoFile(preludeName, []byte(out.String()))
 }
 
 var preludeTmpl *template.Template = template.Must(template.New("prelude-tmpl").Parse(`
