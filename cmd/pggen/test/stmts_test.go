@@ -1,17 +1,17 @@
 package test
 
 import (
-	"database/sql"
 	"testing"
 )
 
 func TestStmtInsertSmallEntity(t *testing.T) {
-	txClient := newTx(t)
+	err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
 	defer func() {
-		_ = txClient.DB.(*sql.Tx).Rollback()
+		_ = pgClient.Rollback()
 	}()
 
-	res, err := txClient.StmtInsertSmallEntity(ctx, 719)
+	res, err := pgClient.StmtInsertSmallEntity(ctx, 719)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestStmtInsertSmallEntity(t *testing.T) {
 		t.Fatalf("expected 1 row to be affected (actually %d)", nrows)
 	}
 
-	smallEntities, err := txClient.GetSmallEntityByAnint(ctx, 719)
+	smallEntities, err := pgClient.GetSmallEntityByAnint(ctx, 719)
 	if err != nil {
 		t.Fatal(err)
 	}

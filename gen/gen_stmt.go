@@ -45,7 +45,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end}}
 ) (sql.Result, error) {
-	return p.DB.ExecContext(
+	return p.db.ExecContext(
 		ctx,
 		` + "`" +
 	`{{ .ConfigData.Body }}` +

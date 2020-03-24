@@ -161,6 +161,15 @@ CREATE TABLE timestamps_just_updated (
     payload text
 );
 
+-- pggen ought not rely on the column ordering of a table, as migrations
+-- might not have been applied exactly in order.
+CREATE TABLE col_order (
+    id SERIAL PRIMARY KEY,
+    field1 text NOT NULL,
+    field2 int NOT NULL,
+    field3 int NOT NULL
+);
+
 -- SQL has the best identifier rules. Sigh. Let's support them.
 -- At least you don't seem to be able to start with a number
 -- without quoting.

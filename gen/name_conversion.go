@@ -3,6 +3,8 @@ package gen
 import (
 	"strings"
 	"unicode"
+
+	"github.com/jinzhu/inflection"
 )
 
 //
@@ -11,6 +13,10 @@ import (
 // These utility functions are used for munging the names associated
 // with a given stored function or prepared statement.
 //
+
+func pgTableToGoModel(tableName string) string {
+	return pgToGoName(inflection.Singular(tableName))
+}
 
 // Convert a postgres name (assumed to be snake_case)
 // to a PascalCaseName

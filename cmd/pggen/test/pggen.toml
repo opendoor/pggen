@@ -282,3 +282,6 @@
 [[table]]
     name = "timestamps_just_updated"
     updated_at_field = "last_touched"
+
+[[table]]
+    name = "col_order"

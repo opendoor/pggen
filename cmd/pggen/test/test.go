@@ -15,7 +15,7 @@ import (
 
 var (
 	ctx      context.Context
-	pgClient db_shims.PGClient
+	pgClient *db_shims.PGClient
 	dbURL    string
 )
 
@@ -30,7 +30,7 @@ func init() {
 		log.Fatal(err)
 	}
 
-	pgClient = db_shims.PGClient{DB: db}
+	pgClient = db_shims.NewPGClient(db)
 	ctx = context.Background()
 }
 
@@ -57,14 +57,6 @@ func (e Expectation) test(t *testing.T) {
 	if !matched {
 		t.Errorf("\nExpected Regex: %s\nText: %s\n", e.expected, actualTxt)
 	}
-}
-
-func newTx(t *testing.T) db_shims.PGClient {
-	tx, err := pgClient.DB.(*sql.DB).Begin()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return db_shims.PGClient{DB: tx}
 }
 
 func chkErr(t *testing.T, err error) {

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"database/sql"
 	"reflect"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestOverriddenGetTimes(t *testing.T) {
-	overriddenPgClient := overridden_db_shims.PGClient{DB: pgClient.DB}
+	overriddenPgClient := overridden_db_shims.NewPGClient(pgClient.Handle().(*sql.DB))
 
 	res, err := overriddenPgClient.GetTimes(ctx)
 	chkErr(t, err)
@@ -28,7 +29,7 @@ func TestOverriddenGetTimes(t *testing.T) {
 }
 
 func TestOverriddenSelectUUID(t *testing.T) {
-	overriddenPgClient := overridden_db_shims.PGClient{DB: pgClient.DB}
+	overriddenPgClient := overridden_db_shims.NewPGClient(pgClient.Handle().(*sql.DB))
 
 	res, err := overriddenPgClient.SelectUuid(ctx)
 	chkErr(t, err)

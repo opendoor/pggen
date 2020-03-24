@@ -95,7 +95,7 @@ type {{ .ReturnTypeName }} struct {
 	{{- end }}
 	{{- end }}
 }
-func (r *{{ .ReturnTypeName }}) Scan(rs *sql.Rows) error {
+func (r *{{ .ReturnTypeName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 	{{- range .ReturnCols }}
 	{{- if .Nullable }}
 	var scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
@@ -161,7 +161,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	for rows.Next() {
 		var row {{ .ReturnTypeName }}
 		{{- if .MultiReturn }}
-		err = row.Scan(rows)
+		err = row.Scan(ctx, p, rows)
 		{{- else }}
 		{{- if (index .ReturnCols 0).Nullable }}
 		var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
@@ -188,7 +188,7 @@ func (p *PGClient) {{ .ConfigData.Name }}Query(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end}}
 ) (*sql.Rows, error) {
-	return p.DB.QueryContext(
+	return p.db.QueryContext(
 		ctx,
 		` + "`" +
 	`{{ .ConfigData.Body }}` +

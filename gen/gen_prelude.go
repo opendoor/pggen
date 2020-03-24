@@ -30,6 +30,7 @@ var preludeTmpl *template.Template = template.Must(template.New("prelude-tmpl").
 package {{ .Pkg }}
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -39,12 +40,6 @@ import (
 
 	"github.com/opendoor-labs/pggen"
 )
-
-// PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
-// database access methods for package {{ .Pkg }} are attached to it.
-type PGClient struct {
-	DB pggen.DBHandle
-}
 
 func genBulkInsert(
 	table string,
@@ -152,6 +147,62 @@ func genUpdateStmt(
 func parenWrap(in string) string {
 	return "(" + in + ")"
 }
+
+func (p *PGClient) fillColPosTab(
+	ctx context.Context,
+	genTimeColIdxTab map[string]int,
+	tableName string,
+	tab *[]int, // out
+) error {
+	rows, err := p.topLevelDB.QueryContext(ctx, ` + "`" + `
+		SELECT a.attname, a.attnum
+		FROM pg_attribute a
+		JOIN pg_class c ON (c.oid = a.attrelid)
+		WHERE c.relname = $1 AND a.attnum > 0
+	` + "`" + `, tableName)
+	if err != nil {
+		return err
+	}
+
+	type idxMapping struct {
+		gen int
+		run int
+	}
+	indicies := []idxMapping{}
+
+	for rows.Next() {
+		var (
+			colName string
+			colNum int
+		)
+
+		err = rows.Scan(&colName, &colNum)
+		if err != nil {
+			return err
+		}
+
+		genIdx, ok := genTimeColIdxTab[colName]
+		if !ok {
+			return fmt.Errorf(
+				"ensure col pos tab for '%s': unknown column '%s'",
+				tableName,
+				colName,
+			)
+		}
+
+		// shift the indicies to be 0 based
+		indicies = append(indicies, idxMapping{ gen: genIdx - 1, run: colNum - 1 })
+	}
+
+	posTab := make([]int, len(indicies))
+	for _, mapping := range indicies {
+		posTab[mapping.gen] = mapping.run
+	}
+	*tab = posTab
+
+	return nil
+}
+
 
 func convertNullString(s sql.NullString) *string {
 	if s.Valid {

@@ -180,33 +180,69 @@ type {{ .GoName }} struct {
 	{{- end }}
 	{{- end }}
 }
-func (r *{{ .GoName }}) Scan(rs *sql.Rows) error {
-	{{- range .Cols }}
-	{{- if .Nullable }}
-	var scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
-	{{- end }}
-	{{- end }}
+func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	if client.colIdxTabFor{{ .GoName }} == nil {
+		err := client.fillColPosTab(
+			ctx,
+			genTimeColIdxTabFor{{ .GoName }},
+			` + "`" + `{{ .PgName }}` + "`" + `,
+			&client.colIdxTabFor{{ .GoName }},
+		)
+		if err != nil {
+			return err
+		}
+	}
 
-	err := rs.Scan(
-		{{- range .Cols }}
-		{{- if .Nullable }}
-		{{ call .TypeInfo.SqlReceiver (printf "scan%s" .GoName) }},
-		{{- else }}
-		{{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }},
-		{{- end }}
-		{{- end }}
-	)
+	var nullableTgts nullableScanTgtsFor{{ .GoName }}
+
+	scanTgts := make([]interface{}, len(client.colIdxTabFor{{ .GoName }}))
+	for genIdx, runIdx := range client.colIdxTabFor{{ .GoName }} {
+		scanTgts[runIdx] = scannerTabFor{{ .GoName }}[genIdx](r, &nullableTgts)
+	}
+
+	err := rs.Scan(scanTgts...)
 	if err != nil {
 		return err
 	}
 
 	{{- range .Cols }}
 	{{- if .Nullable }}
-	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "scan%s" .GoName) }}
+	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "nullableTgts.scan%s" .GoName) }}
 	{{- end }}
 	{{- end }}
 
 	return nil
+}
+
+type nullableScanTgtsFor{{ .GoName }} struct {
+	{{- range .Cols }}
+	{{- if .Nullable }}
+	scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
+	{{- end }}
+	{{- end }}
+}
+
+// a table mapping codegen-time col indicies to functions returning a scanner for the
+// field that was at that column index at codegen-time.
+var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{{ .GoName }}) interface{} {
+	{{- range .Cols }}
+	({{ .ColNum }} - 1): func (
+		r *{{ $.GoName }},
+		nullableTgts *nullableScanTgtsFor{{ $.GoName }},
+	) interface{} {
+		{{- if .Nullable }}
+		return {{ call .TypeInfo.SqlReceiver (printf "nullableTgts.scan%s" .GoName) }}
+		{{- else }}
+		return {{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }}
+		{{- end }}
+	},
+	{{- end }}
+}
+
+var genTimeColIdxTabFor{{ .GoName }} map[string]int = map[string]int{
+	{{- range .Cols }}
+	` + "`" + `{{ .PgName }}` + "`" + `: {{ .ColNum }},
+	{{- end }}
 }
 `))
 
@@ -230,7 +266,7 @@ func (p *PGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) (ret []{{ .GoName }}, err error) {
-	rows, err := p.DB.QueryContext(
+	rows, err := p.db.QueryContext(
 		ctx,
 		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
 		pq.Array(ids),
@@ -255,7 +291,7 @@ func (p *PGClient) List{{ .GoName }}(
 	ret = make([]{{ .GoName }}, len(ids))[:0]
 	for rows.Next() {
 		var value {{ .GoName }}
-		err = value.Scan(rows)
+		err = value.Scan(ctx, p, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -361,13 +397,13 @@ func (p *PGClient) BulkInsert{{ .GoName }}(
 		"{{ .PkeyCol.PgName }}",
 	)
 
-	rows, err := p.DB.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	ids := make([]{{ .PkeyCol.TypeInfo.Name }}, len(values))[:0]
+	ids := make([]{{ .PkeyCol.TypeInfo.Name }}, 0, len(values))
 	for rows.Next() {
 		var id {{ .PkeyCol.TypeInfo.Name }}
 		err = rows.Scan({{ call .PkeyCol.TypeInfo.SqlReceiver "id" }})
@@ -435,7 +471,7 @@ func (p *PGClient) Update{{ .GoName }}(
 		"{{ .PkeyCol.PgName }}",
 	)
 
-	args := make([]interface{}, {{ len .Cols }})[:0]
+	args := make([]interface{}, 0, {{ len .Cols }})
 
 	{{- range .Cols }}
 	if fieldMask.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
@@ -447,7 +483,7 @@ func (p *PGClient) Update{{ .GoName }}(
 	args = append(args, value.{{ .PkeyCol.GoName }})
 
 	var id {{ .PkeyCol.TypeInfo.Name }}
-	err = p.DB.QueryRowContext(ctx, updateStmt, args...).
+	err = p.db.QueryRowContext(ctx, updateStmt, args...).
                 Scan({{ call .PkeyCol.TypeInfo.SqlReceiver "id" }})
 	if err != nil {
 		return
@@ -467,7 +503,7 @@ func (p *PGClient) BulkDelete{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) error {
-	res, err := p.DB.ExecContext(
+	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
 		pq.Array(ids),
@@ -571,7 +607,7 @@ func (p *PGClient) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 		idToRecord[elem.{{ $.PkeyCol.GoName }}] = parentRecs[i]
 	}
 
-	rows, err := p.DB.QueryContext(
+	rows, err := p.db.QueryContext(
 		ctx,
 		` + "`" +
 	`SELECT * FROM "{{ .PgPointsFrom }}"
@@ -592,7 +628,7 @@ func (p *PGClient) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 	// the correct parent.
 	for rows.Next() {
 		var childRec {{ .GoPointsFrom }}
-		err = childRec.Scan(rows)
+		err = childRec.Scan(ctx, p, rows)
 		if err != nil {
 			return err
 		}

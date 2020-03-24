@@ -155,6 +155,11 @@ func (g *Generator) Gen() error {
 
 	var body strings.Builder
 
+	err = g.genPGClient(&body, conf.Tables)
+	if err != nil {
+		return err
+	}
+
 	// Tables must be generated first to ensure that the type for a table is generated
 	// by genTables rather than synthesized from a query result.
 	err = g.genTables(&body, conf.Tables)

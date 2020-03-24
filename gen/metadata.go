@@ -528,7 +528,7 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 
 	meta := tableMeta{
 		PgName:  table,
-		GoName:  pgToGoName(inflection.Singular(table)),
+		GoName:  pgTableToGoModel(table),
 		PkeyCol: pkeyCol,
 		Cols:    cols,
 	}
@@ -574,7 +574,7 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 		if err != nil {
 			return err
 		}
-		ref.GoPointsTo = pgToGoName(inflection.Singular(ref.PgPointsTo))
+		ref.GoPointsTo = pgTableToGoModel(ref.PgPointsTo)
 		ref.PluralGoPointsFrom = pgToGoName(ref.PgPointsFrom)
 		ref.GoPointsFrom = inflection.Singular(ref.PluralGoPointsFrom)
 

@@ -18,12 +18,12 @@ func writeGoFile(path string, src []byte) error {
 	}
 	defer outFile.Close()
 
-	formatedSrc, err := format.Source(src)
+	formattedSrc, err := format.Source(src)
 	if err != nil {
 		return fmt.Errorf("internal pggen error: %s", err.Error())
 	}
 
-	return writeCompletely(outFile, formatedSrc)
+	return writeCompletely(outFile, formattedSrc)
 }
 
 func writeCompletely(w io.Writer, data []byte) error {
