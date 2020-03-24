@@ -155,7 +155,7 @@ func (p *PGClient) fillColPosTab(
 	tab *[]int, // out
 ) error {
 	rows, err := p.topLevelDB.QueryContext(ctx, ` + "`" + `
-		SELECT a.attname, a.attnum
+		SELECT a.attname
 		FROM pg_attribute a
 		JOIN pg_class c ON (c.oid = a.attrelid)
 		WHERE a.attisdropped = false AND c.relname = $1 AND a.attnum > 0
@@ -170,13 +170,10 @@ func (p *PGClient) fillColPosTab(
 	}
 	indicies := []idxMapping{}
 
+	i := 0
 	for rows.Next() {
-		var (
-			colName string
-			colNum int
-		)
-
-		err = rows.Scan(&colName, &colNum)
+		var colName string
+		err = rows.Scan(&colName)
 		if err != nil {
 			return err
 		}
@@ -191,7 +188,8 @@ func (p *PGClient) fillColPosTab(
 		}
 
 		// shift the indicies to be 0 based
-		indicies = append(indicies, idxMapping{ gen: genIdx - 1, run: colNum - 1 })
+		indicies = append(indicies, idxMapping{ gen: genIdx, run: i })
+		i++
 	}
 
 	posTab := make([]int, len(indicies))

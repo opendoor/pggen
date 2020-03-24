@@ -166,9 +166,11 @@ CREATE TABLE timestamps_just_updated (
 CREATE TABLE col_order (
     id SERIAL PRIMARY KEY,
     field1 text NOT NULL,
+    dropped text,
     field2 int NOT NULL,
     field3 int NOT NULL
 );
+ALTER TABLE col_order DROP COLUMN dropped;
 
 -- SQL has the best identifier rules. Sigh. Let's support them.
 -- At least you don't seem to be able to start with a number

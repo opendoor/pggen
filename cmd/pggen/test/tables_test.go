@@ -614,8 +614,8 @@ func TestColOrdering(t *testing.T) {
 			field3 int NOT NULL,
 			id SERIAL PRIMARY KEY,
 			field2 int NOT NULL,
-			field1 text NOT NULL,
-			dropped text
+			dropped text,
+			field1 text NOT NULL
 		);
 		ALTER TABLE col_order DROP COLUMN dropped;
 	`)
@@ -626,9 +626,11 @@ func TestColOrdering(t *testing.T) {
 			CREATE TABLE col_order (
 				id SERIAL PRIMARY KEY,
 				field1 text NOT NULL,
+				dropped text,
 				field2 int NOT NULL,
 				field3 int NOT NULL
 			);
+			ALTER TABLE col_order DROP COLUMN dropped;
 		`)
 		chkErr(t, err)
 	}()

@@ -226,7 +226,7 @@ type nullableScanTgtsFor{{ .GoName }} struct {
 // field that was at that column index at codegen-time.
 var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{{ .GoName }}) interface{} {
 	{{- range .Cols }}
-	({{ .ColNum }} - 1): func (
+	func (
 		r *{{ $.GoName }},
 		nullableTgts *nullableScanTgtsFor{{ $.GoName }},
 	) interface{} {
@@ -240,8 +240,8 @@ var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{
 }
 
 var genTimeColIdxTabFor{{ .GoName }} map[string]int = map[string]int{
-	{{- range .Cols }}
-	` + "`" + `{{ .PgName }}` + "`" + `: {{ .ColNum }},
+	{{- range $i, $col := .Cols }}
+	` + "`" + `{{ $col.PgName }}` + "`" + `: {{ $i }},
 	{{- end }}
 }
 `))
