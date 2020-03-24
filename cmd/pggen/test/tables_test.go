@@ -614,8 +614,10 @@ func TestColOrdering(t *testing.T) {
 			field3 int NOT NULL,
 			id SERIAL PRIMARY KEY,
 			field2 int NOT NULL,
-			field1 text NOT NULL
+			field1 text NOT NULL,
+			dropped text
 		);
+		ALTER TABLE col_order DROP COLUMN dropped;
 	`)
 	chkErr(t, err)
 	defer func() {

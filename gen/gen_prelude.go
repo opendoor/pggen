@@ -158,7 +158,7 @@ func (p *PGClient) fillColPosTab(
 		SELECT a.attname, a.attnum
 		FROM pg_attribute a
 		JOIN pg_class c ON (c.oid = a.attrelid)
-		WHERE c.relname = $1 AND a.attnum > 0
+		WHERE a.attisdropped = false AND c.relname = $1 AND a.attnum > 0
 	` + "`" + `, tableName)
 	if err != nil {
 		return err
