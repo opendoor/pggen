@@ -450,6 +450,7 @@ var defaultPgType2GoType = map[string]*goTypeInfo{
 	"text":              &stringGoTypeInfo,
 	"character varying": &stringGoTypeInfo,
 	"bpchar":            &stringGoTypeInfo,
+	"citext":            &stringGoTypeInfo,
 
 	// There is no decimal type in go, so PG money types are returned
 	// as text.
