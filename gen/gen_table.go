@@ -252,6 +252,18 @@ func (p *PGClient) Get{{ .GoName }}(
 	ctx context.Context,
 	id {{ .PkeyCol.TypeInfo.Name }},
 ) (*{{ .GoName }}, error) {
+	return p.impl.Get{{ .GoName }}(ctx, id)
+}
+func (tx *TxPGClient) Get{{ .GoName }}(
+	ctx context.Context,
+	id {{ .PkeyCol.TypeInfo.Name }},
+) (*{{ .GoName }}, error) {
+	return tx.impl.Get{{ .GoName }}(ctx, id)
+}
+func (p *pgClientImpl) Get{{ .GoName }}(
+	ctx context.Context,
+	id {{ .PkeyCol.TypeInfo.Name }},
+) (*{{ .GoName }}, error) {
 	values, err := p.List{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
 	if err != nil {
 		return nil, err
@@ -263,6 +275,18 @@ func (p *PGClient) Get{{ .GoName }}(
 }
 
 func (p *PGClient) List{{ .GoName }}(
+	ctx context.Context,
+	ids []{{ .PkeyCol.TypeInfo.Name }},
+) (ret []{{ .GoName }}, err error) {
+	return p.impl.List{{ .GoName }}(ctx, ids)
+}
+func (tx *TxPGClient) List{{ .GoName }}(
+	ctx context.Context,
+	ids []{{ .PkeyCol.TypeInfo.Name }},
+) (ret []{{ .GoName }}, err error) {
+	return tx.impl.List{{ .GoName }}(ctx, ids)
+}
+func (p *pgClientImpl) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) (ret []{{ .GoName }}, err error) {
@@ -291,7 +315,7 @@ func (p *PGClient) List{{ .GoName }}(
 	ret = make([]{{ .GoName }}, len(ids))[:0]
 	for rows.Next() {
 		var value {{ .GoName }}
-		err = value.Scan(ctx, p, rows)
+		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -315,6 +339,22 @@ func (p *PGClient) Insert{{ .GoName }}(
 	ctx context.Context,
 	value *{{ .GoName }},
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
+	return p.impl.Insert{{ .GoName }}(ctx, value)
+}
+// Insert a {{ .GoName }} into the database. Returns the primary
+// key of the inserted row.
+func (tx *TxPGClient) Insert{{ .GoName }}(
+	ctx context.Context,
+	value *{{ .GoName }},
+) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
+	return tx.impl.Insert{{ .GoName }}(ctx, value)
+}
+// Insert a {{ .GoName }} into the database. Returns the primary
+// key of the inserted row.
+func (p *pgClientImpl) Insert{{ .GoName }}(
+	ctx context.Context,
+	value *{{ .GoName }},
+) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var ids []{{ .PkeyCol.TypeInfo.Name }}
 	ids, err = p.BulkInsert{{ .GoName }}(ctx, []{{ .GoName }}{*value})
 	if err != nil {
@@ -329,9 +369,26 @@ func (p *PGClient) Insert{{ .GoName }}(
 	ret = ids[0]
 	return
 }
+
 // Insert a list of {{ .GoName }}. Returns a list of the primary keys of
 // the inserted rows.
 func (p *PGClient) BulkInsert{{ .GoName }}(
+	ctx context.Context,
+	values []{{ .GoName }},
+) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
+	return p.impl.BulkInsert{{ .GoName }}(ctx, values)
+}
+// Insert a list of {{ .GoName }}. Returns a list of the primary keys of
+// the inserted rows.
+func (tx *TxPGClient) BulkInsert{{ .GoName }}(
+	ctx context.Context,
+	values []{{ .GoName }},
+) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
+	return tx.impl.BulkInsert{{ .GoName }}(ctx, values)
+}
+// Insert a list of {{ .GoName }}. Returns a list of the primary keys of
+// the inserted rows.
+func (p *pgClientImpl) BulkInsert{{ .GoName }}(
 	ctx context.Context,
 	values []{{ .GoName }},
 ) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
@@ -438,6 +495,30 @@ func (p *PGClient) Update{{ .GoName }}(
 	value *{{ .GoName }},
 	fieldMask pggen.FieldSet,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
+	return p.impl.Update{{ .GoName }}(ctx, value, fieldMask)
+}
+// Update a {{ .GoName }}. 'value' must at the least have
+// a primary key set. The 'fieldMask' field set indicates which fields
+// should be updated in the database.
+//
+// Returns the primary key of the updated row.
+func (tx *TxPGClient) Update{{ .GoName }}(
+	ctx context.Context,
+	value *{{ .GoName }},
+	fieldMask pggen.FieldSet,
+) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
+	return tx.impl.Update{{ .GoName }}(ctx, value, fieldMask)
+}
+// Update a {{ .GoName }}. 'value' must at the least have
+// a primary key set. The 'fieldMask' field set indicates which fields
+// should be updated in the database.
+//
+// Returns the primary key of the updated row.
+func (p *pgClientImpl) Update{{ .GoName }}(
+	ctx context.Context,
+	value *{{ .GoName }},
+	fieldMask pggen.FieldSet,
+) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var fields []string = []string{
 		{{- range .Cols }}
 		` + "`" + `{{ .PgName }}` + "`" + `,
@@ -496,10 +577,28 @@ func (p *PGClient) Delete{{ .GoName }}(
 	ctx context.Context,
 	id {{ .PkeyCol.TypeInfo.Name }},
 ) error {
-	return p.BulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
+	return p.impl.BulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
+}
+func (tx *TxPGClient) Delete{{ .GoName }}(
+	ctx context.Context,
+	id {{ .PkeyCol.TypeInfo.Name }},
+) error {
+	return tx.impl.BulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
 }
 
 func (p *PGClient) BulkDelete{{ .GoName }}(
+	ctx context.Context,
+	ids []{{ .PkeyCol.TypeInfo.Name }},
+) error {
+	return p.impl.BulkDelete{{ .GoName }}(ctx, ids)
+}
+func (tx *TxPGClient) BulkDelete{{ .GoName }}(
+	ctx context.Context,
+	ids []{{ .PkeyCol.TypeInfo.Name }},
+) error {
+	return tx.impl.BulkDelete{{ .GoName }}(ctx, ids)
+}
+func (p *pgClientImpl) BulkDelete{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) error {
@@ -537,10 +636,31 @@ func (p *PGClient) {{ .GoName }}FillIncludes(
 	rec *{{ .GoName }},
 	includes *include.Spec,
 ) error {
-	return p.{{ .GoName }}BulkFillIncludes(ctx, []*{{ .GoName }}{rec}, includes)
+	return p.impl.{{ .GoName }}BulkFillIncludes(ctx, []*{{ .GoName }}{rec}, includes)
+}
+func (tx *TxPGClient) {{ .GoName }}FillIncludes(
+	ctx context.Context,
+	rec *{{ .GoName }},
+	includes *include.Spec,
+) error {
+	return tx.impl.{{ .GoName }}BulkFillIncludes(ctx, []*{{ .GoName }}{rec}, includes)
 }
 
 func (p *PGClient) {{ .GoName }}BulkFillIncludes(
+	ctx context.Context,
+	recs []*{{ .GoName }},
+	includes *include.Spec,
+) (err error) {
+	return p.impl.{{ .GoName }}BulkFillIncludes(ctx, recs, includes)
+}
+func (tx *TxPGClient) {{ .GoName }}BulkFillIncludes(
+	ctx context.Context,
+	recs []*{{ .GoName }},
+	includes *include.Spec,
+) (err error) {
+	return tx.impl.{{ .GoName }}BulkFillIncludes(ctx, recs, includes)
+}
+func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 	ctx context.Context,
 	recs []*{{ .GoName }},
 	includes *include.Spec,
@@ -593,9 +713,9 @@ func (p *PGClient) {{ .GoName }}BulkFillIncludes(
 // For a give set of {{ $.GoName }}, fill in all the {{ .GoPointsFrom }}
 // connected to them using a single query.
 {{- if .OneToOne }}
-func (p *PGClient) private{{ $.GoName }}Fill{{ .GoPointsFrom }}(
+func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFrom }}(
 {{- else }}
-func (p *PGClient) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
+func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 {{- end }}
 	ctx context.Context,
 	parentRecs []*{{ $.GoName }},
@@ -628,7 +748,7 @@ func (p *PGClient) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 	// the correct parent.
 	for rows.Next() {
 		var childRec {{ .GoPointsFrom }}
-		err = childRec.Scan(ctx, p, rows)
+		err = childRec.Scan(ctx, p.client, rows)
 		if err != nil {
 			return err
 		}

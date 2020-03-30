@@ -28,9 +28,7 @@ var pgClientTmpl *template.Template = template.Must(template.New("pgclient-tmpl"
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
 // database access methods for this package are attached to it.
 type PGClient struct {
-	db pggen.DBHandle
-
-	transactions []*sql.Tx
+	impl pgClientImpl
 	topLevelDB *sql.DB
 
 	// These column indexes are used at run time to enable us to 'SELECT *' against
@@ -44,60 +42,54 @@ type PGClient struct {
 }
 
 func NewPGClient(conn *sql.DB) *PGClient {
-	return &PGClient {
-		db: conn,
-		transactions: []*sql.Tx{},
+	client := PGClient {
 		topLevelDB: conn,
 	}
+	client.impl = pgClientImpl{
+		db: conn,
+		client: &client,
+	}
+
+	return &client
 }
 
 func (p *PGClient) Handle() pggen.DBHandle {
-	return p.db
+	return p.topLevelDB
 }
 
-func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) error {
-	if len(p.transactions) > 0 {
-		return fmt.Errorf("nested transactions not yet supported")
-	}
-
+func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClient, error) {
 	tx, err := p.topLevelDB.BeginTx(ctx, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	p.transactions = append(p.transactions, tx)
-	p.db = tx
-
-	return nil
+	return &TxPGClient{
+		impl: pgClientImpl{
+			db: tx,
+			client: p,
+		},
+	}, nil
 }
 
-func (p *PGClient) Commit() error {
-	if len(p.transactions) == 0 {
-		return fmt.Errorf("no transaction to commit")
-	}
-
-	tx := p.transactions[len(p.transactions)-1]
-	p.popTx()
-	return tx.Commit()
+// A postgres client that operates within a transaction. Supports all the same
+// generated methods that PGClient does.
+type TxPGClient struct {
+	impl pgClientImpl
 }
 
-func (p *PGClient) Rollback() error {
-	if len(p.transactions) == 0 {
-		return fmt.Errorf("no transaction to rollback")
-	}
-
-	tx := p.transactions[len(p.transactions)-1]
-	p.popTx()
-	return tx.Rollback()
+func (tx *TxPGClient) Rollback() error {
+	return tx.impl.db.(*sql.Tx).Rollback()
 }
 
-func (p *PGClient) popTx() {
-	p.transactions = p.transactions[:len(p.transactions)-1]
-	if len(p.transactions) == 0 {
-		p.db = p.topLevelDB
-	} else {
-		p.db = p.transactions[len(p.transactions)-1]
-	}
+func (tx *TxPGClient) Commit() error {
+	return tx.impl.db.(*sql.Tx).Commit()
+}
+
+// A database client that can wrap either a direct database connection or a transaction
+type pgClientImpl struct {
+	db pggen.DBHandle
+	// a reference back to the owning PGClient so we can always get at the resolver tables
+	client *PGClient
 }
 
 `))

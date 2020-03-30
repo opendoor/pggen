@@ -16,22 +16,22 @@ import (
 )
 
 func TestInsertSmallEntity(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	entity := db_shims.SmallEntity{
 		Anint: 129,
 	}
 
-	id, err := pgClient.InsertSmallEntity(ctx, &entity)
+	id, err := txClient.InsertSmallEntity(ctx, &entity)
 	chkErr(t, err)
 
 	entity.Id = id
 
-	fetched, err := pgClient.GetSmallEntityByAnint(ctx, entity.Anint)
+	fetched, err := txClient.GetSmallEntityByAnint(ctx, entity.Anint)
 	chkErr(t, err)
 
 	if !reflect.DeepEqual(entity, fetched[0]) {
@@ -42,10 +42,10 @@ func TestInsertSmallEntity(t *testing.T) {
 func TestSmallEntityBulk(t *testing.T) {
 	// tests BulkInsert and List
 
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	entities := []db_shims.SmallEntity{
@@ -60,10 +60,10 @@ func TestSmallEntityBulk(t *testing.T) {
 		},
 	}
 
-	_, err = pgClient.BulkInsertSmallEntity(ctx, entities)
+	_, err = txClient.BulkInsertSmallEntity(ctx, entities)
 	chkErr(t, err)
 
-	fetched, err := pgClient.GetSmallEntityByAnint(ctx, 1232)
+	fetched, err := txClient.GetSmallEntityByAnint(ctx, 1232)
 	chkErr(t, err)
 
 	// the ids won't match up, so just length check for now
@@ -76,7 +76,7 @@ func TestSmallEntityBulk(t *testing.T) {
 		ids = append(ids, ent.Id)
 	}
 
-	fetched2, err := pgClient.ListSmallEntity(ctx, ids)
+	fetched2, err := txClient.ListSmallEntity(ctx, ids)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,10 +96,10 @@ func TestSmallEntityBulk(t *testing.T) {
 func TestSmallEntityUpdate(t *testing.T) {
 	// tests Update and Get
 
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	entities := []db_shims.SmallEntity{
@@ -114,17 +114,17 @@ func TestSmallEntityUpdate(t *testing.T) {
 		},
 	}
 
-	_, err = pgClient.BulkInsertSmallEntity(ctx, entities)
+	_, err = txClient.BulkInsertSmallEntity(ctx, entities)
 	chkErr(t, err)
 
-	fetched, err := pgClient.GetSmallEntityByAnint(ctx, 1232)
+	fetched, err := txClient.GetSmallEntityByAnint(ctx, 1232)
 	chkErr(t, err)
 
 	noOpBitset := pggen.NewFieldSet(2)
 	noOpBitset.Set(db_shims.SmallEntityIdFieldIndex, true)
 
 	fetched[0].Anint = 34
-	id, err := pgClient.UpdateSmallEntity(ctx, &fetched[0], noOpBitset)
+	id, err := txClient.UpdateSmallEntity(ctx, &fetched[0], noOpBitset)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,19 +132,19 @@ func TestSmallEntityUpdate(t *testing.T) {
 		t.Fatalf("update id mismatch")
 	}
 
-	e0, err := pgClient.GetSmallEntityByID(ctx, fetched[0].Id)
+	e0, err := txClient.GetSmallEntityByID(ctx, fetched[0].Id)
 	chkErr(t, err)
 	if e0[0].Anint == 34 {
 		t.Fatalf("unexpected update")
 	}
 
 	fetched[1].Anint = 42
-	id, err = pgClient.UpdateSmallEntity(ctx, &fetched[1], db_shims.SmallEntityAllFields)
+	id, err = txClient.UpdateSmallEntity(ctx, &fetched[1], db_shims.SmallEntityAllFields)
 	chkErr(t, err)
 	if id != fetched[1].Id {
 		t.Fatalf("id mismatch (passed in %d, got back %d)", fetched[1].Id, id)
 	}
-	e1, err := pgClient.GetSmallEntity(ctx, fetched[1].Id)
+	e1, err := txClient.GetSmallEntity(ctx, fetched[1].Id)
 	chkErr(t, err)
 	if e1.Anint != 42 {
 		t.Fatalf("update failed e1 = %#v", e1)
@@ -154,10 +154,10 @@ func TestSmallEntityUpdate(t *testing.T) {
 func TestSmallEntityCreateDelete(t *testing.T) {
 	// tests BulkInsert, BulkDelete and Delete
 
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	entities := []db_shims.SmallEntity{
@@ -181,20 +181,20 @@ func TestSmallEntityCreateDelete(t *testing.T) {
 		},
 	}
 
-	ids, err := pgClient.BulkInsertSmallEntity(ctx, entities)
+	ids, err := txClient.BulkInsertSmallEntity(ctx, entities)
 	chkErr(t, err)
 
-	chkErr(t, pgClient.BulkDeleteSmallEntity(ctx, ids[:2]))
+	chkErr(t, txClient.BulkDeleteSmallEntity(ctx, ids[:2]))
 
-	fetched, err := pgClient.GetSmallEntityByAnint(ctx, 232)
+	fetched, err := txClient.GetSmallEntityByAnint(ctx, 232)
 	chkErr(t, err)
 
 	if len(fetched) != 4 {
 		t.Fatalf("expected 2 entities to be deleted")
 	}
 
-	chkErr(t, pgClient.DeleteSmallEntity(ctx, ids[4]))
-	fetched, err = pgClient.GetSmallEntityByAnint(ctx, 232)
+	chkErr(t, txClient.DeleteSmallEntity(ctx, ids[4]))
+	fetched, err = txClient.GetSmallEntityByAnint(ctx, 232)
 	chkErr(t, err)
 
 	if len(fetched) != 3 {
@@ -206,41 +206,41 @@ func TestSmallEntityCreateDelete(t *testing.T) {
 }
 
 func TestFillAll(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
-	entityID, err := pgClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
 		Anint: 129,
 	})
 	chkErr(t, err)
 
 	foo := "foo"
-	attachmentID1, err := pgClient.InsertAttachment(ctx, &db_shims.Attachment{
+	attachmentID1, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
 		SmallEntityId: entityID,
 		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	bar := "bar"
-	attachmentID2, err := pgClient.InsertAttachment(ctx, &db_shims.Attachment{
+	attachmentID2, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
 		SmallEntityId: entityID,
 		Value:         &bar,
 	})
 	chkErr(t, err)
 
 	aTime := time.Unix(5432553, 0)
-	_, err = pgClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
+	_, err = txClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
 		SmallEntityId: entityID,
 		CreatedAt:     aTime,
 	})
 	chkErr(t, err)
 
-	e, err := pgClient.GetSmallEntity(ctx, entityID)
+	e, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = pgClient.SmallEntityFillIncludes(ctx, e, db_shims.SmallEntityAllIncludes)
+	err = txClient.SmallEntityFillIncludes(ctx, e, db_shims.SmallEntityAllIncludes)
 	chkErr(t, err)
 
 	if len(e.Attachments) != 2 {
@@ -267,26 +267,26 @@ func TestFillAll(t *testing.T) {
 }
 
 func TestFillIncludes(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
-	entityID, err := pgClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
 		Anint: 129,
 	})
 	chkErr(t, err)
 
 	foo := "foo"
-	attachmentID1, err := pgClient.InsertAttachment(ctx, &db_shims.Attachment{
+	attachmentID1, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
 		SmallEntityId: entityID,
 		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	aTime := time.Unix(5432553, 0)
-	singleAttachmentID, err := pgClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
+	singleAttachmentID, err := txClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
 		SmallEntityId: entityID,
 		CreatedAt:     aTime,
 	})
@@ -294,9 +294,9 @@ func TestFillIncludes(t *testing.T) {
 
 	// we are going to use include specs to load the attachment, but no the SingleAttachment
 	includes := include.Must(include.Parse("small_entities.attachments"))
-	smallEntity, err := pgClient.GetSmallEntity(ctx, entityID)
+	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = pgClient.SmallEntityFillIncludes(ctx, smallEntity, includes)
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, includes)
 	chkErr(t, err)
 
 	if smallEntity.Attachments[0].Id != attachmentID1 {
@@ -308,9 +308,9 @@ func TestFillIncludes(t *testing.T) {
 
 	// now do load the single_attachments
 	includes = include.Must(include.Parse("small_entities.{attachments, single_attachments}"))
-	smallEntity, err = pgClient.GetSmallEntity(ctx, entityID)
+	smallEntity, err = txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = pgClient.SmallEntityFillIncludes(ctx, smallEntity, includes)
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, includes)
 	chkErr(t, err)
 
 	if smallEntity.Attachments[0].Id != attachmentID1 {
@@ -360,68 +360,68 @@ func TestExplicitBelongsToMany(t *testing.T) {
 }
 
 func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	var nineteen int64 = 19
-	funnyID, err := pgClient.InsertWeirdNaMe(ctx, &db_shims.WeirdNaMe{
+	funnyID, err := txClient.InsertWeirdNaMe(ctx, &db_shims.WeirdNaMe{
 		WearetalkingReallyBadstyle: 1923,
 		GotWhitespace:              "yes",
 		ButWhyTho:                  &nineteen,
 	})
 	chkErr(t, err)
 
-	funny, err := pgClient.GetWeirdNaMe(ctx, funnyID)
+	funny, err := txClient.GetWeirdNaMe(ctx, funnyID)
 	chkErr(t, err)
 
 	funny.GotWhitespace = "no"
 
-	funnyID, err = pgClient.UpdateWeirdNaMe(
+	funnyID, err = txClient.UpdateWeirdNaMe(
 		ctx, funny, db_shims.WeirdNaMeAllFields)
 	chkErr(t, err)
 
-	funny, err = pgClient.GetWeirdNaMe(ctx, funnyID)
+	funny, err = txClient.GetWeirdNaMe(ctx, funnyID)
 	chkErr(t, err)
 
 	if funny.GotWhitespace != "no" {
 		t.Fatalf("update failed")
 	}
 
-	kidID, err := pgClient.InsertWeirdKid(ctx, &db_shims.WeirdKid{
+	kidID, err := txClient.InsertWeirdKid(ctx, &db_shims.WeirdKid{
 		Daddy: funny.Evenidisweird,
 	})
 	chkErr(t, err)
-	err = pgClient.WeirdNaMeFillIncludes(ctx, funny, db_shims.WeirdNaMeAllIncludes)
+	err = txClient.WeirdNaMeFillIncludes(ctx, funny, db_shims.WeirdNaMeAllIncludes)
 	chkErr(t, err)
 
-	err = pgClient.DeleteWeirdKid(ctx, kidID)
+	err = txClient.DeleteWeirdKid(ctx, kidID)
 	chkErr(t, err)
 
-	err = pgClient.DeleteWeirdNaMe(ctx, funny.Evenidisweird)
+	err = txClient.DeleteWeirdNaMe(ctx, funny.Evenidisweird)
 	chkErr(t, err)
 }
 
 func TestArrayMembers(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	var nineteen int64 = 19
-	id, err := pgClient.InsertArrayMember(ctx, &db_shims.ArrayMember{
+	id, err := txClient.InsertArrayMember(ctx, &db_shims.ArrayMember{
 		TextArray: []string{"foo", "bar"},
 		IntArray:  []*int64{&nineteen, nil},
 	})
 	chkErr(t, err)
 
-	arrayMember, err := pgClient.GetArrayMember(ctx, id)
+	arrayMember, err := txClient.GetArrayMember(ctx, id)
 	chkErr(t, err)
 
-	_, err = pgClient.UpdateArrayMember(
+	_, err = txClient.UpdateArrayMember(
 		ctx, arrayMember, db_shims.ArrayMemberAllFields)
 	chkErr(t, err)
 }
@@ -433,20 +433,20 @@ func TestMaxFieldIndex(t *testing.T) {
 }
 
 func TestTimestampsBoth(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	now := time.Now()
 	blah := "blah"
-	id, err := pgClient.InsertTimestampsBoth(ctx, &db_shims.TimestampsBoth{
+	id, err := txClient.InsertTimestampsBoth(ctx, &db_shims.TimestampsBoth{
 		Payload: &blah,
 	})
 	chkErr(t, err)
 
-	fetched, err := pgClient.GetTimestampsBoth(ctx, id)
+	fetched, err := txClient.GetTimestampsBoth(ctx, id)
 	chkErr(t, err)
 
 	if !fetched.UpdatedAt.Equal(*fetched.CreatedAt) {
@@ -467,10 +467,10 @@ func TestTimestampsBoth(t *testing.T) {
 	mask := pggen.NewFieldSet(10)
 	mask.Set(db_shims.TimestampsBothIdFieldIndex, true)
 	mask.Set(db_shims.TimestampsBothPayloadFieldIndex, true)
-	id, err = pgClient.UpdateTimestampsBoth(ctx, fetched, mask)
+	id, err = txClient.UpdateTimestampsBoth(ctx, fetched, mask)
 	chkErr(t, err)
 
-	fetched, err = pgClient.GetTimestampsBoth(ctx, id)
+	fetched, err = txClient.GetTimestampsBoth(ctx, id)
 	chkErr(t, err)
 
 	if now.Add(-time.Second).After(fetched.UpdatedAt) {
@@ -494,20 +494,20 @@ func TestTimestampsBoth(t *testing.T) {
 }
 
 func TestTimestampsJustCreated(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	now := time.Now().UTC()
 	blah := "blah"
-	id, err := pgClient.InsertTimestampsJustCreated(ctx, &db_shims.TimestampsJustCreated{
+	id, err := txClient.InsertTimestampsJustCreated(ctx, &db_shims.TimestampsJustCreated{
 		Payload: &blah,
 	})
 	chkErr(t, err)
 
-	fetched, err := pgClient.GetTimestampsJustCreated(ctx, id)
+	fetched, err := txClient.GetTimestampsJustCreated(ctx, id)
 	chkErr(t, err)
 
 	if now.Add(-time.Second).After(fetched.MadeAt) {
@@ -523,20 +523,20 @@ func TestTimestampsJustCreated(t *testing.T) {
 }
 
 func TestTimestampsJustUpdated(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	now := time.Now()
 	blah := "blah"
-	id, err := pgClient.InsertTimestampsJustUpdated(ctx, &db_shims.TimestampsJustUpdated{
+	id, err := txClient.InsertTimestampsJustUpdated(ctx, &db_shims.TimestampsJustUpdated{
 		Payload: &blah,
 	})
 	chkErr(t, err)
 
-	fetched, err := pgClient.GetTimestampsJustUpdated(ctx, id)
+	fetched, err := txClient.GetTimestampsJustUpdated(ctx, id)
 	chkErr(t, err)
 
 	if now.Add(-time.Second).After(*fetched.LastTouched) {
@@ -554,10 +554,10 @@ func TestTimestampsJustUpdated(t *testing.T) {
 	mask.Set(db_shims.TimestampsJustUpdatedPayloadFieldIndex, true)
 	mask.Set(db_shims.TimestampsJustUpdatedIdFieldIndex, true)
 	now = time.Now()
-	id, err = pgClient.UpdateTimestampsJustUpdated(ctx, fetched, mask)
+	id, err = txClient.UpdateTimestampsJustUpdated(ctx, fetched, mask)
 	chkErr(t, err)
 
-	fetched, err = pgClient.GetTimestampsJustUpdated(ctx, id)
+	fetched, err = txClient.GetTimestampsJustUpdated(ctx, id)
 	chkErr(t, err)
 
 	if now.Add(-time.Second).After(*fetched.LastTouched) {
@@ -578,20 +578,20 @@ func TestTimestampsJustUpdated(t *testing.T) {
 
 func TestTimestampsGlobal(t *testing.T) {
 	dbClient := global_ts_shims.NewPGClient(pgClient.Handle().(*sql.DB))
-	err := dbClient.BeginTx(ctx, nil)
+	txClient, err := dbClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = dbClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
 	now := time.Now()
 	blah := "blah"
-	id, err := dbClient.InsertTimestampsGlobal(ctx, &global_ts_shims.TimestampsGlobal{
+	id, err := txClient.InsertTimestampsGlobal(ctx, &global_ts_shims.TimestampsGlobal{
 		Payload: &blah,
 	})
 	chkErr(t, err)
 
-	fetched, err := dbClient.GetTimestampsGlobal(ctx, id)
+	fetched, err := txClient.GetTimestampsGlobal(ctx, id)
 	chkErr(t, err)
 
 	if !fetched.UpdatedAt.Equal(*fetched.CreatedAt) {
@@ -635,20 +635,20 @@ func TestColOrdering(t *testing.T) {
 		chkErr(t, err)
 	}()
 
-	err = pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
-	id, err := pgClient.InsertColOrder(ctx, &db_shims.ColOrder{
+	id, err := txClient.InsertColOrder(ctx, &db_shims.ColOrder{
 		Field1: "foo",
 		Field2: 1,
 		Field3: 2,
 	})
 	chkErr(t, err)
 
-	rec, err := pgClient.GetColOrder(ctx, id)
+	rec, err := txClient.GetColOrder(ctx, id)
 	chkErr(t, err)
 
 	if rec.Field1 != "foo" || rec.Field2 != 1 || rec.Field3 != 2 {

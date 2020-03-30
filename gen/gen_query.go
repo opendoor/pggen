@@ -132,6 +132,32 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
+	return p.impl.{{ .ConfigData.Name }}(
+	ctx,
+	{{- range .Args }}
+	{{ .GoName }},
+	{{- end }}
+	)
+}
+func (tx *TxPGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+) (ret []{{ .ReturnTypeName }}, err error) {
+	return tx.impl.{{ .ConfigData.Name }}(
+	ctx,
+	{{- range .Args }}
+	{{ .GoName }},
+	{{- end }}
+	)
+}
+func (p *pgClientImpl) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+) (ret []{{ .ReturnTypeName }}, err error) {
 	ret = []{{ .ReturnTypeName }}{}
 
 	var rows *sql.Rows
@@ -161,7 +187,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	for rows.Next() {
 		var row {{ .ReturnTypeName }}
 		{{- if .MultiReturn }}
-		err = row.Scan(ctx, p, rows)
+		err = row.Scan(ctx, p.client, rows)
 		{{- else }}
 		{{- if (index .ReturnCols 0).Nullable }}
 		var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
@@ -182,7 +208,34 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 
 	return
 }
+
 func (p *PGClient) {{ .ConfigData.Name }}Query(
+	ctx context.Context,
+	{{- range .Args}}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end}}
+) (*sql.Rows, error) {
+	return p.impl.{{ .ConfigData.Name }}Query(
+		ctx,
+		{{- range .Args}}
+		{{ .GoName }},
+		{{- end}}
+	)
+}
+func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
+	ctx context.Context,
+	{{- range .Args}}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end}}
+) (*sql.Rows, error) {
+	return tx.impl.{{ .ConfigData.Name }}Query(
+		ctx,
+		{{- range .Args}}
+		{{ .GoName }},
+		{{- end}}
+	)
+}
+func (p *pgClientImpl) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args}}
 	{{ .GoName }} {{ .TypeInfo.Name }},

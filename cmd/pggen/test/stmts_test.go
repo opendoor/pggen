@@ -5,13 +5,13 @@ import (
 )
 
 func TestStmtInsertSmallEntity(t *testing.T) {
-	err := pgClient.BeginTx(ctx, nil)
+	txClient, err := pgClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
-		_ = pgClient.Rollback()
+		_ = txClient.Rollback()
 	}()
 
-	res, err := pgClient.StmtInsertSmallEntity(ctx, 719)
+	res, err := txClient.StmtInsertSmallEntity(ctx, 719)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestStmtInsertSmallEntity(t *testing.T) {
 		t.Fatalf("expected 1 row to be affected (actually %d)", nrows)
 	}
 
-	smallEntities, err := pgClient.GetSmallEntityByAnint(ctx, 719)
+	smallEntities, err := txClient.GetSmallEntityByAnint(ctx, 719)
 	if err != nil {
 		t.Fatal(err)
 	}

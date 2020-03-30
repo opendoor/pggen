@@ -45,6 +45,32 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end}}
 ) (sql.Result, error) {
+	return p.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args}}
+		{{ .GoName }},
+		{{- end}}
+	)
+}
+func (tx *TxPGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args}}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end}}
+) (sql.Result, error) {
+	return tx.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args}}
+		{{ .GoName }},
+		{{- end}}
+	)
+}
+func (p *pgClientImpl) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args}}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end}}
+) (sql.Result, error) {
 	return p.db.ExecContext(
 		ctx,
 		` + "`" +
