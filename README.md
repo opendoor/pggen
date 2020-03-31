@@ -209,10 +209,10 @@ and the following entries in your toml file
 
 ```toml
 [[table]]
-name = "small_entities"
+    name = "small_entities"
 
 [[table]]
-name = "attachments"
+    name = "attachments"
 ```
 
 `pggen` would generate the following structs for the two different tables.
@@ -229,6 +229,21 @@ type Attachment struct {
 	SmallEntityId int64 `gorm:"column:small_entity_id"`
 	Value *string `gorm:"column:value"`
 }
+```
+
+If the database schema does not include a foreign key reference, you can get
+pggen to generate the same sort of model structs by explicitly telling it about
+the relationship with a toml entry like
+
+```toml
+[[table]]
+    name = "small_entities"
+
+[[table]]
+    name = "attachments"
+    [[table.belongs_to]]
+        table = "small_entities"
+        key_field = "small_entity_id"
 ```
 
 There are a few things worth noting here. First, the structs are not named exactly the
