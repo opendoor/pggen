@@ -418,6 +418,8 @@ type tableMeta struct {
 	HasUpdateAtField bool
 	// If true, this table does have a create timestamp field
 	HasCreatedAtField bool
+	// The 0-based index of the primary key column
+	PkeyColIdx int
 }
 
 // colMeta contains metadata about postgres table columns such column
@@ -515,7 +517,10 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 		)
 	}
 
-	var pkeyCol *colMeta
+	var (
+		pkeyCol    *colMeta
+		pkeyColIdx int
+	)
 	for i, c := range cols {
 		if c.IsPrimary {
 			if pkeyCol != nil {
@@ -523,14 +528,16 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 			}
 
 			pkeyCol = &cols[i]
+			pkeyColIdx = i
 		}
 	}
 
 	meta := tableMeta{
-		PgName:  table,
-		GoName:  pgTableToGoModel(table),
-		PkeyCol: pkeyCol,
-		Cols:    cols,
+		PgName:     table,
+		GoName:     pgTableToGoModel(table),
+		PkeyCol:    pkeyCol,
+		PkeyColIdx: pkeyColIdx,
+		Cols:       cols,
 	}
 	err = g.fillTableReferences(&meta)
 	if err != nil {

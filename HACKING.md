@@ -63,3 +63,44 @@ itself. You can enable re-running the cli tests with
 This will both prevent the cli tests from removing their scratch dir and
 compile the binary under test in a debugger friendly format so that you can
 immediately point your delve at it.
+
+## Errors in the Generated Code
+
+When modifying the output of the codegenerator, you are likely to introduce compile
+errors in the generated code. Because we run the `go/format` package over our output
+before landing it to a disk you won't be able to debug the issue by looking at the
+generated file by default. In order to make this easier, you can modify the `writeGoFile`
+routine in `gen/utils.go` to skip the formatting and just dump the code to disk.
+
+```
+
+diff --git a/gen/utils.go b/gen/utils.go
+index dd7804d..77a437e 100644
+--- a/gen/utils.go
++++ b/gen/utils.go
+@@ -2,7 +2,7 @@ package gen
+
+ import (
+ 	"fmt"
+-	"go/format"
++	// "go/format"
+ 	"io"
+ 	"math/rand"
+ 	"os"
+@@ -18,10 +18,13 @@ func writeGoFile(path string, src []byte) error {
+ 	}
+ 	defer outFile.Close()
+
++	/*
+ 	formattedSrc, err := format.Source(src)
+ 	if err != nil {
+ 		return fmt.Errorf("internal pggen error: %s", err.Error())
+ 	}
++	*/
++	formattedSrc := src
+
+ 	return writeCompletely(outFile, formattedSrc)
+ }
+```
+
+Even without formatting it is actually pretty readable.

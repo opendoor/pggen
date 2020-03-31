@@ -191,6 +191,12 @@ CREATE TABLE "Weird?! Kid" (
             ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+CREATE TABLE constraints (
+    id SERIAL PRIMARY KEY,
+    snowflake int NOT NULL UNIQUE,
+    other int NOT NULL
+);
+
 --
 -- Load Data
 --

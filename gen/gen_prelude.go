@@ -41,7 +41,7 @@ import (
 	"github.com/opendoor-labs/pggen"
 )
 
-func genBulkInsert(
+func genBulkInsertStmt(
 	table string,
 	fields []string,
 	nrecords int,
@@ -49,41 +49,64 @@ func genBulkInsert(
 ) string {
 	var ret strings.Builder
 
-	ret.WriteString("INSERT INTO \"")
-	ret.WriteString(table)
-	ret.WriteString("\" (")
-	for i, field := range fields {
-		ret.WriteRune('"')
-		ret.WriteString(field)
-		ret.WriteRune('"')
-		if i + 1 < len(fields) {
-			ret.WriteRune(',')
-		}
-	}
-	ret.WriteString(") VALUES ")
-
-	for recNo := 0; recNo < nrecords; recNo++ {
-		slots := make([]string, len(fields))[:0]
-		for colNo := 1; colNo <= len(fields); colNo++ {
-			slots = append(
-				slots,
-				fmt.Sprintf("$%d", (recNo * len(fields)) + colNo),
-			)
-		}
-		ret.WriteString("	(")
-		ret.WriteString(strings.Join(slots, ", "))
-		if recNo < nrecords - 1 {
-			ret.WriteString("),\n")
-		} else {
-			ret.WriteString(")\n")
-		}
-	}
+	genInsertCommon(&ret, table, fields, nrecords, pkeyName, true)
 
 	ret.WriteString(" RETURNING \"")
 	ret.WriteString(pkeyName)
 	ret.WriteRune('"')
 
 	return ret.String()
+}
+
+// shared between the generated upsert code and genBulkInsertStmt
+func genInsertCommon(
+	into *strings.Builder,
+	table string,
+	fields []string,
+	nrecords int,
+	pkeyName string,
+	includeID bool,
+) {
+	into.WriteString("INSERT INTO \"")
+	into.WriteString(table)
+	into.WriteString("\" (")
+	for i, field := range fields {
+		if !includeID && field == pkeyName {
+			continue
+		}
+
+		into.WriteRune('"')
+		into.WriteString(field)
+		into.WriteRune('"')
+		if i + 1 < len(fields) {
+			into.WriteRune(',')
+		}
+	}
+	into.WriteString(") VALUES ")
+
+	nInsertFields := len(fields)
+	if !includeID {
+		nInsertFields--
+	}
+
+	nextArg := 1
+	for recNo := 0; recNo < nrecords; recNo++ {
+		slots := make([]string, 0, nInsertFields)
+		for colNo := 1; colNo <= nInsertFields; colNo++ {
+			slots = append(
+				slots,
+				fmt.Sprintf("$%d", nextArg),
+			)
+			nextArg++
+		}
+		into.WriteString("(")
+		into.WriteString(strings.Join(slots, ", "))
+		if recNo < nrecords - 1 {
+			into.WriteString("),\n")
+		} else {
+			into.WriteString(")\n")
+		}
+	}
 }
 
 func genUpdateStmt(
@@ -99,8 +122,8 @@ func genUpdateStmt(
 	ret.WriteString(table)
 	ret.WriteString("\" SET ")
 
-	lhs := make([]string, len(fields))[:0]
-	rhs := make([]string, len(fields))[:0]
+	lhs := make([]string, 0, len(fields))
+	rhs := make([]string, 0, len(fields))
 	argNo := 1
 	for i, f := range fields {
 		if fieldMask.Test(i) {

@@ -57,3 +57,8 @@ func (fs FieldSet) Set(bit int, value bool) FieldSet {
 func (fs FieldSet) Test(bit int) bool {
 	return fs.b.Test(uint(bit))
 }
+
+// Return the number of bits set to 1
+func (fs FieldSet) CountSetBits() int {
+	return int(fs.b.Count())
+}

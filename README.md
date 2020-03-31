@@ -289,6 +289,17 @@ in the configuration file
         - Given an entity struct and a bitset, Update<Entity> updates all the fields of the
           given struct with their corresponding bit set in the database and returns the
           primary key of the updated record.
+    - Upsert<Entity>
+        - Given an entity, a list of conflict targets, and a bitset, Upsert<Entity> tries
+          to insert the given entity. A nil list of conflict targets will default to the primary
+          key for the table. If the bit for the primary key is set in the bitset
+          it will try to insert the primary key from the provided entity, otherwise it will
+          let the database supply a new primary key. In the event of a conflict on any of the
+          provided conflict targets, Upsert<Entity> will update only those fields which are
+          specified by the given bitset.
+    - BulkUpsert<Entity>
+        - BulkUpsert<Entity> behaves exactly like Upsert<Entity> except that it operates on
+          whole a set of entities at once.
     - Delete<Entity>
         - Given the id of an entity, Delete<Entity> deletes it and returns an error on failure or
           nil on success.
