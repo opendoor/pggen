@@ -713,10 +713,10 @@ func (p *pgClientImpl) BulkUpsert{{ .GoName }}(
 		{{- range $i, $col := .Cols }}
 		{{- if (eq $i $.PkeyColIdx) }}
 		if fieldMask.Test({{ $.GoName }}{{ $col.GoName }}FieldIndex) {
-			args = append(args, v.{{ $col.GoName }})
+			args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" $col.GoName) }})
 		}
 		{{- else }}
-		args = append(args, v.{{ $col.GoName }})
+		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" $col.GoName) }})
 		{{- end }}
 		{{- end }}
 	}

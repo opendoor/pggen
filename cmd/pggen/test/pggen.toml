@@ -288,3 +288,6 @@
 
 [[table]]
     name = "constraints"
+
+[[table]]
+    name = "text_array"

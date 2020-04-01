@@ -824,3 +824,16 @@ func TestBulkUpsertEmptyList(t *testing.T) {
 		t.Fatal("expected no ids")
 	}
 }
+
+func TestUpsertNullableArray(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	_, err = txClient.UpsertTextArray(ctx, &db_shims.TextArray{
+		Value: []*string{&[]string{"foo"}[0], nil},
+	}, nil, db_shims.TextArrayAllFields)
+	chkErr(t, err)
+}

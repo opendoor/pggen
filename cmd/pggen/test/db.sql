@@ -197,6 +197,11 @@ CREATE TABLE constraints (
     other int NOT NULL
 );
 
+CREATE TABLE text_array (
+    id SERIAL PRIMARY KEY,
+    value text[]
+);
+
 --
 -- Load Data
 --
