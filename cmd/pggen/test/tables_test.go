@@ -655,3 +655,154 @@ func TestColOrdering(t *testing.T) {
 		t.Fatalf("rec = %#v", rec)
 	}
 }
+
+func TestUpsertInserts(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	allButID := db_shims.SmallEntityAllFields.Clone()
+	allButID.Set(db_shims.SmallEntityIdFieldIndex, false)
+
+	id1, err := txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 19,
+	}, nil, allButID)
+	chkErr(t, err)
+
+	fetched, err := txClient.GetSmallEntity(ctx, id1)
+	chkErr(t, err)
+	if fetched.Anint != 19 {
+		t.Fatal("expected 19")
+	}
+
+	id2, err := txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 20,
+	}, nil, allButID)
+	chkErr(t, err)
+
+	fetched, err = txClient.GetSmallEntity(ctx, id2)
+	chkErr(t, err)
+	if fetched.Anint != 20 {
+		t.Fatal("expected 20")
+	}
+
+	if id1 == id2 {
+		t.Fatal("should not have overwritten")
+	}
+}
+
+func TestUpsertUpdates(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	id, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 19,
+	})
+	chkErr(t, err)
+
+	id, err = txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Id:    id,
+		Anint: 14,
+	}, nil, db_shims.SmallEntityAllFields)
+	chkErr(t, err)
+
+	fetched, err := txClient.GetSmallEntity(ctx, id)
+	chkErr(t, err)
+	if fetched.Anint != 14 {
+		t.Fatalf("expected 14")
+	}
+}
+
+func TestUpsertDoesntUpdateThingsNotInFieldSet(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	justID := pggen.NewFieldSet(db_shims.SmallEntityMaxFieldIndex)
+	justID.Set(db_shims.SmallEntityIdFieldIndex, true)
+
+	id, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 19,
+	})
+	chkErr(t, err)
+
+	id, err = txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Id:    id,
+		Anint: 14,
+	}, []string{}, justID)
+	chkErr(t, err)
+
+	fetched, err := txClient.GetSmallEntity(ctx, id)
+	chkErr(t, err)
+	if fetched.Anint != 19 {
+		t.Fatalf("expected 19")
+	}
+}
+
+func TestBulkUpsert(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	id, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 19,
+	})
+	chkErr(t, err)
+
+	ids, err := txClient.BulkUpsertSmallEntity(ctx, []db_shims.SmallEntity{
+		{
+			Id:    id,
+			Anint: 9,
+		},
+		{
+			Anint: 57,
+		},
+	}, nil, db_shims.SmallEntityAllFields)
+	chkErr(t, err)
+
+	entities, err := txClient.ListSmallEntity(ctx, ids)
+	chkErr(t, err)
+	for _, e := range entities {
+		if !(e.Anint == 9 || e.Anint == 57) {
+			t.Fatal("expected only 9 and 57")
+		}
+	}
+}
+
+func TestUpsertWithExplicitConstraints(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	otherMask := pggen.NewFieldSet(db_shims.ConstraintMaxFieldIndex)
+	otherMask.Set(db_shims.ConstraintOtherFieldIndex, true)
+
+	id1, err := txClient.UpsertConstraint(ctx, &db_shims.Constraint{
+		Snowflake: 2,
+		Other:     19,
+	}, []string{"snowflake"}, otherMask)
+	chkErr(t, err)
+
+	id2, err := txClient.UpsertConstraint(ctx, &db_shims.Constraint{
+		Snowflake: 2,
+		Other:     4,
+	}, []string{"snowflake"}, otherMask)
+	chkErr(t, err)
+
+	fetched, err := txClient.GetConstraint(ctx, id1)
+	chkErr(t, err)
+	if fetched.Snowflake != 2 || id1 != id2 || fetched.Other != 4 {
+		t.Fatal("expected update")
+	}
+}

@@ -285,3 +285,6 @@
 
 [[table]]
     name = "col_order"
+
+[[table]]
+    name = "constraints"
