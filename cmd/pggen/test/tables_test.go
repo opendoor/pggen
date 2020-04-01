@@ -806,3 +806,21 @@ func TestUpsertWithExplicitConstraints(t *testing.T) {
 		t.Fatal("expected update")
 	}
 }
+
+func TestBulkUpsertEmptyList(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	allButID := db_shims.SmallEntityAllFields.Clone()
+	allButID.Set(db_shims.SmallEntityIdFieldIndex, false)
+
+	ids, err := txClient.BulkUpsertSmallEntity(ctx, []db_shims.SmallEntity{}, nil, allButID)
+	chkErr(t, err)
+
+	if len(ids) != 0 {
+		t.Fatal("expected no ids")
+	}
+}

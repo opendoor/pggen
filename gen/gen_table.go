@@ -294,6 +294,10 @@ func (p *pgClientImpl) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) (ret []{{ .GoName }}, err error) {
+	if len(ids) == 0 {
+		return []{{ .GoName }}{}, nil
+	}
+
 	rows, err := p.db.QueryContext(
 		ctx,
 		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
@@ -396,6 +400,10 @@ func (p *pgClientImpl) BulkInsert{{ .GoName }}(
 	ctx context.Context,
 	values []{{ .GoName }},
 ) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
+	if len(values) == 0 {
+		return []{{ .PkeyCol.TypeInfo.Name }}{}, nil
+	}
+
 	var fields []string = []string{
 		{{- range .Cols }}
 		{{- if (not .IsPrimary) }}
@@ -648,6 +656,10 @@ func (p *pgClientImpl) BulkUpsert{{ .GoName }}(
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
 ) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
+	if len(values) == 0 {
+		return []{{ .PkeyCol.TypeInfo.Name }}{}, nil
+	}
+
 	if constraintNames == nil || len(constraintNames) == 0 {
 		constraintNames = []string{` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `}
 	}
@@ -757,6 +769,10 @@ func (p *pgClientImpl) BulkDelete{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
 	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
@@ -820,6 +836,10 @@ func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 	recs []*{{ .GoName }},
 	includes *include.Spec,
 ) (err error) {
+	if len(recs) == 0 {
+		return nil
+	}
+
 	if includes.TableName != "{{ .PgName }}" {
 		return fmt.Errorf(
 			"expected includes for '{{ .PgName }}', got '%s'",
