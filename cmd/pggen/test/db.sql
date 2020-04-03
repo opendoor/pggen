@@ -8,7 +8,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Create the tables
 --
 
-CREATE TYPE enum_type as ENUM ('option1', 'option2');
+CREATE TYPE enum_type AS ENUM ('', 'option1', 'option2');
+CREATE TYPE enum_type_with_blank AS ENUM ('', 'blank', 'other');
+
 CREATE TABLE type_rainbow (
     id SERIAL PRIMARY KEY NOT NULL,
 
@@ -200,6 +202,11 @@ CREATE TABLE constraints (
 CREATE TABLE text_array (
     id SERIAL PRIMARY KEY,
     value text[]
+);
+
+CREATE TABLE enum_blanks (
+    id SERIAL PRIMARY KEY,
+    value enum_type_with_blank NOT NULL
 );
 
 --

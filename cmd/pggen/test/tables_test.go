@@ -837,3 +837,29 @@ func TestUpsertNullableArray(t *testing.T) {
 	}, nil, db_shims.TextArrayAllFields)
 	chkErr(t, err)
 }
+
+func TestEnumBlanks(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	_, err = txClient.InsertEnumBlank(ctx, &db_shims.EnumBlank{
+		Value: db_shims.EnumTypeWithBlankBlank0,
+	})
+	chkErr(t, err)
+
+	_, err = txClient.InsertEnumBlank(ctx, &db_shims.EnumBlank{
+		Value: db_shims.EnumTypeWithBlankBlank,
+	})
+	chkErr(t, err)
+
+	if db_shims.EnumTypeWithBlankBlank != "blank" {
+		t.Fatal("should not actually be blank")
+	}
+
+	if db_shims.EnumTypeWithBlankBlank0 != "" {
+		t.Fatal("should be blank")
+	}
+}

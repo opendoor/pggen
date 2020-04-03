@@ -291,3 +291,6 @@
 
 [[table]]
     name = "text_array"
+
+[[table]]
+    name = "enum_blanks"
