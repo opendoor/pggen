@@ -15,14 +15,8 @@ There are a few more features remaining before `pggen` is ready for the
 prime time. Here is a list in rough order of the priority that I think
 they have.
 
-1. Add support for array arguments to queries
-2. Spend some effort making sure that `pggen` is well documented
-3. Split the output into multiple files
-4. Write some tests invoking the pggen program at the command line
-    to make sure we reasonably report errors and whatnot.
-5. If a foreign key is constrained to be UNIQUE, infer a `has_one` relationship
-   instead of a `has_many` relationship.
-6. Recognize join tables as indicating a `many_to_many` relationship. Expose a
+1. Split the output into multiple files
+2. Recognize join tables as indicating a `many_to_many` relationship. Expose a
    configuration option to allow people to explicitly specify join tables (if
    they have additional fields in the join tables).
 
@@ -48,3 +42,6 @@ Some issues I found with xo:
     of being able to use a postgres-native query).
   - It uses command line flags rather than a single configuration file
     for configuration, which I find more confusing.
+
+`sqlc` has been released pretty recently and looks pretty good. I have not
+investigated it all that deeply.
