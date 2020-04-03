@@ -324,6 +324,81 @@ func TestFillIncludes(t *testing.T) {
 	}
 }
 
+func TestNullableAttachments(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 3,
+	})
+	chkErr(t, err)
+
+	// one that isn't attached
+	_, err = txClient.InsertNullableAttachment(ctx, &db_shims.NullableAttachment{
+		Value: "not attached",
+	})
+	chkErr(t, err)
+
+	// and one that is
+	_, err = txClient.InsertNullableAttachment(ctx, &db_shims.NullableAttachment{
+		SmallEntityId: &entityID,
+		Value:         "attached",
+	})
+	chkErr(t, err)
+
+	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
+	chkErr(t, err)
+
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, db_shims.SmallEntityAllIncludes)
+	chkErr(t, err)
+
+	if len(smallEntity.NullableAttachments) != 1 {
+		t.Fatalf("expected exactly 1 attachment")
+	}
+	if smallEntity.NullableAttachments[0].Value != "attached" {
+		t.Fatalf("should be attached")
+	}
+}
+
+func TestNullableSingleAttachments(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+		Anint: 3,
+	})
+	chkErr(t, err)
+
+	// one that isn't attached
+	_, err = txClient.InsertNullableSingleAttachment(ctx, &db_shims.NullableSingleAttachment{
+		Value: "not attached",
+	})
+	chkErr(t, err)
+
+	// and one that is
+	_, err = txClient.InsertNullableSingleAttachment(ctx, &db_shims.NullableSingleAttachment{
+		SmallEntityId: &entityID,
+		Value:         "attached",
+	})
+	chkErr(t, err)
+
+	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
+	chkErr(t, err)
+
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, db_shims.SmallEntityAllIncludes)
+	chkErr(t, err)
+
+	if smallEntity.NullableSingleAttachment.Value != "attached" {
+		t.Fatalf("should be attached")
+	}
+}
+
 func TestNoInfer(t *testing.T) {
 	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
 

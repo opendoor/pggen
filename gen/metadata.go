@@ -457,6 +457,9 @@ type refMeta struct {
 	// Indicates that there can be at most one of these references between
 	// the two tables.
 	OneToOne bool
+	// Indicates whether or not the foreign key associated with this reference
+	// is nullable.
+	Nullable bool
 }
 
 type fieldNames struct {
@@ -616,6 +619,7 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 			ffield := &fromFields[idx]
 			ref.PointsFromFields = append(ref.PointsFromFields, ffield.name)
 			ref.OneToOne = ref.OneToOne && ffield.hasUniqueIndex
+			ref.Nullable = ffield.isNullable
 		}
 
 		meta.References = append(meta.References, ref)
@@ -627,6 +631,7 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 type pointsFromColMeta struct {
 	name           fieldNames
 	hasUniqueIndex bool
+	isNullable     bool
 }
 
 // pointsFromMeta returns the names of a tables columns given the table name
@@ -646,7 +651,10 @@ func (g *Generator) pointsFromColMeta(table string) (
 			WHERE c.relname = $1
 		)
 
-		SELECT a.attname, COALESCE(u.is_unique, 'f'::bool)
+		SELECT
+			a.attname,
+			COALESCE(u.is_unique, 'f'::bool),
+			a.attnotnull
 		FROM pg_attribute a
 		INNER JOIN pg_class c
 			ON (c.oid = a.attrelid)
@@ -664,10 +672,12 @@ func (g *Generator) pointsFromColMeta(table string) (
 
 	for rows.Next() {
 		var col pointsFromColMeta
-		err = rows.Scan(&col.name.PgName, &col.hasUniqueIndex)
+		var notNull bool
+		err = rows.Scan(&col.name.PgName, &col.hasUniqueIndex, &notNull)
 		if err != nil {
 			return nil, err
 		}
+		col.isNullable = !notNull
 		col.name.GoName = pgToGoName(col.name.PgName)
 		cols = append(cols, col)
 	}

@@ -115,6 +115,18 @@ CREATE TABLE single_attachments (
     created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE nullable_attachments (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer REFERENCES small_entities(id),
+    value text NOT NULL
+);
+
+CREATE TABLE nullable_single_attachments (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer UNIQUE REFERENCES small_entities(id),
+    value text NOT NULL
+);
+
 CREATE TABLE no_infer (
     id SERIAL PRIMARY KEY NOT NULL,
     small_entity_id integer NOT NULL

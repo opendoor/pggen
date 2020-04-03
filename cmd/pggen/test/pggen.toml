@@ -243,6 +243,12 @@
     name = "single_attachments"
 
 [[table]]
+    name = "nullable_attachments"
+
+[[table]]
+    name = "nullable_single_attachments"
+
+[[table]]
     name = "no_infer"
     no_infer_belongs_to = true
 

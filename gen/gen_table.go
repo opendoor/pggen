@@ -856,11 +856,7 @@ func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 	// Fill in the {{ .PluralGoPointsFrom }} if it is in includes
 	subSpec, inIncludeSet = includes.Includes["{{ .PgPointsFrom }}"]
 	if inIncludeSet {
-		{{- if .OneToOne }}
 		err = p.private{{ $.GoName }}Fill{{ .GoPointsFrom }}(ctx, recs)
-		{{- else }}
-		err = p.private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(ctx, recs)
-		{{- end }}
 		if err != nil {
 			return
 		}
@@ -887,11 +883,7 @@ func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 
 // For a give set of {{ $.GoName }}, fill in all the {{ .GoPointsFrom }}
 // connected to them using a single query.
-{{- if .OneToOne }}
 func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFrom }}(
-{{- else }}
-func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
-{{- end }}
 	ctx context.Context,
 	parentRecs []*{{ $.GoName }},
 ) error {
@@ -928,7 +920,13 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PluralGoPointsFrom }}(
 			return err
 		}
 
+		{{- if .Nullable }}
+		// we know that the foreign key can't be null because of the SQL query
+		parentRec := idToRecord[*childRec.{{ (index .PointsFromFields 0).GoName }}]
+		{{- else }}
 		parentRec := idToRecord[childRec.{{ (index .PointsFromFields 0).GoName }}]
+		{{- end }}
+
 		{{- if .OneToOne }}
 		parentRec.{{ .GoPointsFrom }} = &childRec
 		break
