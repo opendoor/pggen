@@ -221,6 +221,54 @@ CREATE TABLE enum_blanks (
     value enum_type_with_blank NOT NULL
 );
 
+
+-- cyclical references
+CREATE TABLE cycle1 (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL
+);
+CREATE TABLE cycle2 (
+    id SERIAL PRIMARY KEY,
+    value int NOT NULL,
+    cycle1_id integer NOT NULL REFERENCES cycle1(id)
+);
+ALTER TABLE cycle1 ADD COLUMN cycle2_id integer REFERENCES cycle2(id);
+
+-- an object tree with a cycle in the branches that is reached by multiple
+-- branch paths
+CREATE TABLE cycle_tree_root (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL
+);
+CREATE TABLE cycle_tree_branch1 (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    cycle_tree_root_id integer NOT NULL REFERENCES cycle_tree_root(id)
+);
+CREATE TABLE cycle_tree_branch2 (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    cycle_tree_root_id integer NOT NULL UNIQUE REFERENCES cycle_tree_root(id)
+);
+CREATE TABLE cycle_tree_cycle1 (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    cycle_tree_branch1_id integer NOT NULL UNIQUE REFERENCES cycle_tree_branch1(id)
+);
+CREATE TABLE cycle_tree_cycle2 (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    cycle_tree_cycle1_id integer NOT NULL UNIQUE REFERENCES cycle_tree_cycle1(id),
+    cycle_tree_branch2_id integer NOT NULL UNIQUE REFERENCES cycle_tree_branch2(id)
+);
+CREATE TABLE cycle_tree_cycle3 (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    cycle_tree_cycle2_id integer NOT NULL UNIQUE REFERENCES cycle_tree_cycle2(id)
+);
+ALTER TABLE cycle_tree_cycle1 ADD COLUMN
+    cycle_tree_cycle3_id integer REFERENCES cycle_tree_cycle3(id);
+
 --
 -- Load Data
 --

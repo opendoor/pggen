@@ -6,8 +6,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/jinzhu/inflection"
-
 	"github.com/opendoor-labs/pggen/include"
 )
 
@@ -112,7 +110,7 @@ func (g *Generator) genTable(
 	// asked to generate code for.
 	kept := 0
 	for _, ref := range genCtx.References {
-		if fromTable, inMap := g.tables[ref.PgPointsFrom]; inMap {
+		if fromTable, inMap := g.tables[ref.PointsFrom.PgName]; inMap {
 			if !fromTable.config.NoInferBelongsTo {
 				genCtx.References[kept] = ref
 				kept++
@@ -178,9 +176,9 @@ type {{ .GoName }} struct {
 	{{- end }}
 	{{- range .References }}
 	{{- if .OneToOne }}
-	{{ .GoPointsFrom }} *{{ .GoPointsFrom }}
+	{{ .PointsFrom.GoName }} *{{ .PointsFrom.GoName }}
 	{{- else }}
-	{{ .PluralGoPointsFrom }} []{{ .GoPointsFrom }}
+	{{ .PointsFrom.PluralGoName }} []*{{ .PointsFrom.GoName }}
 	{{- end }}
 	{{- end }}
 }
@@ -821,30 +819,54 @@ func (p *PGClient) {{ .GoName }}BulkFillIncludes(
 	ctx context.Context,
 	recs []*{{ .GoName }},
 	includes *include.Spec,
-) (err error) {
+) error {
 	return p.impl.{{ .GoName }}BulkFillIncludes(ctx, recs, includes)
 }
 func (tx *TxPGClient) {{ .GoName }}BulkFillIncludes(
 	ctx context.Context,
 	recs []*{{ .GoName }},
 	includes *include.Spec,
-) (err error) {
+) error {
 	return tx.impl.{{ .GoName }}BulkFillIncludes(ctx, recs, includes)
 }
 func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 	ctx context.Context,
 	recs []*{{ .GoName }},
 	includes *include.Spec,
-) (err error) {
-	if len(recs) == 0 {
-		return nil
-	}
+) error {
+	loadedRecordTab := map[string]interface{}{}
 
+	return p.impl{{ .GoName }}BulkFillIncludes(ctx, recs, includes, loadedRecordTab)
+}
+
+func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
+	ctx context.Context,
+	recs []*{{ .GoName }},
+	includes *include.Spec,
+	loadedRecordTab map[string]interface{},
+) (err error) {
 	if includes.TableName != "{{ .PgName }}" {
 		return fmt.Errorf(
 			"expected includes for '{{ .PgName }}', got '%s'",
 			includes.TableName,
 		)
+	}
+
+	loadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PgName }}` + "`" + `]
+	if inMap {
+		idToRecord := loadedTab.(map[{{ .PkeyCol.TypeInfo.Name }}]*{{ .GoName }})
+		for _, r := range recs {
+			_, alreadyLoaded := idToRecord[r.{{ .PkeyCol.GoName }}]
+			if !alreadyLoaded {
+				idToRecord[r.{{ .PkeyCol.GoName }}] = r
+			}
+		}
+	} else {
+		idToRecord := make(map[{{ .PkeyCol.TypeInfo.Name }}]*{{ .GoName }}, len(recs))
+		for _, r := range recs {
+			idToRecord[r.{{ .PkeyCol.GoName }}] = r
+		}
+		loadedRecordTab[` + "`" + `{{ .PgName }}` + "`" + `] = idToRecord
 	}
 
 	{{- if .References }}
@@ -853,24 +875,33 @@ func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 	{{- end }}
 
 	{{- range .References }}
-	// Fill in the {{ .PluralGoPointsFrom }} if it is in includes
-	subSpec, inIncludeSet = includes.Includes["{{ .PgPointsFrom }}"]
+	// Fill in the {{ .PointsFrom.PluralGoName }} if it is in includes
+	subSpec, inIncludeSet = includes.Includes[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `]
 	if inIncludeSet {
-		err = p.private{{ $.GoName }}Fill{{ .GoPointsFrom }}(ctx, recs)
+		err = p.private{{ $.GoName }}Fill{{ .PointsFrom.GoName }}(ctx, loadedRecordTab)
 		if err != nil {
 			return
 		}
-		var subRecs []*{{ .GoPointsFrom }}
+
+		subRecs := make([]*{{ .PointsFrom.GoName }}, 0, len(recs))
 		for _, outer := range recs {
 			{{- if .OneToOne }}
-			subRecs = append(subRecs, outer.{{ .GoPointsFrom }})
+			if outer.{{ .PointsFrom.GoName }} != nil {
+				subRecs = append(subRecs, outer.{{ .PointsFrom.GoName }})
+			}
 			{{- else }}
-			for i, _ := range outer.{{ .PluralGoPointsFrom }} {
-				subRecs = append(subRecs, &outer.{{ .PluralGoPointsFrom }}[i])
+			for i, _ := range outer.{{ .PointsFrom.PluralGoName }} {
+				{{- if .Nullable }}
+				if outer.{{ .PointsFrom.PluralGoName }}[i] == nil {
+					continue
+				}
+				{{- end }}
+				subRecs = append(subRecs, outer.{{ .PointsFrom.PluralGoName }}[i])
 			}
 			{{- end }}
 		}
-		err = p.{{ .GoPointsFrom }}BulkFillIncludes(ctx, subRecs, subSpec)
+
+		err = p.impl{{ .PointsFrom.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
 			return
 		}
@@ -879,25 +910,37 @@ func (p *pgClientImpl) {{ .GoName }}BulkFillIncludes(
 
 	return
 }
+
 {{- range .References }}
 
-// For a give set of {{ $.GoName }}, fill in all the {{ .GoPointsFrom }}
+// For a give set of {{ $.GoName }}, fill in all the {{ .PointsFrom.GoName }}
 // connected to them using a single query.
-func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFrom }}(
+func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFrom.GoName }}(
 	ctx context.Context,
-	parentRecs []*{{ $.GoName }},
+	loadedRecordTab map[string]interface{},
 ) error {
-	ids := make([]{{ $.PkeyCol.TypeInfo.Name }}, 0, len(parentRecs))
-	idToRecord := map[{{ $.PkeyCol.TypeInfo.Name }}]*{{ $.GoName }}{}
-	for i, elem := range parentRecs {
-		ids = append(ids, elem.{{ $.PkeyCol.GoName }})
-		idToRecord[elem.{{ $.PkeyCol.GoName }}] = parentRecs[i]
+	parentLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsTo.PgName }}` + "`" + `]
+	if !inMap {
+		return fmt.Errorf("internal pggen error: table not pre-loaded")
+	}
+	parentIDToRecord := parentLoadedTab.(map[{{ (index .PointsToFields 0).TypeInfo.Name }}]*{{ .PointsTo.GoName }})
+	ids := make([]{{ (index .PointsToFields 0).TypeInfo.Name }}, 0, len(parentIDToRecord))
+	for _, rec := range parentIDToRecord{
+		ids = append(ids, rec.{{ (index .PointsToFields 0).GoName }})
+	}
+
+	var childIDToRecord map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }}
+	childLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `]
+	if inMap {
+		childIDToRecord = childLoadedTab.(map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }})
+	} else {
+		childIDToRecord = map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }}{}
 	}
 
 	rows, err := p.db.QueryContext(
 		ctx,
 		` + "`" +
-	`SELECT * FROM "{{ .PgPointsFrom }}"
+	`SELECT * FROM "{{ .PointsFrom.PgName }}"
 		 WHERE "{{ (index .PointsFromFields 0).PgName }}" = ANY($1)
 		 {{- if .OneToOne }}
 		 LIMIT 1
@@ -914,24 +957,33 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFrom }}(
 	// pull all the child records from the database and associate them with
 	// the correct parent.
 	for rows.Next() {
-		var childRec {{ .GoPointsFrom }}
-		err = childRec.Scan(ctx, p.client, rows)
+		var scannedChildRec {{ .PointsFrom.GoName }}
+		err = scannedChildRec.Scan(ctx, p.client, rows)
 		if err != nil {
 			return err
 		}
 
+		var childRec *{{ .PointsFrom.GoName }}
+
+		preloadedChildRec, alreadyLoaded := childIDToRecord[scannedChildRec.{{ .PointsFrom.PkeyCol.GoName }}]
+		if alreadyLoaded {
+			childRec = preloadedChildRec
+		} else {
+			childRec = &scannedChildRec
+		}
+
 		{{- if .Nullable }}
 		// we know that the foreign key can't be null because of the SQL query
-		parentRec := idToRecord[*childRec.{{ (index .PointsFromFields 0).GoName }}]
+		parentRec := parentIDToRecord[*childRec.{{ (index .PointsFromFields 0).GoName }}]
 		{{- else }}
-		parentRec := idToRecord[childRec.{{ (index .PointsFromFields 0).GoName }}]
+		parentRec := parentIDToRecord[childRec.{{ (index .PointsFromFields 0).GoName }}]
 		{{- end }}
 
 		{{- if .OneToOne }}
-		parentRec.{{ .GoPointsFrom }} = &childRec
+		parentRec.{{ .PointsFrom.GoName }} = childRec
 		break
 		{{- else }}
-		parentRec.{{ .PluralGoPointsFrom }} = append(parentRec.{{ .PluralGoPointsFrom }}, childRec)
+		parentRec.{{ .PointsFrom.PluralGoName }} = append(parentRec.{{ .PointsFrom.PluralGoName }}, childRec)
 		{{- end }}
 	}
 
@@ -1002,7 +1054,15 @@ func (g *Generator) populateTableInfo(tables []tableConfig) error {
 		g.tableTyNameToTableName[meta.GoName] = meta.PgName
 	}
 
-	err := buildExplicitBelongsToMapping(tables, g.tables)
+	// fill in all the reference we can automatically detect
+	for _, table := range g.tables {
+		err := g.fillTableReferences(&table.meta)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := g.buildExplicitBelongsToMapping(tables, g.tables)
 	if err != nil {
 		return err
 	}
@@ -1074,7 +1134,7 @@ func ensureSpec(tables map[string]*tableGenInfo, info *tableGenInfo) error {
 	}
 
 	ensureReferencedSpec := func(ref *refMeta) error {
-		subInfo := tables[ref.PgPointsFrom]
+		subInfo := tables[ref.PointsFrom.PgName]
 		if subInfo == nil {
 			// This table is referenced in the database schema but not in the
 			// config file.
@@ -1111,11 +1171,13 @@ func ensureSpec(tables map[string]*tableGenInfo, info *tableGenInfo) error {
 	return nil
 }
 
-func buildExplicitBelongsToMapping(
+func (g *Generator) buildExplicitBelongsToMapping(
 	tables []tableConfig,
 	infoTab map[string]*tableGenInfo,
 ) error {
 	for _, table := range tables {
+		pointsFromTable := g.tables[table.Name]
+
 		for _, belongsTo := range table.BelongsTo {
 			if len(belongsTo.Table) == 0 {
 				return fmt.Errorf(
@@ -1131,26 +1193,28 @@ func buildExplicitBelongsToMapping(
 				)
 			}
 
+			var belongsToColMeta *colMeta
+			for i, col := range pointsFromTable.meta.Cols {
+				if col.PgName == belongsTo.KeyField {
+					belongsToColMeta = &pointsFromTable.meta.Cols[i]
+				}
+			}
+			if belongsToColMeta == nil {
+				return fmt.Errorf(
+					"table '%s' has no field '%s'",
+					table.Name,
+					belongsTo.KeyField,
+				)
+			}
+
 			pointsToMeta := infoTab[belongsTo.Table].meta
 			ref := refMeta{
-				PgPointsTo: belongsTo.Table,
-				GoPointsTo: pgToGoName(inflection.Singular(belongsTo.Table)),
-				PointsToFields: []fieldNames{
-					{
-						PgName: pointsToMeta.PkeyCol.PgName,
-						GoName: pointsToMeta.PkeyCol.GoName,
-					},
-				},
-				PgPointsFrom:       table.Name,
-				GoPointsFrom:       pgToGoName(inflection.Singular(table.Name)),
-				PluralGoPointsFrom: pgToGoName(table.Name),
-				PointsFromFields: []fieldNames{
-					{
-						PgName: belongsTo.KeyField,
-						GoName: pgToGoName(belongsTo.KeyField),
-					},
-				},
-				OneToOne: belongsTo.OneToOne,
+				PointsTo:         &g.tables[belongsTo.Table].meta,
+				PointsToFields:   []*colMeta{pointsToMeta.PkeyCol},
+				PointsFrom:       &g.tables[table.Name].meta,
+				PointsFromFields: []*colMeta{belongsToColMeta},
+				OneToOne:         belongsTo.OneToOne,
+				Nullable:         belongsToColMeta.Nullable,
 			}
 
 			info := infoTab[belongsTo.Table]
