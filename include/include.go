@@ -41,6 +41,18 @@
 // spec_list ::= spec
 //             | spec ',' spec
 //
+// Cyclic Include Specs:
+//
+// The object graph in a database schema might have cyclic references, which don't
+// map the most obviously to the hierarchical representation used by include specs,
+// especially in their textual form. Include specs can still be used to describe
+// cycles though. Each cycle in an include spec has a root node, which is the one
+// closest to the root node of the include spec. Cycles are expressed as the path
+// from the root node back to itself.
+//
+// For example, if the table `foo` referenced the table `bar` which contained a
+// reference back to `foo`, the include spec `foo.bar.foo` could be used to capture
+// that cycle.
 package include
 
 import (
@@ -63,13 +75,16 @@ type Spec struct {
 
 func (s *Spec) String() string {
 	var out strings.Builder
-	s.writeToBuilder(&out)
+
+	seen := map[*Spec]bool{}
+	s.writeToBuilder(&out, seen, false)
+
 	return out.String()
 }
 
 var unquotedIdentRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_$]*$")
 
-func (s *Spec) writeToBuilder(b *strings.Builder) {
+func (s *Spec) writeToBuilder(b *strings.Builder, seen map[*Spec]bool, stop bool) {
 	if unquotedIdentRE.Match([]byte(s.TableName)) {
 		b.WriteString(s.TableName)
 	} else {
@@ -80,10 +95,15 @@ func (s *Spec) writeToBuilder(b *strings.Builder) {
 		b.WriteByte('"')
 	}
 
+	if stop {
+		return
+	}
+	seen[s] = true
+
 	if len(s.Includes) == 1 {
 		b.WriteByte('.')
 		for _, subSpec := range s.Includes {
-			subSpec.writeToBuilder(b)
+			subSpec.writeToBuilder(b, seen, seen[subSpec])
 		}
 	} else if len(s.Includes) > 1 {
 		b.WriteByte('.')
@@ -99,7 +119,7 @@ func (s *Spec) writeToBuilder(b *strings.Builder) {
 
 		b.WriteByte('{')
 		for i, subSpec := range subSpecs {
-			subSpec.writeToBuilder(b)
+			subSpec.writeToBuilder(b, seen, seen[subSpec])
 			if i < len(subSpecs)-1 {
 				b.WriteByte(',')
 			}

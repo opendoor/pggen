@@ -938,3 +938,138 @@ func TestEnumBlanks(t *testing.T) {
 		t.Fatal("should be blank")
 	}
 }
+
+func TestBasicCycle(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	cycle1ID, err := txClient.InsertCycle1(ctx, &db_shims.Cycle1{
+		Value: "foo",
+	})
+	chkErr(t, err)
+
+	cycle2ID, err := txClient.InsertCycle2(ctx, &db_shims.Cycle2{
+		Cycle1Id: cycle1ID,
+		Value:    9,
+	})
+	chkErr(t, err)
+
+	cycle2IDMask := pggen.NewFieldSet(db_shims.Cycle1MaxFieldIndex)
+	cycle2IDMask.Set(db_shims.Cycle1IdFieldIndex, true)
+	cycle2IDMask.Set(db_shims.Cycle1Cycle2IdFieldIndex, true)
+	_, err = txClient.UpdateCycle1(ctx, &db_shims.Cycle1{
+		Id:       cycle1ID,
+		Cycle2Id: &cycle2ID,
+	}, cycle2IDMask)
+	chkErr(t, err)
+
+	cycle1, err := txClient.GetCycle1(ctx, cycle1ID)
+	chkErr(t, err)
+
+	err = txClient.Cycle1FillIncludes(ctx, cycle1, db_shims.Cycle1AllIncludes)
+	chkErr(t, err)
+
+	if len(cycle1.Cycle2) != 1 {
+		t.Fatalf("expected exactly 1 cycle2")
+	}
+
+	cycle2 := cycle1.Cycle2[0]
+	if cycle2.Value != 9 {
+		t.Fatalf("expected 9")
+	}
+
+	if len(cycle2.Cycle1) != 1 {
+		t.Fatalf("expected exactly 1 cycle1")
+	}
+
+	roundaboutCycle1 := cycle2.Cycle1[0]
+	if roundaboutCycle1.Value != "foo" {
+		t.Fatalf("expected foo")
+	}
+
+	if cycle1 != roundaboutCycle1 {
+		t.Fatalf("expected them to actually be the same object, not just have the same values")
+	}
+}
+
+func TestCycleTree(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	rootID, err := txClient.InsertCycleTreeRoot(ctx, &db_shims.CycleTreeRoot{
+		Value: "root",
+	})
+	chkErr(t, err)
+
+	branch1ID, err := txClient.InsertCycleTreeBranch1(ctx, &db_shims.CycleTreeBranch1{
+		Value:           "branch-1",
+		CycleTreeRootId: rootID,
+	})
+	chkErr(t, err)
+
+	branch2ID, err := txClient.InsertCycleTreeBranch2(ctx, &db_shims.CycleTreeBranch2{
+		Value:           "branch-2",
+		CycleTreeRootId: rootID,
+	})
+	chkErr(t, err)
+
+	cycle1ID, err := txClient.InsertCycleTreeCycle1(ctx, &db_shims.CycleTreeCycle1{
+		Value:              "cycle-1",
+		CycleTreeBranch1Id: branch1ID,
+	})
+	chkErr(t, err)
+
+	cycle2ID, err := txClient.InsertCycleTreeCycle2(ctx, &db_shims.CycleTreeCycle2{
+		Value:              "cycle-2",
+		CycleTreeBranch2Id: branch2ID,
+		CycleTreeCycle1Id:  cycle1ID,
+	})
+	chkErr(t, err)
+
+	cycle3ID, err := txClient.InsertCycleTreeCycle3(ctx, &db_shims.CycleTreeCycle3{
+		Value:             "cycle-3",
+		CycleTreeCycle2Id: cycle2ID,
+	})
+	chkErr(t, err)
+
+	cycle3IDMask := pggen.NewFieldSet(db_shims.CycleTreeCycle1MaxFieldIndex)
+	cycle3IDMask.Set(db_shims.CycleTreeCycle1IdFieldIndex, true)
+	cycle3IDMask.Set(db_shims.CycleTreeCycle1CycleTreeCycle3IdFieldIndex, true)
+	_, err = txClient.UpdateCycleTreeCycle1(ctx, &db_shims.CycleTreeCycle1{
+		Id:                cycle1ID,
+		CycleTreeCycle3Id: &cycle3ID,
+	}, cycle3IDMask)
+	chkErr(t, err)
+
+	root, err := txClient.GetCycleTreeRoot(ctx, rootID)
+	chkErr(t, err)
+
+	err = txClient.CycleTreeRootFillIncludes(ctx, root, db_shims.CycleTreeRootAllIncludes)
+	chkErr(t, err)
+
+	c1 := root.CycleTreeBranch1[0].CycleTreeCycle1
+	c2 := root.CycleTreeBranch2.CycleTreeCycle2
+	cycle1s := []*db_shims.CycleTreeCycle1{
+		c1,
+		c1.CycleTreeCycle2.CycleTreeCycle3.CycleTreeCycle1[0],
+		c2.CycleTreeCycle3.CycleTreeCycle1[0],
+	}
+
+	for i, node := range cycle1s {
+		for j, other := range cycle1s {
+			if i == j {
+				continue // no need to check this case
+			}
+
+			if node != other {
+				t.Fatalf("expected all cycle1s to have the same object identity")
+			}
+		}
+	}
+}

@@ -300,3 +300,21 @@
 
 [[table]]
     name = "enum_blanks"
+
+[[table]]
+    name = "cycle1"
+[[table]]
+    name = "cycle2"
+
+[[table]]
+    name = "cycle_tree_root"
+[[table]]
+    name = "cycle_tree_branch1"
+[[table]]
+    name = "cycle_tree_branch2"
+[[table]]
+    name = "cycle_tree_cycle1"
+[[table]]
+    name = "cycle_tree_cycle2"
+[[table]]
+    name = "cycle_tree_cycle3"

@@ -180,3 +180,34 @@ func TestParseErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestCyclicIncludeSpec(t *testing.T) {
+	cyclic := Spec{
+		TableName: "foo",
+	}
+	cyclic.Includes = map[string]*Spec{
+		"bar": {
+			TableName: "bar",
+			Includes: map[string]*Spec{
+				"foo": &cyclic,
+			},
+		},
+	}
+
+	containsCyclic := Spec{
+		TableName: "baz",
+		Includes: map[string]*Spec{
+			"foo": &cyclic,
+		},
+	}
+
+	txt := cyclic.String()
+	if txt != "foo.bar.foo" {
+		t.Fatalf("bad txt: %s", txt)
+	}
+
+	txt = containsCyclic.String()
+	if txt != "baz.foo.bar.foo" {
+		t.Fatalf("bad txt: %s", txt)
+	}
+}
