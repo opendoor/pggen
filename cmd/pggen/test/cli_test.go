@@ -245,6 +245,25 @@ name = "small_entities"
 		exitCode: 0,
 		stderrRE: "WARN.*no.*does_not_exist.*updated at",
 	},
+	{
+		extraEnv: []string{"FOO=b"},
+		cmd:      "{{ .Exe }} -o {{ .Output }} -e FOO {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "returns_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "query 'returns_text'",
+	},
+	{
+		cmd: "{{ .Exe }} -o {{ .Output }} --enable-var UNSET=missing_value {{ .Toml }}",
+		toml: `
+[[stored_function]]
+    name = "returns_text"
+		`,
+		exitCode: 0,
+		stdoutRE: "pggen: doing nothing because an enable var failed to match",
+	},
 }
 
 func TestCLI(t *testing.T) {

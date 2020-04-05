@@ -24,8 +24,11 @@ type Config struct {
 	// A list of postgres connection strings to be used to connect to the
 	// database. They tried in order until one is found where `DB.Ping` works.
 	ConnectionStrings []string
-	// A list of var patterns to match against the environment.
+	// A list of var patterns which disable pggen when they match the environment.
 	DisableVars []string
+	// A list of var patterns which must match against the environment in order for
+	// pggen to run.
+	EnableVars []string
 	// The verbosity level of the code generator. -1 means quiet mode,
 	// 0 (the default) means normal mode, and 1 means verbose mode.
 	Verbosity int
@@ -59,8 +62,10 @@ type Generator struct {
 	// by taking a default table an applying the user-provided type
 	// overrides to it.
 	pgType2GoType map[string]*goTypeInfo
-	// If true, this generator's Gen() method should do nothing.
-	disabled bool
+	// This generator should do nothing because a disable var matched
+	disabledByDisableVar bool
+	// This generated should do nothing becase an enable var failed to match
+	disabledByEnableVar bool
 }
 
 // Print `output` at a normal verbosity level
@@ -88,7 +93,10 @@ func (g *Generator) warnf(format string, a ...interface{}) {
 
 func FromConfig(config Config) (*Generator, error) {
 	if anyVarPatternMatches(config.DisableVars) {
-		return &Generator{disabled: true}, nil
+		return &Generator{disabledByDisableVar: true}, nil
+	}
+	if !allVarPatternsMatch(config.EnableVars) {
+		return &Generator{disabledByEnableVar: true}, nil
 	}
 
 	var err error
@@ -134,8 +142,13 @@ func FromConfig(config Config) (*Generator, error) {
 
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
-	if g.disabled {
+	if g.disabledByDisableVar {
 		g.info("pggen: doing nothing because a disable var matched\n")
+		return nil
+	}
+
+	if g.disabledByEnableVar {
+		g.info("pggen: doing nothing because an enable var failed to match\n")
 		return nil
 	}
 

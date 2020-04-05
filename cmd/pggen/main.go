@@ -30,6 +30,13 @@ Options:
                                              than once, in which case pggen is disabled if any
                                              match against the environment.
 
+-e, --enable-var <var-pattern>               If <var-pattern> matches against the environment,
+                                             run pggen, otherwise don't do anything. If both
+											 enable vars and disable vars are provided, pggen
+											 will be disabled if any of the patterns would
+											 lead to it being disabled (matching disable var,
+											 non-matching enable var).
+
 -c, --connection-string <connection-string>  The connection string to use to attach
                                              to the postgres instance we will
                                              generate shims for. May be specified more
@@ -79,6 +86,9 @@ func main() {
 				args = args[2:]
 			} else if args[0] == "-d" || args[0] == "--disable-var" {
 				config.DisableVars = append(config.DisableVars, args[1])
+				args = args[2:]
+			} else if args[0] == "-e" || args[0] == "--enable-var" {
+				config.EnableVars = append(config.EnableVars, args[1])
 				args = args[2:]
 			} else if args[0] == "-h" || args[0] == "--help" {
 				usage(true)
