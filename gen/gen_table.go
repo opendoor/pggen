@@ -411,38 +411,40 @@ func (p *pgClientImpl) BulkInsert{{ .GoName }}(
 	}
 
 	{{- if (or .HasCreatedAtField .HasUpdatedAtField) }}
-	var now time.Time
+	now := time.Now()
 	{{- end }}
 
 	{{- if .HasCreatedAtField }}
-	{{- if .CreatedAtHasTimezone }}
-	now = time.Now()
-	{{- else }}
-	now = time.Now().UTC()
-	{{- end }}
 	for i := range values {
+		{{- if .CreatedAtHasTimezone }}
+		createdAt := now
+		{{- else }}
+		createdAt := now.UTC()
+		{{- end }}
+
 		{{- if .HasCreatedAtField }}
 		{{- if .CreatedAtFieldIsNullable }}
-		values[i].{{ .CreatedAtField }} = &now
+		values[i].{{ .CreatedAtField }} = &createdAt
 		{{- else }}
-		values[i].{{ .CreatedAtField }} = now
+		values[i].{{ .CreatedAtField }} = createdAt
 		{{- end }}
 		{{- end }}
 	}
 	{{- end }}
 
 	{{- if .HasUpdatedAtField }}
-	{{- if .UpdatedAtHasTimezone }}
-	now = time.Now()
-	{{- else }}
-	now = time.Now().UTC()
-	{{- end}}
 	for i := range values {
+		{{- if .CreatedAtHasTimezone }}
+		updatedAt := now
+		{{- else }}
+		updatedAt := now.UTC()
+		{{- end }}
+
 		{{- if .HasUpdatedAtField }}
 		{{- if .UpdatedAtFieldIsNullable }}
-		values[i].{{ .UpdatedAtField }} = &now
+		values[i].{{ .UpdatedAtField }} = &updatedAt
 		{{- else }}
-		values[i].{{ .UpdatedAtField }} = now
+		values[i].{{ .UpdatedAtField }} = updatedAt
 		{{- end }}
 		{{- end }}
 	}
@@ -661,6 +663,41 @@ func (p *pgClientImpl) BulkUpsert{{ .GoName }}(
 	if constraintNames == nil || len(constraintNames) == 0 {
 		constraintNames = []string{` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `}
 	}
+
+	{{ if (or .HasCreatedAtField .HasUpdatedAtField) }}
+	now := time.Now()
+
+	{{- if .HasCreatedAtField }}
+	{{- if .CreatedAtHasTimezone }}
+	createdAt := now
+	{{- else }}
+	createdAt := now.UTC()
+	{{- end }}
+	for i := range values {
+		{{- if .CreatedAtFieldIsNullable }}
+		values[i].{{ .CreatedAtField }} = &createdAt
+		{{- else }}
+		values[i].{{ .CreatedAtField }} = createdAt
+		{{- end }}
+	}
+	{{- end}}
+
+	{{- if .HasUpdatedAtField }}
+	{{- if .UpdatedAtHasTimezone }}
+	updatedAt := now
+	{{- else }}
+	updatedAt := now.UTC()
+	{{- end }}
+	for i := range values {
+		{{- if .UpdatedAtFieldIsNullable }}
+		values[i].{{ .UpdatedAtField }} = &updatedAt
+		{{- else }}
+		values[i].{{ .UpdatedAtField }} = updatedAt
+		{{- end }}
+	}
+	fieldMask.Set({{ .GoName }}{{ .UpdatedAtField }}FieldIndex, true)
+	{{- end }}
+	{{- end }}
 
 	var stmt strings.Builder
 	genInsertCommon(
