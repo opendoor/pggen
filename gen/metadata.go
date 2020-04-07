@@ -479,7 +479,7 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 			WHERE c.relname = $1
 		)
 
-		SELECT
+		SELECT DISTINCT ON (a.attnum)
 			a.attnum AS col_num,
 			a.attname AS col_name,
 			format_type(a.atttypid, a.atttypmod) AS col_type,
