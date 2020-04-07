@@ -234,6 +234,9 @@
 #
 
 [[table]]
+    name = "type_rainbow"
+
+[[table]]
     name = "small_entities"
 
 [[table]]

@@ -66,7 +66,7 @@ func (g *Generator) maybeEmitEnumType(
 		return &typeInfo, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("'%s' is not an enum type", pgTypeName)
 }
 
 type enumVar struct {

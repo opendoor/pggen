@@ -128,6 +128,16 @@ func (g *Generator) primTypeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 		return enumTypeInfo, nil
 	}
 
+	if strings.HasPrefix(pgTypeName, "numeric") {
+		return &stringGoTypeInfo, nil
+	}
+	if strings.HasPrefix(pgTypeName, "character varying") {
+		return &stringGoTypeInfo, nil
+	}
+	if strings.HasPrefix(pgTypeName, "character") {
+		return &stringGoTypeInfo, nil
+	}
+
 	return nil, fmt.Errorf(
 		"unknown pg type: '%s': %s",
 		pgTypeName,
@@ -350,6 +360,9 @@ var defaultPgType2GoType = map[string]*goTypeInfo{
 	"smallint": &int64GoTypeInfo,
 	"integer":  &int64GoTypeInfo,
 	"bigint":   &int64GoTypeInfo,
+
+	// intervals seem to be passed as int64
+	"interval": &int64GoTypeInfo,
 
 	// numeric types are returned as strings for the same reason that
 	// money types are.

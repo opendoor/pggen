@@ -520,7 +520,7 @@ func (g *Generator) tableMeta(table string) (tableMeta, error) {
 		}
 		typeInfo, err := g.typeInfoOf(col.PgType)
 		if err != nil {
-			return tableMeta{}, err
+			return tableMeta{}, fmt.Errorf("column '%s': %s", col.PgName, err.Error())
 		}
 		col.TypeInfo = *typeInfo
 		col.GoName = pgToGoName(col.PgName)
