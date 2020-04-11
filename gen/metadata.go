@@ -331,15 +331,29 @@ func overrideNullability(
 // describing its arguments
 func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 	rows, err := g.db.Query(`
-        SELECT f.argname, t.typname
-        FROM (
-            SELECT unnest(p.proargnames) as argname, unnest(p.proargtypes) as argtype
-            FROM pg_proc p
-            WHERE p.proname = $1
-        ) f
-        JOIN pg_type t
-            ON (f.argtype = t.oid)
-        `, funcName)
+		WITH proc_args AS (
+			SELECT
+				UNNEST(p.proargnames) as argname,
+				UNNEST(p.proargtypes) as argtype
+			FROM pg_proc p
+			WHERE p.proname = $1
+		), argmodes AS (
+			SELECT
+				UNNEST(p.proargnames) as argname,
+				UNNEST(p.proargmodes) as argmode
+			FROM pg_proc p
+			WHERE p.proname = $1
+		)
+
+		SELECT arg.argname, t.typname
+		FROM proc_args arg
+		JOIN pg_type t
+			ON (arg.argtype = t.oid)
+		LEFT JOIN argmodes mode
+			ON (mode.argname = arg.argname)
+		WHERE mode.argmode != 't'
+		   OR mode.argmode IS NULL
+		`, funcName)
 	if err != nil {
 		return nil, err
 	}
