@@ -1,6 +1,13 @@
 version: "3"
 
 services:
+  lint:
+    build: .
+    environment:
+      LINT: "1"
+    volumes:
+      - ".:/pggen"
+
   test12:
     build: .
     environment:

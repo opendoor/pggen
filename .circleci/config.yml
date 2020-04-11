@@ -3,6 +3,24 @@
 version: 2
 
 jobs:
+  lint:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: /go/test_dir
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 18.05.0-ce
+      - run:
+          name: Build Docker Image
+          command: |
+            docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+            docker build -t pggen_source .
+      - run:
+          name: Run Tests
+          command: |
+            docker-compose --file .circleci/docker-compose.yml run lint
+
   test12:
     docker:
       - image: circleci/golang:1.12
@@ -97,6 +115,7 @@ workflows:
   version: 2
   pr:
     jobs:
+      - "lint"
       - "test12"
       - "test11"
       - "test10"
