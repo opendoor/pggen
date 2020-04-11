@@ -26,7 +26,8 @@ func (g *Generator) maybeEmitEnumType(
 			ScanNullName:    "Null" + goName,
 			NullConvertFunc: convertCall("convertNull" + goName),
 			SqlReceiver:     refWrap,
-			SqlArgument:     idWrap,
+			SqlArgument:     stringizeWrap,
+			isEnum:          true,
 		}
 
 		if g.types.probe(typeInfo.Name) {
@@ -67,6 +68,21 @@ func (g *Generator) maybeEmitEnumType(
 	}
 
 	return nil, fmt.Errorf("'%s' is not an enum type", pgTypeName)
+}
+
+func stringizeWrap(variable string) string {
+	return fmt.Sprintf("%s.String()", variable)
+}
+
+func stringizeArrayWrap(variable string) string {
+	return fmt.Sprintf(`
+		func() interface{} {
+			ret := make([]string, 0, len(%s))
+			for _, e := range %s {
+				ret = append(ret, e.String())
+			}
+			return pq.Array(ret)
+		}()`, variable, variable)
 }
 
 type enumVar struct {
@@ -110,21 +126,45 @@ var enumSigTmpl = template.Must(template.New("enum-sig-tmpl").Parse(`
 `))
 
 var enumTmpl = template.Must(template.New("enum-tmpl").Parse(`
-type {{ .TypeName }} string
+type {{ .TypeName }} int
 const (
 {{- range .Variants }}
-	{{ $.TypeName }}{{ .GoName }} {{ $.TypeName }} = "{{ .Value }}"
+	{{ $.TypeName }}{{ .GoName }} {{ $.TypeName }} = iota
 {{- end }}
 )
 
+func (t {{ .TypeName }}) String() string {
+	switch t {
+	{{- range .Variants }}
+	case {{ $.TypeName }}{{ .GoName }}:
+		return ` + "`" + `{{ .Value }}` + "`" + `
+	{{- end }}
+	default:
+		panic(fmt.Sprintf("invalid {{ .TypeName }}: %d", t))
+	}
+}
+
+func {{ .TypeName }}FromString(s string) ({{ .TypeName }}, error) {
+	var zero {{ .TypeName }}
+
+	switch s {
+	{{- range .Variants }}
+	case ` + "`" + `{{ .Value }}` + "`" + `:
+		return {{ $.TypeName }}{{ .GoName }}, nil
+	{{- end }}
+	default:
+		return zero, fmt.Errorf("{{ .TypeName }} unknown variant '%s'", s)
+	}
+}
+
 type Null{{ .TypeName }} struct {
-	{{ .TypeName }} string
+	{{ .TypeName }} {{ .TypeName }}
 	Valid bool
 }
 // Scan implements the sql.Scanner interface
 func (n *Null{{ .TypeName }}) Scan(value interface{}) error {
 	if value == nil {
-		n.{{ .TypeName }}, n.Valid = "", false
+		n.{{ .TypeName }}, n.Valid = {{ .TypeName }}(0), false
 		return nil
 	}
 	buff, ok := value.([]byte)
@@ -134,8 +174,13 @@ func (n *Null{{ .TypeName }}) Scan(value interface{}) error {
 		)
 	}
 
+	val, err := {{ .TypeName }}FromString(string(buff))
+	if err != nil {
+		return fmt.Errorf("Null{{ .TypeName }}.Scan: %s", err.Error())
+	}
+
 	n.Valid = true
-	n.{{ .TypeName }} = string(buff)
+	n.{{ .TypeName }} = val
 	return nil
 }
 // Value implements the sql.Valuer interface
@@ -143,7 +188,7 @@ func (n Null{{ .TypeName }}) Value() (driver.Value, error) {
 	if !n.Valid {
 		return nil, nil
 	}
-	return n.{{ .TypeName }}, nil
+	return n.{{ .TypeName }}.String(), nil
 }
 func convertNull{{ .TypeName }}(v Null{{ .TypeName }}) *{{ .TypeName }} {
 	if v.Valid {

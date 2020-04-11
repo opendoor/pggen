@@ -221,7 +221,6 @@ CREATE TABLE enum_blanks (
     value enum_type_with_blank NOT NULL
 );
 
-
 -- cyclical references
 CREATE TABLE cycle1 (
     id SERIAL PRIMARY KEY,
@@ -268,6 +267,12 @@ CREATE TABLE cycle_tree_cycle3 (
 );
 ALTER TABLE cycle_tree_cycle1 ADD COLUMN
     cycle_tree_cycle3_id integer REFERENCES cycle_tree_cycle3(id);
+
+CREATE TABLE simple_enums (
+    id SERIAL PRIMARY KEY,
+    value enum_type
+);
+INSERT INTO simple_enums (value) VALUES (''), ('option1'), ('option1'), ('option2'), (NULL);
 
 --
 -- Load Data

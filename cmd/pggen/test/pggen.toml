@@ -219,6 +219,10 @@
     name = "ForceError"
     body = "SELECT * FROM inject_sql('ya done goofed')"
 
+[[query]]
+    name = "AllMatchingEnums"
+    body = "SELECT array_agg(value) as variants FROM simple_enums WHERE value = ANY($1)"
+
 #
 # Statements
 #

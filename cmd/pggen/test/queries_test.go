@@ -98,7 +98,7 @@ func TestEnumArg(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.EnumArg(ctx, db_shims.EnumTypeOption1)
 		},
-		expected: `\["option1"\]`,
+		expected: `\[1\]`,
 	}.test(t)
 }
 
@@ -170,20 +170,20 @@ func TestEnumArrays(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.ListEnumAsArray(
 				ctx,
-				[]db_shims.EnumType{"option1", "option2"},
+				[]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2},
 			)
 		},
-		expected: regexp.QuoteMeta(`[["option2","option1"]]`),
+		expected: regexp.QuoteMeta(`[[2,1]]`),
 	}.test(t)
 
 	Expectation{
 		call: func() (interface{}, error) {
 			return pgClient.ListEnumAsArrayWithNulls(
 				ctx,
-				[]db_shims.EnumType{"option1", "option2"},
+				[]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2},
 			)
 		},
-		expected: regexp.QuoteMeta(`[["option1",null]]`),
+		expected: regexp.QuoteMeta(`[[1,null]]`),
 	}.test(t)
 }
 
@@ -196,4 +196,31 @@ func TestQueryErrors(t *testing.T) {
 	if !strings.Contains(err.Error(), `column "injection" does not exist`) {
 		t.Fatalf("unexpected err: %s", err.Error())
 	}
+}
+
+func TestAllMatchingEnums(t *testing.T) {
+	check := func(variants []db_shims.EnumType) {
+		matching, err := pgClient.AllMatchingEnums(ctx, variants)
+		chkErr(t, err)
+
+		expected := make(map[db_shims.EnumType]bool, len(variants))
+		for _, v := range variants {
+			expected[v] = true
+		}
+
+		if len(matching) != 1 {
+			t.Fatalf("should have rolled everything up into one row")
+		}
+		for _, v := range matching[0] {
+			if v == nil || !expected[*v] {
+				t.Fatalf("unexpected variant: '%s'", v.String())
+			}
+		}
+	}
+
+	check([]db_shims.EnumType{})
+	check([]db_shims.EnumType{db_shims.EnumTypeBlank})
+	check([]db_shims.EnumType{db_shims.EnumTypeOption1})
+	check([]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2})
+	check([]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption1, db_shims.EnumTypeOption2})
 }

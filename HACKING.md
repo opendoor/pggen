@@ -73,31 +73,18 @@ generated file by default. In order to make this easier, you can modify the `wri
 routine in `gen/utils.go` to skip the formatting and just dump the code to disk.
 
 ```
-
 diff --git a/gen/utils.go b/gen/utils.go
-index dd7804d..77a437e 100644
+index dd7804d..e3a446f 100644
 --- a/gen/utils.go
 +++ b/gen/utils.go
-@@ -2,7 +2,7 @@ package gen
+@@ -20,8 +20,9 @@ func writeGoFile(path string, src []byte) error {
 
- import (
- 	"fmt"
--	"go/format"
-+	// "go/format"
- 	"io"
- 	"math/rand"
- 	"os"
-@@ -18,10 +18,13 @@ func writeGoFile(path string, src []byte) error {
- 	}
- 	defer outFile.Close()
-
-+	/*
  	formattedSrc, err := format.Source(src)
  	if err != nil {
- 		return fmt.Errorf("internal pggen error: %s", err.Error())
+-		return fmt.Errorf("internal pggen error: %s", err.Error())
++		// return fmt.Errorf("internal pggen error: %s", err.Error())
  	}
-+	*/
-+	formattedSrc := src
++	formattedSrc = src
 
  	return writeCompletely(outFile, formattedSrc)
  }

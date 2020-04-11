@@ -18,6 +18,11 @@ func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 				return nil, err
 			}
 
+			sqlArgument := arrayWrap
+			if tyInfo.isEnum {
+				sqlArgument = stringizeArrayWrap
+			}
+
 			return &goTypeInfo{
 				Name:            "[]" + tyInfo.Name,
 				NullName:        "[]" + tyInfo.NullName,
@@ -25,7 +30,7 @@ func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 				NullConvertFunc: arrayConvert(tyInfo.NullConvertFunc, tyInfo.NullName),
 				// arrays need special wrappers
 				SqlReceiver: arrayRefWrap,
-				SqlArgument: arrayWrap,
+				SqlArgument: sqlArgument,
 			}, nil
 		}
 	}
@@ -185,6 +190,9 @@ type goTypeInfo struct {
 	// If this is a timestamp type, it has a time zone, otherwise this field
 	// is meaningless.
 	IsTimestampWithZone bool
+	// A flag indicating that this goTypeInfo is for an enum. Not for use by
+	// templates, only for handling arrays of enums.
+	isEnum bool
 }
 
 func idWrap(variable string) string {

@@ -128,7 +128,7 @@ func TestSelectEnum(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.SelectEnum(ctx)
 		},
-		expected: `option1.*option2.*null.*option1`,
+		expected: `1.*2.*null.*1`,
 	}.test(t)
 }
 

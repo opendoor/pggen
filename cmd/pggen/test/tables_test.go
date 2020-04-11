@@ -755,11 +755,11 @@ func TestEnumBlanks(t *testing.T) {
 	})
 	chkErr(t, err)
 
-	if db_shims.EnumTypeWithBlankBlank != "blank" {
+	if db_shims.EnumTypeWithBlankBlank.String() != "blank" {
 		t.Fatal("should not actually be blank")
 	}
 
-	if db_shims.EnumTypeWithBlankBlank0 != "" {
+	if db_shims.EnumTypeWithBlankBlank0.String() != "" {
 		t.Fatal("should be blank")
 	}
 }
