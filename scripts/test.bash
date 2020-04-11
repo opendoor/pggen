@@ -3,11 +3,6 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-if [[ -n "${LINT+x}" ]] ; then
-    echo "LINTING"
-    golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
-    exit 0
-fi
 
 export DB_URL="postgres://postgres:test@${DB_HOST}/postgres?sslmode=disable"
 
@@ -34,4 +29,8 @@ psql "$DB_URL" < cmd/pggen/test/db.sql
 
 go generate ./...
 
-go test ./...
+if [[ -n "${LINT+x}" ]] ; then
+    golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
+else
+    go test ./...
+fi

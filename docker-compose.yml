@@ -5,8 +5,13 @@ services:
     build: .
     environment:
       LINT: "1"
+      DB_HOST: "postgres12"
     volumes:
       - ".:/pggen"
+    links:
+      - "postgres12"
+    depends_on:
+      - "postgres12"
 
   test12:
     build: .

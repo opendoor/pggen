@@ -5,6 +5,10 @@ services:
     image: pggen_source
     environment:
       LINT: "1"
+    links:
+      - "postgres12"
+    depends_on:
+      - "postgres12"
 
   test12:
     image: pggen_source
