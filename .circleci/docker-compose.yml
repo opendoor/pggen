@@ -1,6 +1,16 @@
 version: "3"
 
 services:
+  lint:
+    image: pggen_source
+    environment:
+      LINT: "1"
+      DB_HOST: "postgres12"
+    links:
+      - "postgres12"
+    depends_on:
+      - "postgres12"
+
   test12:
     image: pggen_source
     environment:

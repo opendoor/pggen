@@ -3,6 +3,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+
 export DB_URL="postgres://postgres:test@${DB_HOST}/postgres?sslmode=disable"
 
 # Wait until `postgres` start accepting connections. It seems really
@@ -28,7 +29,8 @@ psql "$DB_URL" < cmd/pggen/test/db.sql
 
 go generate ./...
 
-# TODO: pull linting out into a seperate script
-golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
-
-go test ./...
+if [[ -n "${LINT+x}" ]] ; then
+    golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
+else
+    go test ./...
+fi
