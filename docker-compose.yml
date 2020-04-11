@@ -1,18 +1,78 @@
 version: "3"
 
 services:
-  test:
+  test12:
     build: .
     environment:
-      DB_URL: "postgres://postgres:test@postgres/postgres?sslmode=disable"
+      DB_HOST: "postgres12"
     links:
-      - "postgres"
+      - "postgres12"
     depends_on:
-      - "postgres"
+      - "postgres12"
     volumes:
       - ".:/pggen"
 
-  postgres:
+  test11:
+    build: .
+    environment:
+      DB_HOST: "postgres11"
+    links:
+      - "postgres11"
+    depends_on:
+      - "postgres11"
+    volumes:
+      - ".:/pggen"
+
+  test10:
+    build: .
+    environment:
+      DB_HOST: "postgres10"
+    links:
+      - "postgres10"
+    depends_on:
+      - "postgres10"
+    volumes:
+      - ".:/pggen"
+
+  test9_6:
+    build: .
+    environment:
+      DB_HOST: "postgres9_6"
+    links:
+      - "postgres9_6"
+    depends_on:
+      - "postgres9_6"
+    volumes:
+      - ".:/pggen"
+
+  test9_5:
+    build: .
+    environment:
+      DB_HOST: "postgres9_5"
+    links:
+      - "postgres9_5"
+    depends_on:
+      - "postgres9_5"
+    volumes:
+      - ".:/pggen"
+
+  postgres12:
+    image: postgres:12
+    environment:
+      POSTGRES_PASSWORD: "test"
+  postgres11:
     image: postgres:11
+    environment:
+      POSTGRES_PASSWORD: "test"
+  postgres10:
+    image: postgres:10
+    environment:
+      POSTGRES_PASSWORD: "test"
+  postgres9_6:
+    image: postgres:9.6
+    environment:
+      POSTGRES_PASSWORD: "test"
+  postgres9_5:
+    image: postgres:9.5
     environment:
       POSTGRES_PASSWORD: "test"

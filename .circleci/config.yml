@@ -3,7 +3,7 @@
 version: 2
 
 jobs:
-  test:
+  test12:
     docker:
       - image: circleci/golang:1.12
     working_directory: /go/test_dir
@@ -23,10 +23,82 @@ jobs:
       - run:
           name: Run Tests
           command: |
-            docker-compose --file .circleci/docker-compose.yml run test
+            docker-compose --file .circleci/docker-compose.yml run test12
+  test11:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: /go/test_dir
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 18.05.0-ce
+      - run:
+          name: Build Docker Image
+          command: |
+            docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+            docker build -t pggen_source .
+      - run:
+          name: Run Tests
+          command: |
+            docker-compose --file .circleci/docker-compose.yml run test11
+  test10:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: /go/test_dir
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 18.05.0-ce
+      - run:
+          name: Build Docker Image
+          command: |
+            docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+            docker build -t pggen_source .
+      - run:
+          name: Run Tests
+          command: |
+            docker-compose --file .circleci/docker-compose.yml run test10
+  test9_6:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: /go/test_dir
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 18.05.0-ce
+      - run:
+          name: Build Docker Image
+          command: |
+            docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+            docker build -t pggen_source .
+      - run:
+          name: Run Tests
+          command: |
+            docker-compose --file .circleci/docker-compose.yml run test9_6
+  test9_5:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: /go/test_dir
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 18.05.0-ce
+      - run:
+          name: Build Docker Image
+          command: |
+            docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+            docker build -t pggen_source .
+      - run:
+          name: Run Tests
+          command: |
+            docker-compose --file .circleci/docker-compose.yml run test9_5
 
 workflows:
   version: 2
   pr:
     jobs:
-      - test
+      - "test12"
+      - "test11"
+      - "test10"
+      - "test9_6"
+      - "test9_5"

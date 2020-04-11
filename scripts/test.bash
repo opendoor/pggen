@@ -3,10 +3,12 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+export DB_URL="postgres://postgres:test@${DB_HOST}/postgres?sslmode=disable"
+
 # Wait until `postgres` start accepting connections. It seems really
 # silly that we need to do this.
 ticks=0
-while ! echo exit | nc postgres 5432
+while ! echo exit | nc "${DB_HOST}" 5432
 do
     echo "failed to connect to postgres trying again in 5 seconds"
     sleep 5
@@ -20,12 +22,13 @@ do
 done
 
 # If the database already exists, don't bring the script down.
-createdb -h postgres -W test -U postgres -w -e pggen_test || /bin/true
+createdb -h "${DB_HOST}" -W test -U postgres -w -e pggen_test || /bin/true
 
-psql $DB_URL < cmd/pggen/test/db.sql
+psql "$DB_URL" < cmd/pggen/test/db.sql
 
 go generate ./...
 
+# TODO: pull linting out into a seperate script
 golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
 
 go test ./...

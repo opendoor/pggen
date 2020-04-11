@@ -37,14 +37,18 @@ once you have the image built, you can either run the tests
 start to finish with
 
 ```
-> docker-compose run test
+> docker-compose run test11
 ```
 
 or debug interactively by opening a bash shell with
 
 ```
-> docker-compose run test bash
+> docker-compose run test11 bash
 ```
+
+The full test suite runs against multiple versions of postgres. The above examples
+just work with postgres 11, but you can see the other versions of postgres that
+`pggen` is tested against by reading `docker-compose.yml`.
 
 ## CLI Tests
 
