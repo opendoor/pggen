@@ -927,7 +927,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 				subRecs = append(subRecs, outer.{{ .PointsFrom.GoName }})
 			}
 			{{- else }}
-			for i, _ := range outer.{{ .PointsFrom.PluralGoName }} {
+			for i := range outer.{{ .PointsFrom.PluralGoName }} {
 				{{- if .Nullable }}
 				if outer.{{ .PointsFrom.PluralGoName }}[i] == nil {
 					continue
