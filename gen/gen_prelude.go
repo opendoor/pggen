@@ -193,8 +193,7 @@ func (p *PGClient) fillColPosTab(
 	}
 	indicies := []idxMapping{}
 
-	i := 0
-	for rows.Next() {
+	for i := 0; rows.Next(); i++ {
 		var colName string
 		err = rows.Scan(&colName)
 		if err != nil {
@@ -203,21 +202,16 @@ func (p *PGClient) fillColPosTab(
 
 		genIdx, ok := genTimeColIdxTab[colName]
 		if !ok {
-			return fmt.Errorf(
-				"ensure col pos tab for '%s': unknown column '%s'",
-				tableName,
-				colName,
-			)
+			genIdx = -1 // this is a new column
 		}
 
 		// shift the indicies to be 0 based
 		indicies = append(indicies, idxMapping{ gen: genIdx, run: i })
-		i++
 	}
 
 	posTab := make([]int, len(indicies))
 	for _, mapping := range indicies {
-		posTab[mapping.gen] = mapping.run
+		posTab[mapping.run] = mapping.gen
 	}
 	*tab = posTab
 
@@ -236,6 +230,12 @@ func convertNullBool(b sql.NullBool) *bool {
 	if b.Valid {
 		return &b.Bool
 	}
+	return nil
+}
+
+// a type that will accept SQL result and just throw it away
+type pggenSinkScanner struct {}
+func (s *pggenSinkScanner) Scan(value interface{}) error {
 	return nil
 }
 

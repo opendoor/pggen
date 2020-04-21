@@ -325,3 +325,6 @@
     name = "cycle_tree_cycle2"
 [[table]]
     name = "cycle_tree_cycle3"
+
+[[table]]
+    name = "will_get_new_column"
