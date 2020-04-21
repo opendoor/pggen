@@ -274,6 +274,12 @@ CREATE TABLE simple_enums (
 );
 INSERT INTO simple_enums (value) VALUES (''), ('option1'), ('option1'), ('option2'), (NULL);
 
+-- to test that we can gracefully handle a table being modified to have an additional column
+CREATE TABLE will_get_new_column (
+    id SERIAL PRIMARY KEY,
+    f1 text NOT NULL
+);
+
 --
 -- Load Data
 --

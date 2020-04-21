@@ -198,8 +198,12 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 	var nullableTgts nullableScanTgtsFor{{ .GoName }}
 
 	scanTgts := make([]interface{}, len(client.colIdxTabFor{{ .GoName }}))
-	for genIdx, runIdx := range client.colIdxTabFor{{ .GoName }} {
-		scanTgts[runIdx] = scannerTabFor{{ .GoName }}[genIdx](r, &nullableTgts)
+	for runIdx, genIdx := range client.colIdxTabFor{{ .GoName }} {
+		if genIdx == -1 {
+			scanTgts[runIdx] = &pggenSinkScanner{}
+		} else {
+			scanTgts[runIdx] = scannerTabFor{{ .GoName }}[genIdx](r, &nullableTgts)
+		}
 	}
 
 	err := rs.Scan(scanTgts...)

@@ -898,3 +898,42 @@ func TestCycleTree(t *testing.T) {
 		}
 	}
 }
+
+// We should be able to work with tables that have had an extra column
+// added since we generated code.
+func TestNewColumn(t *testing.T) {
+	willGetNewColumnType := reflect.TypeOf(db_shims.WillGetNewColumn{})
+	_, has := willGetNewColumnType.FieldByName("F2")
+	if has {
+		t.Fatalf("pggen generated an F2 field. There is something wrong with the db state.")
+	}
+
+	_, err := pgClient.Handle().Exec("ALTER TABLE will_get_new_column ADD COLUMN f2 integer")
+	chkErr(t, err)
+	defer func() {
+		_, err = pgClient.Handle().Exec("ALTER TABLE will_get_new_column DROP COLUMN f2")
+		chkErr(t, err)
+	}()
+
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	// Force the column index caches to clear so we can be sure that the lazy loading
+	// logic triggers.
+	txClient.ClearCaches()
+
+	id, err := txClient.InsertWillGetNewColumn(ctx, &db_shims.WillGetNewColumn{
+		F1: "foo",
+	})
+	chkErr(t, err)
+
+	fetched, err := txClient.GetWillGetNewColumn(ctx, id)
+	chkErr(t, err)
+
+	if fetched.F1 != "foo" {
+		t.Fatalf("expected foo")
+	}
+}

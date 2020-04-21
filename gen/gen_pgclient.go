@@ -77,6 +77,10 @@ type TxPGClient struct {
 	impl pgClientImpl
 }
 
+func (tx *TxPGClient) Handle() pggen.DBHandle {
+	return tx.impl.db.(*sql.Tx)
+}
+
 func (tx *TxPGClient) Rollback() error {
 	return tx.impl.db.(*sql.Tx).Rollback()
 }
