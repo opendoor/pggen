@@ -25,9 +25,14 @@ func (g *Generator) maybeEmitEnumType(
 			NullName:        "*" + goName,
 			ScanNullName:    "Null" + goName,
 			NullConvertFunc: convertCall("convertNull" + goName),
-			SqlReceiver:     refWrap,
-			SqlArgument:     stringizeWrap,
-			isEnum:          true,
+			NullSqlReceiver: func(v string) string {
+				return fmt.Sprintf("&%s", v)
+			},
+			SqlReceiver: func(v string) string {
+				return fmt.Sprintf("&ScanInto%s{value: &%s}", goName, v)
+			},
+			SqlArgument: stringizeWrap,
+			isEnum:      true,
 		}
 
 		if g.types.probe(typeInfo.Name) {
@@ -155,6 +160,31 @@ func {{ .TypeName }}FromString(s string) ({{ .TypeName }}, error) {
 	default:
 		return zero, fmt.Errorf("{{ .TypeName }} unknown variant '%s'", s)
 	}
+}
+
+type ScanInto{{ .TypeName }} struct {
+	value *{{ .TypeName }}
+}
+func (s *ScanInto{{ .TypeName }}) Scan(value interface{}) error {
+	if value == nil {
+		return fmt.Errorf("unexpected NULL {{ .TypeName }}")
+	}
+
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf(
+			"ScanInto{{ .TypeName }}.Scan: expected a []byte",
+		)
+	}
+
+	val, err := {{ .TypeName }}FromString(string(buff))
+	if err != nil {
+		return fmt.Errorf("Null{{ .TypeName }}.Scan: %s", err.Error())
+	}
+
+	*s.value = val
+
+	return nil
 }
 
 type Null{{ .TypeName }} struct {

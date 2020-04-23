@@ -105,7 +105,7 @@ func (r *{{ .ReturnTypeName }}) Scan(ctx context.Context, client *PGClient, rs *
 	err := rs.Scan(
 		{{- range .ReturnCols }}
 		{{- if .Nullable }}
-		{{ call .TypeInfo.SqlReceiver (printf "scan%s" .GoName) }},
+		{{ call .TypeInfo.NullSqlReceiver (printf "scan%s" .GoName) }},
 		{{- else }}
 		{{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }},
 		{{- end }}
@@ -191,7 +191,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 		{{- else }}
 		{{- if (index .ReturnCols 0).Nullable }}
 		var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
-		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "scanTgt" }})
+		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.NullSqlReceiver "scanTgt" }})
 		if err != nil {
 			return nil, err
 		}

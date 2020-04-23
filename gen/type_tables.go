@@ -29,8 +29,9 @@ func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 				ScanNullName:    "[]" + tyInfo.ScanNullName,
 				NullConvertFunc: arrayConvert(tyInfo.NullConvertFunc, tyInfo.NullName),
 				// arrays need special wrappers
-				SqlReceiver: arrayRefWrap,
-				SqlArgument: sqlArgument,
+				SqlReceiver:     arrayRefWrap,
+				NullSqlReceiver: arrayRefWrap,
+				SqlArgument:     sqlArgument,
 			}, nil
 		}
 	}
@@ -104,6 +105,7 @@ func (g *Generator) initTypeTable(overrides []typeOverride) (err error) {
 				NullConvertFunc: identityConvert,
 				NullPkg:         override.NullPkg,
 				SqlReceiver:     refWrap,
+				NullSqlReceiver: refWrap,
 				SqlArgument:     idWrap,
 			}
 		}
@@ -180,10 +182,14 @@ type goTypeInfo struct {
 	// NullName
 	NullConvertFunc func(string) string
 	// Given a variable name, SqlReceiver must return an appropriate wrapper
-	// around that variable which can be passed as a parameter to Rows.scan.
+	// around that variable which can be passed as a parameter to Rows.Scan.
 	// For many simple types, SqlReceiver will just wrap the variable in a
 	// reference.
 	SqlReceiver func(string) string
+	// Given a variable name, SqlReceiver must return an appropriate wrapper
+	// around that variable which can be passed as a parameter to Rows.Scan.
+	// Must work for the nullable receiver wrapper.
+	NullSqlReceiver func(string) string
 	// Given a variable name, SqlArgument must return an appropriate wrapper
 	// around that variable which can be passed as a parameter to `sql.Query`
 	SqlArgument func(string) string
@@ -258,6 +264,7 @@ var stringGoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullPkg:     `"database/sql"`,
 	NullConvertFunc: convertCall("convertNullString"),
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
@@ -268,6 +275,7 @@ var boolGoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullPkg:     `"database/sql"`,
 	NullConvertFunc: convertCall("convertNullBool"),
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
@@ -279,6 +287,7 @@ var timeGoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullPkg:     "",
 	NullConvertFunc: convertCall("convertNullTime"),
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
@@ -290,6 +299,7 @@ var timezGoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullPkg:         "",
 	NullConvertFunc:     convertCall("convertNullTime"),
 	SqlReceiver:         refWrap,
+	NullSqlReceiver:     refWrap,
 	SqlArgument:         idWrap,
 	IsTimestampWithZone: true,
 }
@@ -301,6 +311,7 @@ var int64GoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullPkg:     `"database/sql"`,
 	NullConvertFunc: convertCall("convertNullInt64"),
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
@@ -311,6 +322,7 @@ var float64GoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullPkg:     `"database/sql"`,
 	NullConvertFunc: convertCall("convertNullFloat64"),
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
@@ -321,6 +333,7 @@ var uuidGoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullName:    "uuid.NullUUID",
 	NullConvertFunc: convertCall("convertNullUUID"),
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
@@ -330,6 +343,7 @@ var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
 	ScanNullName:    "*[]byte",
 	NullConvertFunc: identityConvert,
 	SqlReceiver:     refWrap,
+	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
 }
 
