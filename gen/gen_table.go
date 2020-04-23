@@ -237,7 +237,7 @@ var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{
 		nullableTgts *nullableScanTgtsFor{{ $.GoName }},
 	) interface{} {
 		{{- if .Nullable }}
-		return {{ call .TypeInfo.SqlReceiver (printf "nullableTgts.scan%s" .GoName) }}
+		return {{ call .TypeInfo.NullSqlReceiver (printf "nullableTgts.scan%s" .GoName) }}
 		{{- else }}
 		return {{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }}
 		{{- end }}

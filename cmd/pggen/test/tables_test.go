@@ -750,9 +750,12 @@ func TestEnumBlanks(t *testing.T) {
 	})
 	chkErr(t, err)
 
-	_, err = txClient.InsertEnumBlank(ctx, &db_shims.EnumBlank{
+	id, err := txClient.InsertEnumBlank(ctx, &db_shims.EnumBlank{
 		Value: db_shims.EnumTypeWithBlankBlank,
 	})
+	chkErr(t, err)
+
+	_, err = txClient.GetEnumBlank(ctx, id)
 	chkErr(t, err)
 
 	if db_shims.EnumTypeWithBlankBlank.String() != "blank" {
