@@ -593,6 +593,9 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 	if err != nil {
 		return err
 	}
+
+	metaColNumToIdx := columnResolverTable(meta.Cols)
+
 	for rows.Next() {
 
 		var (
@@ -617,13 +620,12 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 		}
 
 		for _, idx := range pointsToIdxs {
-			// attnum is 1-based, so we will first convert it into a 0-based
-			// index
-			idx--
-
-			if idx < 0 || int64(len(meta.Cols)) <= idx {
+			// convert the ColNum to an index into the Cols array
+			if idx < 0 || int64(len(metaColNumToIdx)) <= idx {
 				return fmt.Errorf("out of bounds foreign key field (to) at index %d", idx)
 			}
+			idx = int64(metaColNumToIdx[idx])
+
 			ref.PointsToFields = append(ref.PointsToFields, &meta.Cols[idx])
 		}
 
@@ -631,14 +633,14 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 		ref.PointsFrom = &g.tables[pgPointsFrom].meta
 
 		fromCols := ref.PointsFrom.Cols
+		fromColsColNumToIdx := columnResolverTable(fromCols)
 
 		ref.OneToOne = true
 		for _, idx := range pointsFromIdxs {
-			idx--
-
-			if idx < 0 || int64(len(fromCols)) <= idx {
+			if idx < 0 || int64(len(fromColsColNumToIdx)) <= idx {
 				return fmt.Errorf("out of bounds foreign key field (from) at index %d", idx)
 			}
+			idx = int64(fromColsColNumToIdx[idx])
 
 			fcol := &fromCols[idx]
 			ref.PointsFromFields = append(ref.PointsFromFields, fcol)
@@ -650,6 +652,22 @@ func (g *Generator) fillTableReferences(meta *tableMeta) error {
 	}
 
 	return nil
+}
+
+// given a slice of columns, return a table mapping the ColNums to indicies in the slice
+func columnResolverTable(cols []colMeta) []int {
+	max := 0
+	for _, col := range cols {
+		if int(col.ColNum) > max {
+			max = int(col.ColNum)
+		}
+	}
+	colNumToIdx := make([]int, max+1)
+	for i, col := range cols {
+		colNumToIdx[col.ColNum] = i
+	}
+
+	return colNumToIdx
 }
 
 // Given the oid of a postgres type, return all the variants that
