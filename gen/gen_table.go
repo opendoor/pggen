@@ -458,7 +458,11 @@ func (p *pgClientImpl) BulkInsert{{ .GoName }}(
 	for _, v := range values {
 		{{- range .Cols }}
 		{{- if (not .IsPrimary) }}
+		{{- if .Nullable }}
+		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+		{{- else }}
 		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+		{{- end }}
 		{{- end }}
 		{{- end }}
 	}
@@ -567,7 +571,11 @@ func (p *pgClientImpl) Update{{ .GoName }}(
 
 	{{- range .Cols }}
 	if fieldMask.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
+		{{- if .Nullable }}
+		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "value.%s" .GoName) }})
+		{{- else }}
 		args = append(args, {{ call .TypeInfo.SqlArgument (printf "value.%s" .GoName) }})
+		{{- end }}
 	}
 	{{- end }}
 
@@ -752,10 +760,18 @@ func (p *pgClientImpl) BulkUpsert{{ .GoName }}(
 		{{- range $i, $col := .Cols }}
 		{{- if (eq $i $.PkeyColIdx) }}
 		if fieldMask.Test({{ $.GoName }}{{ $col.GoName }}FieldIndex) {
-			args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" $col.GoName) }})
+			{{- if .Nullable }}
+			args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+			{{- else }}
+			args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+			{{- end }}
 		}
 		{{- else }}
-		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" $col.GoName) }})
+		{{- if .Nullable }}
+		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+		{{- else }}
+		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+		{{- end }}
 		{{- end }}
 		{{- end }}
 	}

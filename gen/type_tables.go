@@ -32,6 +32,7 @@ func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
 				SqlReceiver:     arrayRefWrap,
 				NullSqlReceiver: arrayRefWrap,
 				SqlArgument:     sqlArgument,
+				NullSqlArgument:     sqlArgument,
 			}, nil
 		}
 	}
@@ -193,6 +194,9 @@ type goTypeInfo struct {
 	// Given a variable name, SqlArgument must return an appropriate wrapper
 	// around that variable which can be passed as a parameter to `sql.Query`
 	SqlArgument func(string) string
+	// Given a variable name of type pointer-to-type, NullSqlArgument must return
+	// an appropriate value to pas as a parameter to `sql.Query`
+	NullSqlArgument func(string) string
 	// If this is a timestamp type, it has a time zone, otherwise this field
 	// is meaningless.
 	IsTimestampWithZone bool
@@ -266,6 +270,7 @@ var stringGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var boolGoTypeInfo goTypeInfo = goTypeInfo{
@@ -277,6 +282,7 @@ var boolGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var timeGoTypeInfo goTypeInfo = goTypeInfo{
@@ -289,6 +295,7 @@ var timeGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var timezGoTypeInfo goTypeInfo = goTypeInfo{
@@ -301,6 +308,7 @@ var timezGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:         refWrap,
 	NullSqlReceiver:     refWrap,
 	SqlArgument:         idWrap,
+	NullSqlArgument:     idWrap,
 	IsTimestampWithZone: true,
 }
 
@@ -313,6 +321,7 @@ var int64GoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var float64GoTypeInfo goTypeInfo = goTypeInfo{
@@ -324,6 +333,7 @@ var float64GoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var uuidGoTypeInfo goTypeInfo = goTypeInfo{
@@ -335,6 +345,7 @@ var uuidGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
@@ -345,6 +356,7 @@ var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
+	NullSqlArgument:     idWrap,
 }
 
 var primitveGoTypes = map[string]bool{

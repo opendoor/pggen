@@ -32,6 +32,7 @@ func (g *Generator) maybeEmitEnumType(
 				return fmt.Sprintf("&ScanInto%s{value: &%s}", goName, v)
 			},
 			SqlArgument: stringizeWrap,
+			NullSqlArgument: nullStringizeWrap,
 			isEnum:      true,
 		}
 
@@ -77,6 +78,17 @@ func (g *Generator) maybeEmitEnumType(
 
 func stringizeWrap(variable string) string {
 	return fmt.Sprintf("%s.String()", variable)
+}
+
+func nullStringizeWrap(variable string) string {
+	return fmt.Sprintf(`
+		func() *string {
+			if %s == nil {
+				return nil
+			}
+			s := %s.String()
+			return &s
+		}()`, variable, variable)
 }
 
 func stringizeArrayWrap(variable string) string {
