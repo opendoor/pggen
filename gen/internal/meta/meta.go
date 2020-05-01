@@ -1,10 +1,15 @@
-package gen
+package meta
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
-	"github.com/lib/pq"
+	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/log"
+	"github.com/opendoor-labs/pggen/gen/internal/names"
+	"github.com/opendoor-labs/pggen/gen/internal/types"
+	"github.com/opendoor-labs/pggen/gen/internal/utils"
 )
 
 //
@@ -12,11 +17,42 @@ import (
 // database objects we are keying off of to generate code.
 //
 
-// arg represents an argument to both a postgres query and the golang
+// Resolver knows how to query postgres for metadata about the database schema
+type Resolver struct {
+	db            *sql.DB
+	tableResolver *tableResolver
+	typeResolver  *types.Resolver
+}
+
+func NewResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *Resolver {
+	return &Resolver{
+		db:            db,
+		tableResolver: newTableResolver(l, db, typeResolver),
+		typeResolver:  typeResolver,
+	}
+}
+
+// Resolve the metadata for the given database config that needs to be resolved ahead of
+// time.
+//
+// This method _must_ be called before any of the query methods can be called.
+func (r *Resolver) Resolve(conf *config.DbConfig) error {
+	return r.tableResolver.populateTableInfo(conf.Tables)
+}
+
+// Get gen information about the given table
+//
+// The second return value indicates if the value was found
+func (r *Resolver) GenInfoForTable(pgName string) (*TableGenInfo, bool) {
+	res, ok := r.tableResolver.meta.tableInfo[pgName]
+	return res, ok
+}
+
+// Arg represents an argument to both a postgres query and the golang
 // shim which wraps that query.
 //
 // fields are only public for template reflection
-type arg struct {
+type Arg struct {
 	// The 1-based index of this argument
 	Idx int
 	// The golang name of this argument
@@ -24,16 +60,16 @@ type arg struct {
 	// The postgres name of this argument
 	PgName string
 	// Information about the go version of this type
-	TypeInfo goTypeInfo
+	TypeInfo types.Info
 }
 
 type queryMeta struct {
 	// The configuation data for this query from the .toml file
-	ConfigData queryConfig
+	ConfigData config.QueryConfig
 	// The metadata for the arguments to this query
-	Args []arg
+	Args []Arg
 	// The metadata for the return values of this function
-	ReturnCols []colMeta
+	ReturnCols []ColMeta
 	// Flag indicating if there are multiple columns.
 	// Included for the convenience of templates.
 	MultiReturn bool
@@ -41,8 +77,8 @@ type queryMeta struct {
 	ReturnTypeName string
 }
 
-func (g *Generator) queryMeta(
-	config *queryConfig,
+func (mc *Resolver) QueryMeta(
+	config *config.QueryConfig,
 	inferArgTypes bool,
 ) (ret queryMeta, err error) {
 	defer func() {
@@ -54,8 +90,8 @@ func (g *Generator) queryMeta(
 	ret.ConfigData = *config
 
 	if inferArgTypes {
-		var args []arg
-		args, err = g.argsOfStmt(config.Body)
+		var args []Arg
+		args, err = mc.argsOfStmt(config.Body)
 		if err != nil {
 			err = fmt.Errorf("getting query argument types: %s", err.Error())
 			return
@@ -66,16 +102,16 @@ func (g *Generator) queryMeta(
 	// Resolve the return type by factoring in the null flags and
 	// whether or not it is an alias for a table type.
 	nullFlags := config.NullFlags
-	pgTableName, isTable := g.tableTyNameToTableName[pgToGoName(config.ReturnType)]
+	pgTableName, isTable := mc.tableResolver.meta.tableTyNameToTableName[names.PgToGoName(config.ReturnType)]
 	if isTable {
 		if len(config.NullFlags) > 0 || len(config.NotNullFields) > 0 {
 			err = fmt.Errorf("don't set null flags on query returning table struct")
 			return
 		}
 
-		nullFlags = g.tables[pgTableName].nullFlags()
+		nullFlags = mc.tableResolver.meta.tableInfo[pgTableName].nullFlags()
 	}
-	returnCols, err := g.queryReturns(config.Body)
+	returnCols, err := mc.queryReturns(config.Body)
 	if err != nil {
 		return
 	}
@@ -112,17 +148,17 @@ func (g *Generator) queryMeta(
 
 type stmtMeta struct {
 	// The configuation data for this stmt from the .toml file
-	ConfigData stmtConfig
+	ConfigData config.StmtConfig
 	// The metadata for the arguments to this query
-	Args []arg
+	Args []Arg
 }
 
-func (g *Generator) stmtMeta(
-	config *stmtConfig,
+func (mc *Resolver) StmtMeta(
+	config *config.StmtConfig,
 ) (ret stmtMeta, err error) {
 	ret.ConfigData = *config
 
-	args, err := g.argsOfStmt(config.Body)
+	args, err := mc.argsOfStmt(config.Body)
 	if err != nil {
 		err = fmt.Errorf("getting statement argument types: %s", err.Error())
 		return
@@ -134,7 +170,7 @@ func (g *Generator) stmtMeta(
 
 // argsOfStmt infers the types of all the placeholders in the `body` statement
 // and uses that to generate a list of argument metadata
-func (g *Generator) argsOfStmt(body string) ([]arg, error) {
+func (mc *Resolver) argsOfStmt(body string) ([]Arg, error) {
 	// Connections require a context, so we'll use a dummy
 	ctx := context.Background()
 
@@ -144,7 +180,7 @@ func (g *Generator) argsOfStmt(body string) ([]arg, error) {
 	// be visible in the `pg_prepared_statements` view, we need to
 	// explicitly ask our connection pool for a connection so that it
 	// doesn't give us a different one for a subsequent query.
-	conn, err := g.db.Conn(ctx)
+	conn, err := mc.db.Conn(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -175,14 +211,14 @@ func (g *Generator) argsOfStmt(body string) ([]arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := make([]arg, len(types.pgTypes))[:0]
+	args := make([]Arg, len(types.pgTypes))[:0]
 	for i, t := range types.pgTypes {
 		name := fmt.Sprintf("arg%d", i)
-		typeInfo, err := g.typeInfoOf(t)
+		typeInfo, err := mc.typeResolver.TypeInfoOf(t)
 		if err != nil {
 			return nil, err
 		}
-		args = append(args, arg{
+		args = append(args, Arg{
 			Idx:      i + 1,
 			GoName:   name,
 			PgName:   name,
@@ -280,7 +316,7 @@ func splitType(types []byte) (ty string, rest []byte, err error) {
 }
 
 func overrideNullability(
-	cols []colMeta,
+	cols []ColMeta,
 	nullFlags string,
 	notNullFields []string,
 ) error {
@@ -329,8 +365,8 @@ func overrideNullability(
 
 // Given the name of a postgres stored function, return a list
 // describing its arguments
-func (g *Generator) funcArgs(funcName string) ([]arg, error) {
-	rows, err := g.db.Query(`
+func (mc *Resolver) FuncArgs(funcName string) ([]Arg, error) {
+	rows, err := mc.db.Query(`
 		WITH proc_args AS (
 			SELECT
 				UNNEST(p.proargnames) as argname,
@@ -359,11 +395,11 @@ func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 	}
 	defer rows.Close()
 
-	var args []arg
+	var args []Arg
 	i := 1
 	for rows.Next() {
 		var (
-			a          arg
+			a          Arg
 			pgTypeName string
 		)
 		err = rows.Scan(&a.PgName, &pgTypeName)
@@ -372,8 +408,8 @@ func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 		}
 
 		a.Idx = i
-		a.GoName = pgToGoName(a.PgName)
-		typeInfo, err := g.typeInfoOf(pgTypeName)
+		a.GoName = names.PgToGoName(a.PgName)
+		typeInfo, err := mc.typeResolver.TypeInfoOf(pgTypeName)
 		if err != nil {
 			return nil, err
 		}
@@ -387,19 +423,19 @@ func (g *Generator) funcArgs(funcName string) ([]arg, error) {
 }
 
 // Given a query string, return metadata about the columns that it will return
-func (g *Generator) queryReturns(query string) ([]colMeta, error) {
-	viewName := randomName("tmp_view")
+func (mc *Resolver) queryReturns(query string) ([]ColMeta, error) {
+	viewName := utils.RandomName("tmp_view")
 	view := fmt.Sprintf(
 		`CREATE OR REPLACE TEMP VIEW %s AS %s`,
-		viewName, nullOutArgs(query),
+		viewName, utils.NullOutArgs(query),
 	)
 
-	_, err := g.db.Exec(view)
+	_, err := mc.db.Exec(view)
 	if err != nil {
 		return nil, err
 	}
 
-	viewMeta, err := g.tableMeta(viewName)
+	viewMeta, err := mc.tableResolver.tableMeta(viewName)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +445,7 @@ func (g *Generator) queryReturns(query string) ([]colMeta, error) {
 	// when pggen was run. We intentionally don't check the error
 	// code here because we really don't care too much if this
 	// doesn't work.
-	_, err = g.db.Exec(fmt.Sprintf(`DROP VIEW IF EXISTS %s`, viewName))
+	_, err = mc.db.Exec(fmt.Sprintf(`DROP VIEW IF EXISTS %s`, viewName))
 	if err != nil {
 		return nil, err
 	}
@@ -417,61 +453,19 @@ func (g *Generator) queryReturns(query string) ([]colMeta, error) {
 	return viewMeta.Cols, nil
 }
 
-// tableMeta contains metadata about a postgres table
-type tableMeta struct {
-	PgName       string
-	GoName       string
-	PluralGoName string
-	// metadata for the primary key column
-	PkeyCol *colMeta
-	// Metadata about the tables columns
-	Cols []colMeta
-	// A list of the postgres names of tables which reference this one
-	References []refMeta
-	// If true, this table does have an update timestamp field
-	HasUpdateAtField bool
-	// If true, this table does have a create timestamp field
-	HasCreatedAtField bool
-	// The 0-based index of the primary key column
-	PkeyColIdx int
-}
-
-// colMeta contains metadata about postgres table columns such column
-// names, types, nullability, default...
-type colMeta struct {
-	// postgres's internal column number for this column
-	ColNum int32
-	// the name of the field in the go struct which corresponds to this column
-	GoName string
-	// the name of this column in postgres
-	PgName string
-	// name of the type of this column
-	PgType string
-	// a more descriptive record of the type of this column
-	TypeInfo goTypeInfo
-	// true if this column can be null
-	Nullable bool
-	// the postgres default value for this column
-	DefaultExpr string
-	// true if this column is the primary key for this table
-	IsPrimary bool
-	// true if this column has a UNIQUE index on it
-	IsUnique bool
-}
-
-// refMeta contains metadata for a reference between two tables
+// RefMeta contains metadata for a reference between two tables
 // (a foreign key relationship)
-type refMeta struct {
+type RefMeta struct {
 	// The metadata for the table that holds the foreign key
 	PointsTo *tableMeta
 	// The names of the fields in the referenced table that are used as keys
 	// (usually the primary keys of that table). Order matters.
-	PointsToFields []*colMeta
+	PointsToFields []*ColMeta
 	// The metadata for the table is being referred to
 	PointsFrom *tableMeta
 	// The names of the fields that are being used to refer to the key fields
 	// for the referenced table. Order matters.
-	PointsFromFields []*colMeta
+	PointsFromFields []*ColMeta
 	// Indicates that there can be at most one of these references between
 	// the two tables.
 	OneToOne bool
@@ -480,182 +474,8 @@ type refMeta struct {
 	Nullable bool
 }
 
-// Given the name of a table returns metadata about it
-func (g *Generator) tableMeta(table string) (tableMeta, error) {
-	rows, err := g.db.Query(`
-		WITH unique_cols AS (
-			SELECT
-				UNNEST(ix.indkey) as colnum,
-				ix.indisunique as is_unique
-			FROM pg_class c
-			JOIN pg_index ix
-				ON (c.oid = ix.indrelid)
-			WHERE c.relname = $1
-		)
-
-		SELECT DISTINCT ON (a.attnum)
-			a.attnum AS col_num,
-			a.attname AS col_name,
-			format_type(a.atttypid, a.atttypmod) AS col_type,
-			NOT a.attnotnull AS nullable,
-			COALESCE(pg_get_expr(ad.adbin, ad.adrelid), '') AS default_expr,
-			COALESCE(ct.contype = 'p', false) AS is_primary,
-			COALESCE(u.is_unique, 'f'::bool) AS is_unique
-		FROM pg_attribute a
-		INNER JOIN pg_class c
-			ON (c.oid = a.attrelid)
-		LEFT JOIN pg_constraint ct
-			ON (ct.conrelid = c.oid AND a.attnum = ANY(ct.conkey) AND ct.contype = 'p')
-		LEFT JOIN pg_attrdef ad
-			ON (ad.adrelid = c.oid AND ad.adnum = a.attnum)
-		LEFT JOIN unique_cols u
-			ON (u.colnum = a.attnum)
-		WHERE a.attisdropped = false AND c.relname = $1 AND (a.attnum > 0)
-		ORDER BY a.attnum
-		`, table)
-	if err != nil {
-		return tableMeta{}, err
-	}
-
-	var cols []colMeta
-	for rows.Next() {
-		var col colMeta
-		err = rows.Scan(
-			&col.ColNum,
-			&col.PgName,
-			&col.PgType,
-			&col.Nullable,
-			&col.DefaultExpr,
-			&col.IsPrimary,
-			&col.IsUnique,
-		)
-		if err != nil {
-			return tableMeta{}, err
-		}
-		typeInfo, err := g.typeInfoOf(col.PgType)
-		if err != nil {
-			return tableMeta{}, fmt.Errorf("column '%s': %s", col.PgName, err.Error())
-		}
-		col.TypeInfo = *typeInfo
-		col.GoName = pgToGoName(col.PgName)
-		cols = append(cols, col)
-	}
-	if len(cols) == 0 {
-		return tableMeta{}, fmt.Errorf(
-			"could not find table '%s' in the database",
-			table,
-		)
-	}
-
-	var (
-		pkeyCol    *colMeta
-		pkeyColIdx int
-	)
-	for i, c := range cols {
-		if c.IsPrimary {
-			if pkeyCol != nil {
-				return tableMeta{}, fmt.Errorf("tables with multiple primary keys not supported")
-			}
-
-			pkeyCol = &cols[i]
-			pkeyColIdx = i
-		}
-	}
-
-	return tableMeta{
-		PgName:       table,
-		GoName:       pgTableToGoModel(table),
-		PluralGoName: pgToGoName(table),
-		PkeyCol:      pkeyCol,
-		PkeyColIdx:   pkeyColIdx,
-		Cols:         cols,
-	}, nil
-}
-
-// Given a tableMeta with the PgName and Cols already filled out, fill in the
-// References list. Any tables which are referenced by the given table must
-// already be loaded into `g.tables`.
-func (g *Generator) fillTableReferences(meta *tableMeta) error {
-	rows, err := g.db.Query(`
-		SELECT
-			pt.relname as points_to,
-			c.confkey as points_to_keys,
-			pf.relname as points_from,
-			c.conkey as points_from_keys
-		FROM pg_constraint c
-		JOIN pg_class pt
-			ON (pt.oid = c.confrelid)
-		JOIN pg_class pf
-			ON (c.conrelid = pf.oid)
-		WHERE c.contype = 'f'
-		  AND pt.relname = $1
-		`, meta.PgName)
-	if err != nil {
-		return err
-	}
-
-	metaColNumToIdx := columnResolverTable(meta.Cols)
-
-	for rows.Next() {
-
-		var (
-			pgPointsTo   string
-			pgPointsFrom string
-		)
-
-		pointsToIdxs := []int64{}
-		pointsFromIdxs := []int64{}
-		var ref refMeta
-		err = rows.Scan(
-			&pgPointsTo, pq.Array(&pointsToIdxs),
-			&pgPointsFrom, pq.Array(&pointsFromIdxs),
-		)
-		if err != nil {
-			return err
-		}
-
-		_, inTOMLConfig := g.tables[pgPointsFrom]
-		if !inTOMLConfig {
-			continue
-		}
-
-		for _, idx := range pointsToIdxs {
-			// convert the ColNum to an index into the Cols array
-			if idx < 0 || int64(len(metaColNumToIdx)) <= idx {
-				return fmt.Errorf("out of bounds foreign key field (to) at index %d", idx)
-			}
-			idx = int64(metaColNumToIdx[idx])
-
-			ref.PointsToFields = append(ref.PointsToFields, &meta.Cols[idx])
-		}
-
-		ref.PointsTo = &g.tables[pgPointsTo].meta
-		ref.PointsFrom = &g.tables[pgPointsFrom].meta
-
-		fromCols := ref.PointsFrom.Cols
-		fromColsColNumToIdx := columnResolverTable(fromCols)
-
-		ref.OneToOne = true
-		for _, idx := range pointsFromIdxs {
-			if idx < 0 || int64(len(fromColsColNumToIdx)) <= idx {
-				return fmt.Errorf("out of bounds foreign key field (from) at index %d", idx)
-			}
-			idx = int64(fromColsColNumToIdx[idx])
-
-			fcol := &fromCols[idx]
-			ref.PointsFromFields = append(ref.PointsFromFields, fcol)
-			ref.OneToOne = ref.OneToOne && fcol.IsUnique
-			ref.Nullable = fcol.Nullable
-		}
-
-		meta.References = append(meta.References, ref)
-	}
-
-	return nil
-}
-
 // given a slice of columns, return a table mapping the ColNums to indicies in the slice
-func columnResolverTable(cols []colMeta) []int {
+func columnResolverTable(cols []ColMeta) []int {
 	max := 0
 	for _, col := range cols {
 		if int(col.ColNum) > max {
@@ -668,30 +488,4 @@ func columnResolverTable(cols []colMeta) []int {
 	}
 
 	return colNumToIdx
-}
-
-// Given the oid of a postgres type, return all the variants that
-// that enum has.
-func (g *Generator) enumVariants(typeName string) ([]string, error) {
-	rows, err := g.db.Query(`
-		SELECT e.enumlabel
-		FROM pg_type t
-		JOIN pg_enum e
-			ON (t.oid = e.enumtypid)
-		WHERE t.typname = $1
-		`, typeName)
-	if err != nil {
-		return nil, err
-	}
-
-	variants := []string{}
-	for rows.Next() {
-		var variant string
-		err = rows.Scan(&variant)
-		if err != nil {
-			return nil, err
-		}
-		variants = append(variants, variant)
-	}
-	return variants, nil
 }

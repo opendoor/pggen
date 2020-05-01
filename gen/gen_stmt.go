@@ -3,11 +3,14 @@ package gen
 import (
 	"io"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
-func (g *Generator) genStmts(into io.Writer, stmts []stmtConfig) error {
+func (g *Generator) genStmts(into io.Writer, stmts []config.StmtConfig) error {
 	if len(stmts) > 0 {
-		g.infof("	generating %d statements\n", len(stmts))
+		g.log.Infof("	generating %d statements\n", len(stmts))
 	} else {
 		return nil
 	}
@@ -25,12 +28,12 @@ func (g *Generator) genStmts(into io.Writer, stmts []stmtConfig) error {
 	return nil
 }
 
-func (g *Generator) genStmt(into io.Writer, stmt *stmtConfig) error {
-	g.infof("		generating statement '%s'\n", stmt.Name)
+func (g *Generator) genStmt(into io.Writer, stmt *config.StmtConfig) error {
+	g.log.Infof("		generating statement '%s'\n", stmt.Name)
 
-	stmt.Name = pgToGoName(stmt.Name)
+	stmt.Name = names.PgToGoName(stmt.Name)
 
-	meta, err := g.stmtMeta(stmt)
+	meta, err := g.metaResolver.StmtMeta(stmt)
 	if err != nil {
 		return err
 	}

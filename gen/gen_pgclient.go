@@ -3,9 +3,12 @@ package gen
 import (
 	"io"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
-func (g *Generator) genPGClient(into io.Writer, tables []tableConfig) error {
+func (g *Generator) genPGClient(into io.Writer, tables []config.TableConfig) error {
 	g.imports[`"github.com/opendoor-labs/pggen"`] = true
 	g.imports[`"database/sql"`] = true
 
@@ -13,12 +16,12 @@ func (g *Generator) genPGClient(into io.Writer, tables []tableConfig) error {
 		ModelNames []string
 	}
 
-	names := make([]string, 0, len(tables))
+	modelNames := make([]string, 0, len(tables))
 	for _, tc := range tables {
-		names = append(names, pgTableToGoModel(tc.Name))
+		modelNames = append(modelNames, names.PgTableToGoModel(tc.Name))
 	}
 
-	gCtx := genCtx{ModelNames: names}
+	gCtx := genCtx{ModelNames: modelNames}
 
 	return pgClientTmpl.Execute(into, &gCtx)
 }

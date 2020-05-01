@@ -1,4 +1,4 @@
-package gen
+package names
 
 import (
 	"testing"
@@ -34,7 +34,7 @@ func TestPgToGoName(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		actual := pgToGoName(c.src)
+		actual := PgToGoName(c.src)
 		if actual != c.expected {
 			t.Fatalf("case %d: expected '%s', got '%s'", i, c.expected, actual)
 		}

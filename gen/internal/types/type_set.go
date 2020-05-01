@@ -1,11 +1,13 @@
-package gen
+package types
 
 import (
 	"fmt"
 	"io"
+
+	"github.com/opendoor-labs/pggen/gen/internal/utils"
 )
 
-// typeSet is a set of types that pggen wants to emit. Each type
+// set is a set of types that pggen wants to emit. Each type
 // in the set consists of a 3-tuple of (<type name>, <type sig>, <type body>).
 // Identity is determined by the tuple of (<type name>, <type sig>), and
 // <type body> contains the actual definition of the type that will be emitted.
@@ -14,7 +16,7 @@ import (
 // types are good enough to count as the same thing. In particular, tables with child
 // entities have some extra slices attached to them for the child entities, but we still
 // want people to be able to return the table's generated type from custom queries.
-type typeSet struct {
+type set struct {
 	// A set mapping return type names to type definitions and signatures.
 	set map[string]typeDecl
 }
@@ -26,8 +28,8 @@ type typeDecl struct {
 	body string
 }
 
-func newTypeSet() typeSet {
-	return typeSet{
+func newSet() set {
+	return set{
 		set: map[string]typeDecl{},
 	}
 }
@@ -35,12 +37,12 @@ func newTypeSet() typeSet {
 // Probe the type set for a specific type defintion. Can allow us to skip
 // some work for types generated purely off of database objects such as
 // user-defined postgres types.
-func (t *typeSet) probe(name string) bool {
+func (t *set) probe(name string) bool {
 	_, inSet := t.set[name]
 	return inSet
 }
 
-func (t *typeSet) emitType(name string, sig string, body string) error {
+func (t *set) emitType(name string, sig string, body string) error {
 	existingDecl, inSet := t.set[name]
 	if inSet {
 		if existingDecl.sig != sig {
@@ -65,9 +67,9 @@ but another has a return type with fields
 	return nil
 }
 
-func (t *typeSet) gen(into io.Writer) error {
+func (t *set) gen(into io.Writer) error {
 	for _, decl := range t.set {
-		err := writeCompletely(into, []byte(decl.body))
+		err := utils.WriteCompletely(into, []byte(decl.body))
 		if err != nil {
 			return err
 		}

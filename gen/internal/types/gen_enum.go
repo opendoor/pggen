@@ -1,16 +1,18 @@
-package gen
+package types
 
 import (
 	"fmt"
 	"strings"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
-func (g *Generator) maybeEmitEnumType(
+func (r *Resolver) maybeEmitEnumType(
 	pgTypeName string,
-) (*goTypeInfo, error) {
+) (*Info, error) {
 	// check if it is an enum
-	variants, err := g.enumVariants(pgTypeName)
+	variants, err := r.enumVariants(pgTypeName)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"unknown pg type: '%s': %v", pgTypeName, err,
@@ -18,9 +20,9 @@ func (g *Generator) maybeEmitEnumType(
 	}
 	// if there are no variants, then it is not an enum
 	if len(variants) > 0 {
-		goName := pgToGoName(pgTypeName)
+		goName := names.PgToGoName(pgTypeName)
 
-		typeInfo := goTypeInfo{
+		typeInfo := Info{
 			Name:            goName,
 			NullName:        "*" + goName,
 			ScanNullName:    "Null" + goName,
@@ -31,18 +33,18 @@ func (g *Generator) maybeEmitEnumType(
 			SqlReceiver: func(v string) string {
 				return fmt.Sprintf("&ScanInto%s{value: &%s}", goName, v)
 			},
-			SqlArgument: stringizeWrap,
+			SqlArgument:     stringizeWrap,
 			NullSqlArgument: nullStringizeWrap,
-			isEnum:      true,
+			isEnum:          true,
 		}
 
-		if g.types.probe(typeInfo.Name) {
+		if r.types.probe(typeInfo.Name) {
 			// we've already generated a type for this enum, so we can
 			// just return
 			return &typeInfo, nil
 		}
 
-		g.imports[`"database/sql/driver"`] = true
+		r.registerImport(`"database/sql/driver"`)
 
 		evs := variantsToEnumEnumVars(variants)
 
@@ -66,7 +68,7 @@ func (g *Generator) maybeEmitEnumType(
 			return nil, err
 		}
 
-		err = g.types.emitType(typeInfo.Name, typeSig.String(), typeDef.String())
+		err = r.types.emitType(typeInfo.Name, typeSig.String(), typeDef.String())
 		if err != nil {
 			return nil, err
 		}
@@ -128,12 +130,38 @@ func variantsToEnumEnumVars(variants []string) []enumVar {
 		}
 
 		evs = append(evs, enumVar{
-			GoName: pgToGoName(name),
+			GoName: names.PgToGoName(name),
 			PgName: name,
 			Value:  v,
 		})
 	}
 	return evs
+}
+
+// Given the oid of a postgres type, return all the variants that
+// that enum has.
+func (r *Resolver) enumVariants(typeName string) ([]string, error) {
+	rows, err := r.db.Query(`
+		SELECT e.enumlabel
+		FROM pg_type t
+		JOIN pg_enum e
+			ON (t.oid = e.enumtypid)
+		WHERE t.typname = $1
+		`, typeName)
+	if err != nil {
+		return nil, err
+	}
+
+	variants := []string{}
+	for rows.Next() {
+		var variant string
+		err = rows.Scan(&variant)
+		if err != nil {
+			return nil, err
+		}
+		variants = append(variants, variant)
+	}
+	return variants, nil
 }
 
 var enumSigTmpl = template.Must(template.New("enum-sig-tmpl").Parse(`

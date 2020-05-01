@@ -9,8 +9,13 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-
 	_ "github.com/lib/pq"
+
+	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/log"
+	"github.com/opendoor-labs/pggen/gen/internal/meta"
+	"github.com/opendoor-labs/pggen/gen/internal/types"
+	"github.com/opendoor-labs/pggen/gen/internal/utils"
 )
 
 // `pggen.Config` contains a collection of configuration options for the
@@ -39,64 +44,32 @@ type Generator struct {
 	// The user supplied configuration for this run of the pggen
 	// codegenerator.
 	config Config
+	// A logger to use to print output
+	log *log.Logger
 	// The name of the package that all generated code is a part of.
 	// Inferred from `config.OutputFileName`.
 	pkg string
-	// The database connection we use to gather information required
-	// for code generation.
-	db *sql.DB
-	// A table mapping go type name for a table struct to the postgres
-	// name for that table.
-	tableTyNameToTableName map[string]string
-	// Metadata about the tables to be generated, maps from the
-	// names of the tables in postgres to info about them.
-	tables map[string]*tableGenInfo
+	// The client we use to talk to postgres in order to get metadata
+	// about the schema
+	metaResolver *meta.Resolver
 	// The packages which need to be imported into the emitted
 	// file.
 	imports map[string]bool
-	// The clearing house for types that we emit. They all go here
-	// before being generated for real. We do this to prevent generating
-	// the same type twice.
-	types typeSet
-	// A table mapping postgres primitive types to go types. Produced
-	// by taking a default table an applying the user-provided type
-	// overrides to it.
-	pgType2GoType map[string]*goTypeInfo
 	// This generator should do nothing because a disable var matched
 	disabledByDisableVar bool
 	// This generated should do nothing becase an enable var failed to match
 	disabledByEnableVar bool
-}
-
-// Print `output` at a normal verbosity level
-func (g *Generator) info(output string) {
-	if g.config.Verbosity >= 0 {
-		fmt.Print(output)
-	}
-}
-
-// Print `output` at a normal verbosity level, formatting the output
-// using the standard formatting codes from `fmt`.
-func (g *Generator) infof(format string, a ...interface{}) {
-	g.info(fmt.Sprintf(format, a...))
-}
-
-func (g *Generator) warn(output string) {
-	if g.config.Verbosity >= -1 {
-		fmt.Fprint(os.Stderr, output)
-	}
-}
-
-func (g *Generator) warnf(format string, a ...interface{}) {
-	g.warn(fmt.Sprintf("WARN: "+format, a...))
+	// Used to map postgres types to information we can use to codegen go types
+	typeResolver *types.Resolver
 }
 
 func FromConfig(config Config) (*Generator, error) {
+	logger := log.NewLogger(config.Verbosity)
 	if anyVarPatternMatches(config.DisableVars) {
-		return &Generator{disabledByDisableVar: true}, nil
+		return &Generator{log: logger, disabledByDisableVar: true}, nil
 	}
 	if !allVarPatternsMatch(config.EnableVars) {
-		return &Generator{disabledByEnableVar: true}, nil
+		return &Generator{log: logger, disabledByEnableVar: true}, nil
 	}
 
 	var err error
@@ -126,29 +99,34 @@ func FromConfig(config Config) (*Generator, error) {
 		)
 	}
 
-	pkg, err := dirOf(config.OutputFileName)
+	pkg, err := utils.DirOf(config.OutputFileName)
 	if err != nil {
 		return nil, err
 	}
 
+	imports := map[string]bool{}
+	typeResolver := types.NewResolver(db, func(importStr string) {
+		imports[importStr] = true
+	})
 	return &Generator{
-		config:  config,
-		db:      db,
-		pkg:     pkg,
-		imports: map[string]bool{},
-		types:   newTypeSet(),
+		config:       config,
+		log:          logger,
+		metaResolver: meta.NewResolver(logger, db, typeResolver),
+		pkg:          pkg,
+		imports:      imports,
+		typeResolver: typeResolver,
 	}, nil
 }
 
 // Generate the code that this generator has been configured for
 func (g *Generator) Gen() error {
 	if g.disabledByDisableVar {
-		g.info("pggen: doing nothing because a disable var matched\n")
+		g.log.Info("pggen: doing nothing because a disable var matched\n")
 		return nil
 	}
 
 	if g.disabledByEnableVar {
-		g.info("pggen: doing nothing because an enable var failed to match\n")
+		g.log.Info("pggen: doing nothing because an enable var failed to match\n")
 		return nil
 	}
 
@@ -237,23 +215,23 @@ import (
 		return err
 	}
 
-	err = g.types.gen(&out)
+	err = g.typeResolver.Gen(&out)
 	if err != nil {
 		return err
 	}
 
-	return writeGoFile(g.config.OutputFileName, []byte(out.String()))
+	return utils.WriteGoFile(g.config.OutputFileName, []byte(out.String()))
 }
 
-func (g *Generator) setupGenEnv() (*dbConfig, error) {
-	g.infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
+func (g *Generator) setupGenEnv() (*config.DbConfig, error) {
+	g.log.Infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
 	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	// parse the config file
-	var conf dbConfig
+	var conf config.DbConfig
 	tomlMd, err := toml.Decode(string(confData), &conf)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing config file: %s", err.Error())
@@ -265,20 +243,19 @@ func (g *Generator) setupGenEnv() (*dbConfig, error) {
 			unknownKey.String(),
 		)
 	}
-	err = conf.normalize()
+	err = conf.Normalize()
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply the type overrides
-	err = g.initTypeTable(conf.TypeOverrides)
+	err = g.typeResolver.Resolve(&conf)
 	if err != nil {
 		return nil, err
 	}
 
 	// Place metadata about all tables in a hashtable to later
 	// access by the table and query generation phases.
-	err = g.populateTableInfo(conf.Tables)
+	err = g.metaResolver.Resolve(&conf)
 	if err != nil {
 		return nil, err
 	}

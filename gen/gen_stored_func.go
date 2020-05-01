@@ -3,20 +3,22 @@ package gen
 import (
 	"strings"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/config"
 )
 
 func (g *Generator) genStoredFuncs(
 	into *strings.Builder,
-	funcs []storedFuncConfig,
+	funcs []config.StoredFuncConfig,
 ) error {
 	if len(funcs) == 0 {
 		return nil
 	}
 
-	g.infof("	generating %d stored functions\n", len(funcs))
+	g.log.Infof("	generating %d stored functions\n", len(funcs))
 
 	for _, storedFunc := range funcs {
-		args, err := g.funcArgs(storedFunc.Name)
+		args, err := g.metaResolver.FuncArgs(storedFunc.Name)
 		if err != nil {
 			return err
 		}
@@ -33,7 +35,7 @@ func (g *Generator) genStoredFuncs(
 		// generate a fake query config because stored procs are
 		// just a special case of queries where we can do a little
 		// bit better when it comes to naming arguments.
-		queryConf := queryConfig{
+		queryConf := config.QueryConfig{
 			Name:          storedFunc.Name,
 			Body:          queryTxt.String(),
 			NullFlags:     storedFunc.NullFlags,

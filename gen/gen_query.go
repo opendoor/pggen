@@ -4,14 +4,18 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/meta"
+	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
 func (g *Generator) genQueries(
 	into *strings.Builder,
-	queries []queryConfig,
+	queries []config.QueryConfig,
 ) error {
 	if len(queries) > 0 {
-		g.infof("	generating %d queries\n", len(queries))
+		g.log.Infof("	generating %d queries\n", len(queries))
 	} else {
 		return nil
 	}
@@ -34,18 +38,18 @@ func (g *Generator) genQueries(
 // instead of the inferred argument types.
 func (g *Generator) genQuery(
 	into *strings.Builder,
-	config *queryConfig,
-	args []arg,
+	config *config.QueryConfig,
+	args []meta.Arg,
 ) error {
-	g.infof("		generating query '%s'\n", config.Name)
+	g.log.Infof("		generating query '%s'\n", config.Name)
 
 	// ensure that the query name is in the right format for go
-	config.Name = pgToGoName(config.Name)
+	config.Name = names.PgToGoName(config.Name)
 
 	// not needed, but it does make the generated code a little nicer
 	config.Body = strings.TrimSpace(config.Body)
 
-	meta, err := g.queryMeta(config, args == nil /* inferArgTypes */)
+	meta, err := g.metaResolver.QueryMeta(config, args == nil /* inferArgTypes */)
 	if err != nil {
 		return err
 	}
@@ -66,7 +70,7 @@ func (g *Generator) genQuery(
 			return err
 		}
 
-		err = g.types.emitType(meta.ReturnTypeName, typeSig.String(), typeBody.String())
+		err = g.typeResolver.EmitType(meta.ReturnTypeName, typeSig.String(), typeBody.String())
 		if err != nil {
 			return err
 		}
