@@ -1,4 +1,4 @@
-package gen
+package types
 
 import (
 	"regexp"

@@ -1,166 +1,56 @@
-package gen
+package types
 
 import (
+	"database/sql"
 	"fmt"
+	"io"
 	"strings"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/config"
 )
 
-func (g *Generator) typeInfoOf(pgTypeName string) (*goTypeInfo, error) {
-	arrayType, err := parsePgArray(pgTypeName)
-	if err == nil {
-		switch innerTy := arrayType.inner.(type) {
-		case *pgArrayType:
-			return nil, fmt.Errorf("nested arrays are not supported")
-		case *pgPrimType:
-			tyInfo, err := g.primTypeInfoOf(innerTy.name)
-			if err != nil {
-				return nil, err
-			}
-
-			sqlArgument := arrayWrap
-			if tyInfo.isEnum {
-				sqlArgument = stringizeArrayWrap
-			}
-
-			return &goTypeInfo{
-				Name:            "[]" + tyInfo.Name,
-				NullName:        "[]" + tyInfo.NullName,
-				ScanNullName:    "[]" + tyInfo.ScanNullName,
-				NullConvertFunc: arrayConvert(tyInfo.NullConvertFunc, tyInfo.NullName),
-				// arrays need special wrappers
-				SqlReceiver:     arrayRefWrap,
-				NullSqlReceiver: arrayRefWrap,
-				SqlArgument:     sqlArgument,
-				NullSqlArgument:     sqlArgument,
-			}, nil
-		}
-	}
-
-	return g.primTypeInfoOf(pgTypeName)
+type Resolver struct {
+	// A table mapping postgres primitive types to go types.
+	pgType2GoType map[string]*Info
+	// register the given import string with an import list
+	registerImport func(string)
+	// The clearing house for types that we emit. They all go here
+	// before being generated for real. We do this to prevent generating
+	// the same type twice.
+	types set
+	// A connection to the database we can use to get metadata about the
+	// schema.
+	db *sql.DB
 }
 
-func (g *Generator) initTypeTable(overrides []typeOverride) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("while applying type overrides: %s", err.Error())
-		}
-	}()
-
-	g.pgType2GoType = map[string]*goTypeInfo{}
-	// just for the sake of cleanliness, let's avoid aliasing a global
-	for k, v := range defaultPgType2GoType {
-		g.pgType2GoType[k] = v
+func NewResolver(db *sql.DB, registerImport func(string)) *Resolver {
+	return &Resolver{
+		pgType2GoType:  map[string]*Info{},
+		registerImport: registerImport,
+		types:          newSet(),
+		db:             db,
 	}
-
-	for _, override := range overrides {
-		if len(override.PgTypeName) == 0 {
-			return fmt.Errorf("type overrides must include a postgres type")
-		}
-		if len(override.TypeName) == 0 && len(override.NullableTypeName) == 0 {
-			return fmt.Errorf(
-				"type override must override the type or the nullable type")
-		}
-		if len(override.Pkg) == 0 && !primitveGoTypes[override.TypeName] {
-			return fmt.Errorf(
-				"type override must include a package unless the type is a primitive")
-		}
-
-		if len(override.Pkg) == 0 {
-			g.imports[override.Pkg] = true
-		}
-		if len(override.NullPkg) == 0 {
-			g.imports[override.NullPkg] = true
-		}
-
-		info, inMap := g.pgType2GoType[override.PgTypeName]
-		if inMap {
-			if len(override.TypeName) > 0 {
-				info.Name = override.TypeName
-			}
-			if len(override.NullableTypeName) > 0 {
-				info.NullName = override.NullableTypeName
-				info.ScanNullName = override.NullableTypeName
-				info.NullConvertFunc = identityConvert
-			}
-			if len(override.Pkg) > 0 {
-				info.Pkg = override.Pkg
-			}
-			if len(override.NullPkg) > 0 {
-				info.NullPkg = override.NullPkg
-			}
-		} else {
-			if len(override.TypeName) == 0 ||
-				len(override.NullableTypeName) == 0 {
-				return fmt.Errorf(
-					"`type_name` and `nullable_type_name` must both be " +
-						"provided for a type that pggen does not have default " +
-						"values for.")
-			}
-
-			g.pgType2GoType[override.PgTypeName] = &goTypeInfo{
-				Name:            override.TypeName,
-				Pkg:             override.Pkg,
-				NullName:        override.NullableTypeName,
-				ScanNullName:    override.NullableTypeName,
-				NullConvertFunc: identityConvert,
-				NullPkg:         override.NullPkg,
-				SqlReceiver:     refWrap,
-				NullSqlReceiver: refWrap,
-				SqlArgument:     idWrap,
-			}
-		}
-	}
-
-	return nil
 }
 
+// Resolve performs any ahead-of-time compuations needed to service subsequent
+// type resolution requests.
 //
-// functions and values internal to this file
-//
-
-func (g *Generator) primTypeInfoOf(pgTypeName string) (*goTypeInfo, error) {
-	typeInfo, ok := g.pgType2GoType[pgTypeName]
-	if ok {
-		if len(typeInfo.Pkg) > 0 {
-			g.imports[typeInfo.Pkg] = true
-		}
-		if len(typeInfo.NullPkg) > 0 {
-			g.imports[typeInfo.NullPkg] = true
-		}
-		return typeInfo, nil
-	}
-
-	enumTypeInfo, err := g.maybeEmitEnumType(pgTypeName)
-	if err == nil {
-		return enumTypeInfo, nil
-	}
-
-	if strings.HasPrefix(pgTypeName, "numeric") {
-		return &stringGoTypeInfo, nil
-	}
-	if strings.HasPrefix(pgTypeName, "character varying") {
-		return &stringGoTypeInfo, nil
-	}
-	if strings.HasPrefix(pgTypeName, "character") {
-		return &stringGoTypeInfo, nil
-	}
-
-	return nil, fmt.Errorf(
-		"unknown pg type: '%s': %s",
-		pgTypeName,
-		err.Error(),
-	)
+// This method _must_ be called before any other methods are called.
+func (r *Resolver) Resolve(conf *config.DbConfig) error {
+	return r.initTypeTable(conf.TypeOverrides)
 }
 
-//
-// Generation Tables
-//
-// These guys are the main drivers behind the conversion between postgres
-// types and go types.
-//
+// emit all the types we have build up into the given Writer
+func (r *Resolver) Gen(into io.Writer) error {
+	return r.types.gen(into)
+}
 
-type goTypeInfo struct {
+func (r *Resolver) EmitType(name string, sig string, body string) error {
+	return r.types.emitType(name, sig, body)
+}
+
+type Info struct {
 	// The Name of the type
 	Name string
 	// The package that the type with Name is in
@@ -200,10 +90,157 @@ type goTypeInfo struct {
 	// If this is a timestamp type, it has a time zone, otherwise this field
 	// is meaningless.
 	IsTimestampWithZone bool
-	// A flag indicating that this goTypeInfo is for an enum. Not for use by
+	// A flag indicating that this TypeInfo is for an enum. Not for use by
 	// templates, only for handling arrays of enums.
 	isEnum bool
 }
+
+func (r *Resolver) TypeInfoOf(pgTypeName string) (*Info, error) {
+	arrayType, err := parsePgArray(pgTypeName)
+	if err == nil {
+		switch innerTy := arrayType.inner.(type) {
+		case *pgArrayType:
+			return nil, fmt.Errorf("nested arrays are not supported")
+		case *pgPrimType:
+			tyInfo, err := r.primTypeInfoOf(innerTy.name)
+			if err != nil {
+				return nil, err
+			}
+
+			sqlArgument := arrayWrap
+			if tyInfo.isEnum {
+				sqlArgument = stringizeArrayWrap
+			}
+
+			return &Info{
+				Name:            "[]" + tyInfo.Name,
+				NullName:        "[]" + tyInfo.NullName,
+				ScanNullName:    "[]" + tyInfo.ScanNullName,
+				NullConvertFunc: arrayConvert(tyInfo.NullConvertFunc, tyInfo.NullName),
+				// arrays need special wrappers
+				SqlReceiver:     arrayRefWrap,
+				NullSqlReceiver: arrayRefWrap,
+				SqlArgument:     sqlArgument,
+				NullSqlArgument: sqlArgument,
+			}, nil
+		}
+	}
+
+	return r.primTypeInfoOf(pgTypeName)
+}
+
+func (r *Resolver) initTypeTable(overrides []config.TypeOverride) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("while applying type overrides: %s", err.Error())
+		}
+	}()
+
+	r.pgType2GoType = map[string]*Info{}
+	// just for the sake of cleanliness, let's avoid aliasing a global
+	for k, v := range defaultPgType2GoType {
+		r.pgType2GoType[k] = v
+	}
+
+	for _, override := range overrides {
+		if len(override.PgTypeName) == 0 {
+			return fmt.Errorf("type overrides must include a postgres type")
+		}
+		if len(override.TypeName) == 0 && len(override.NullableTypeName) == 0 {
+			return fmt.Errorf(
+				"type override must override the type or the nullable type")
+		}
+		if len(override.Pkg) == 0 && !primitveGoTypes[override.TypeName] {
+			return fmt.Errorf(
+				"type override must include a package unless the type is a primitive")
+		}
+
+		if len(override.Pkg) > 0 {
+			r.registerImport(override.Pkg)
+		}
+		if len(override.NullPkg) > 0 {
+			r.registerImport(override.NullPkg)
+		}
+
+		info, inMap := r.pgType2GoType[override.PgTypeName]
+		if inMap {
+			if len(override.TypeName) > 0 {
+				info.Name = override.TypeName
+			}
+			if len(override.NullableTypeName) > 0 {
+				info.NullName = override.NullableTypeName
+				info.ScanNullName = override.NullableTypeName
+				info.NullConvertFunc = identityConvert
+			}
+			if len(override.Pkg) > 0 {
+				info.Pkg = override.Pkg
+			}
+			if len(override.NullPkg) > 0 {
+				info.NullPkg = override.NullPkg
+			}
+		} else {
+			if len(override.TypeName) == 0 ||
+				len(override.NullableTypeName) == 0 {
+				return fmt.Errorf(
+					"`type_name` and `nullable_type_name` must both be " +
+						"provided for a type that pggen does not have default " +
+						"values for.")
+			}
+
+			r.pgType2GoType[override.PgTypeName] = &Info{
+				Name:            override.TypeName,
+				Pkg:             override.Pkg,
+				NullName:        override.NullableTypeName,
+				ScanNullName:    override.NullableTypeName,
+				NullConvertFunc: identityConvert,
+				NullPkg:         override.NullPkg,
+				SqlReceiver:     refWrap,
+				NullSqlReceiver: refWrap,
+				SqlArgument:     idWrap,
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *Resolver) primTypeInfoOf(pgTypeName string) (*Info, error) {
+	typeInfo, ok := r.pgType2GoType[pgTypeName]
+	if ok {
+		if len(typeInfo.Pkg) > 0 {
+			r.registerImport(typeInfo.Pkg)
+		}
+		if len(typeInfo.NullPkg) > 0 {
+			r.registerImport(typeInfo.NullPkg)
+		}
+		return typeInfo, nil
+	}
+
+	enumTypeInfo, err := r.maybeEmitEnumType(pgTypeName)
+	if err == nil {
+		return enumTypeInfo, nil
+	}
+
+	if strings.HasPrefix(pgTypeName, "numeric") {
+		return &stringGoTypeInfo, nil
+	}
+	if strings.HasPrefix(pgTypeName, "character varying") {
+		return &stringGoTypeInfo, nil
+	}
+	if strings.HasPrefix(pgTypeName, "character") {
+		return &stringGoTypeInfo, nil
+	}
+
+	return nil, fmt.Errorf(
+		"unknown pg type: '%s': %s",
+		pgTypeName,
+		err.Error(),
+	)
+}
+
+//
+// Wrap and Convert routines
+//
 
 func idWrap(variable string) string {
 	return variable
@@ -261,7 +298,14 @@ func arrayConvert(
 	}
 }
 
-var stringGoTypeInfo goTypeInfo = goTypeInfo{
+//
+// Generation Tables
+//
+// These guys are the main drivers behind the conversion between postgres
+// types and go types.
+//
+
+var stringGoTypeInfo Info = Info{
 	Name:            "string",
 	NullName:        "*string",
 	ScanNullName:    "sql.NullString",
@@ -270,10 +314,10 @@ var stringGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
-var boolGoTypeInfo goTypeInfo = goTypeInfo{
+var boolGoTypeInfo Info = Info{
 	Name:            "bool",
 	NullName:        "*bool",
 	ScanNullName:    "sql.NullBool",
@@ -282,10 +326,10 @@ var boolGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
-var timeGoTypeInfo goTypeInfo = goTypeInfo{
+var timeGoTypeInfo Info = Info{
 	Pkg:             `"time"`,
 	Name:            "time.Time",
 	NullName:        "*time.Time",
@@ -295,10 +339,10 @@ var timeGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
-var timezGoTypeInfo goTypeInfo = goTypeInfo{
+var timezGoTypeInfo Info = Info{
 	Pkg:                 `"time"`,
 	Name:                "time.Time",
 	NullName:            "*time.Time",
@@ -312,7 +356,7 @@ var timezGoTypeInfo goTypeInfo = goTypeInfo{
 	IsTimestampWithZone: true,
 }
 
-var int64GoTypeInfo goTypeInfo = goTypeInfo{
+var int64GoTypeInfo Info = Info{
 	Name:            "int64",
 	NullName:        "*int64",
 	ScanNullName:    "sql.NullInt64",
@@ -321,10 +365,10 @@ var int64GoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
-var float64GoTypeInfo goTypeInfo = goTypeInfo{
+var float64GoTypeInfo Info = Info{
 	Name:            "float64",
 	NullName:        "*float64",
 	ScanNullName:    "sql.NullFloat64",
@@ -333,10 +377,10 @@ var float64GoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
-var uuidGoTypeInfo goTypeInfo = goTypeInfo{
+var uuidGoTypeInfo Info = Info{
 	Pkg:             `uuid "github.com/satori/go.uuid"`,
 	Name:            "uuid.UUID",
 	NullName:        "*uuid.UUID",
@@ -345,10 +389,10 @@ var uuidGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
-var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
+var byteArrayGoTypeInfo Info = Info{
 	Name:            "[]byte",
 	NullName:        "*[]byte",
 	ScanNullName:    "*[]byte",
@@ -356,7 +400,7 @@ var byteArrayGoTypeInfo goTypeInfo = goTypeInfo{
 	SqlReceiver:     refWrap,
 	NullSqlReceiver: refWrap,
 	SqlArgument:     idWrap,
-	NullSqlArgument:     idWrap,
+	NullSqlArgument: idWrap,
 }
 
 var primitveGoTypes = map[string]bool{
@@ -371,7 +415,7 @@ var primitveGoTypes = map[string]bool{
 	"float32": true,
 }
 
-var defaultPgType2GoType = map[string]*goTypeInfo{
+var defaultPgType2GoType = map[string]*Info{
 	"text":              &stringGoTypeInfo,
 	"character varying": &stringGoTypeInfo,
 	"bpchar":            &stringGoTypeInfo,

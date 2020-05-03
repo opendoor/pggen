@@ -350,8 +350,9 @@ func runCLITest(
 	cmdTxt := cmdTxtBuilder.String()
 
 	defer func() {
+		envTxt := strings.Join(test.extraEnv, " ")
 		if err != nil {
-			err = fmt.Errorf("CMD: %s\n%s", cmdTxt, err.Error())
+			err = fmt.Errorf("CMD: %s %s\n%s", envTxt, cmdTxt, err.Error())
 		}
 	}()
 

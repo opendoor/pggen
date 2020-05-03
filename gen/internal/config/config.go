@@ -1,8 +1,8 @@
-package gen
+package config
 
 // The configuration file format used to specify the database objects
 // to generate code for.
-type dbConfig struct {
+type DbConfig struct {
 	// The name of the field that should be updated by pggen's generated
 	// `Insert` methods. Overridden by the config option of the same name
 	// on tableConfig.
@@ -11,38 +11,18 @@ type dbConfig struct {
 	// `Update` and `Insert` methods. Overridden by the config option of
 	// the same name on tableConfig.
 	UpdatedAtField  string             `toml:"updated_at_field"`
-	TypeOverrides   []typeOverride     `toml:"type_override"`
-	StoredFunctions []storedFuncConfig `toml:"stored_function"`
-	Queries         []queryConfig      `toml:"query"`
-	Stmts           []stmtConfig       `toml:"statement"`
-	Tables          []tableConfig      `toml:"table"`
-}
-
-type typeOverride struct {
-	// The name of the type in postgres
-	PgTypeName string `toml:"postgres_type_name"`
-	// The name of the package in which the type appears as it would
-	// appear in an import list, including quotes. The package name
-	// may include an alias just like an import might.
-	//
-	// Examples:
-	//   - '"github.com/google/uuid"'
-	//   - 'my_uuid_alias "github.com/google/uuid"'
-	Pkg string `toml:"pkg"`
-	// The go name for the type, including package name
-	TypeName string `toml:"type_name"`
-	// The name of the package in which the nullable version of the type
-	// appears. If `pkg` was already provided, `nullable_pkg` may be omitted.
-	NullPkg string `toml:"nullable_pkg"`
-	// The name of a go type which might be null (often Null<TypeName>)
-	NullableTypeName string `toml:"nullable_type_name"`
+	TypeOverrides   []TypeOverride     `toml:"type_override"`
+	StoredFunctions []StoredFuncConfig `toml:"stored_function"`
+	Queries         []QueryConfig      `toml:"query"`
+	Stmts           []StmtConfig       `toml:"statement"`
+	Tables          []TableConfig      `toml:"table"`
 }
 
 // Stored functions are a special case of queries. The main advantage
 // they have over queries is that the names of the arguments to the
 // generated function will be better, as they are derived from the argument
 // names in postgres rather than being `arg0`, `arg1`...
-type storedFuncConfig struct {
+type StoredFuncConfig struct {
 	// The name of the stored function in postgres
 	Name string `toml:"name"`
 	// See the field of the same name on `queryConfig`
@@ -57,7 +37,7 @@ type storedFuncConfig struct {
 // SQL, possibly parameterized by $N arguments. The generated code
 // will use `sql.QueryContext` and marshal the results into a list of
 // rows returned.
-type queryConfig struct {
+type QueryConfig struct {
 	// The name that should be used to identify this query in generated go
 	// code.
 	Name string `toml:"name"`
@@ -89,7 +69,7 @@ type queryConfig struct {
 // and therefore return `(sql.Result, error)` rather than a set of
 // rows. Statements should be used for INSERT, UPDATE, and DELETE
 // operations.
-type stmtConfig struct {
+type StmtConfig struct {
 	// The name that should be used to identify this statement in generated
 	// go code.
 	Name string `toml:"name"`
@@ -97,14 +77,14 @@ type stmtConfig struct {
 	Body string `toml:"body"`
 }
 
-type tableConfig struct {
+type TableConfig struct {
 	// The name of the table in the database
 	Name string `toml:"name"`
 	// If true, pggen will not infer a relationship between this table
 	// and any owning tables based on any foreign keys in this table.
 	NoInferBelongsTo bool `toml:"no_infer_belongs_to"`
 	// A list of tables that this table belongs to
-	BelongsTo []belongsTo `toml:"belongs_to"`
+	BelongsTo []BelongsTo `toml:"belongs_to"`
 	// The timestamp to update in `Insert`. Overriddes global version.
 	CreatedAtField string `toml:"created_at_field"`
 	// The timestamp to update in `Update` and `Insert`.
@@ -114,7 +94,7 @@ type tableConfig struct {
 
 // An explicitly configured foreign key relationship which can be attached
 // to a table's config.
-type belongsTo struct {
+type BelongsTo struct {
 	// The table that this table belongs to
 	Table string `toml:"table"`
 	// The name of the foreign key which points to the table this table
@@ -124,12 +104,32 @@ type belongsTo struct {
 	OneToOne bool `toml:"one_to_one"`
 }
 
+type TypeOverride struct {
+	// The name of the type in postgres
+	PgTypeName string `toml:"postgres_type_name"`
+	// The name of the package in which the type appears as it would
+	// appear in an import list, including quotes. The package name
+	// may include an alias just like an import might.
+	//
+	// Examples:
+	//   - '"github.com/google/uuid"'
+	//   - 'my_uuid_alias "github.com/google/uuid"'
+	Pkg string `toml:"pkg"`
+	// The go name for the type, including package name
+	TypeName string `toml:"type_name"`
+	// The name of the package in which the nullable version of the type
+	// appears. If `pkg` was already provided, `nullable_pkg` may be omitted.
+	NullPkg string `toml:"nullable_pkg"`
+	// The name of a go type which might be null (often Null<TypeName>)
+	NullableTypeName string `toml:"nullable_type_name"`
+}
+
 // Given a user provided configuration, convert it into a nomralized form that
 // is suitable for use by pggen.
 //
 // In particular we:
 //   - resolve timestamp overrides and inheritance
-func (c *dbConfig) normalize() error {
+func (c *DbConfig) Normalize() error {
 	for i, tc := range c.Tables {
 		if len(tc.CreatedAtField) == 0 && len(c.CreatedAtField) > 0 {
 			c.Tables[i].CreatedAtField = c.CreatedAtField

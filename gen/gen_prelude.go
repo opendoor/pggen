@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/opendoor-labs/pggen/gen/internal/utils"
 )
 
 func (g *Generator) genPrelude() error {
@@ -21,7 +23,7 @@ func (g *Generator) genPrelude() error {
 	}
 
 	preludeName := filepath.Join(filepath.Dir(g.config.OutputFileName), "pggen_prelude.gen.go")
-	return writeGoFile(preludeName, []byte(out.String()))
+	return utils.WriteGoFile(preludeName, []byte(out.String()))
 }
 
 var preludeTmpl *template.Template = template.Must(template.New("prelude-tmpl").Parse(`

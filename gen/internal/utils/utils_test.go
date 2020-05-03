@@ -1,4 +1,4 @@
-package gen
+package utils
 
 import (
 	"testing"
@@ -53,7 +53,7 @@ func TestNullOutArgs(t *testing.T) {
 	}
 
 	for _, v := range vecs {
-		actual := nullOutArgs(v.input)
+		actual := NullOutArgs(v.input)
 		if actual != v.expected {
 			t.Errorf("\nExpected: %s\nActual: %s\n", v.expected, actual)
 		}

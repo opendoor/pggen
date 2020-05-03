@@ -1,4 +1,4 @@
-package gen
+package names
 
 import (
 	"strings"
@@ -14,13 +14,13 @@ import (
 // with a given stored function or prepared statement.
 //
 
-func pgTableToGoModel(tableName string) string {
-	return pgToGoName(inflection.Singular(tableName))
+func PgTableToGoModel(tableName string) string {
+	return PgToGoName(inflection.Singular(tableName))
 }
 
 // Convert a postgres name (assumed to be snake_case)
 // to a PascalCaseName
-func pgToGoName(snakeName string) string {
+func PgToGoName(snakeName string) string {
 	needsUpper := true
 
 	var res strings.Builder

@@ -1,4 +1,4 @@
-package gen
+package utils
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"unicode"
 )
 
-func writeGoFile(path string, src []byte) error {
+func WriteGoFile(path string, src []byte) error {
 	outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
@@ -23,10 +23,10 @@ func writeGoFile(path string, src []byte) error {
 		return fmt.Errorf("internal pggen error: %s", err.Error())
 	}
 
-	return writeCompletely(outFile, formattedSrc)
+	return WriteCompletely(outFile, formattedSrc)
 }
 
-func writeCompletely(w io.Writer, data []byte) error {
+func WriteCompletely(w io.Writer, data []byte) error {
 	for len(data) > 0 {
 		nbytes, err := w.Write(data)
 		if err != nil {
@@ -38,7 +38,7 @@ func writeCompletely(w io.Writer, data []byte) error {
 }
 
 // dirOf returns the name of the directory that `path` is contained by
-func dirOf(path string) (string, error) {
+func DirOf(path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
@@ -47,13 +47,13 @@ func dirOf(path string) (string, error) {
 	return filepath.Base(filepath.Dir(abs)), nil
 }
 
-func randomName(base string) string {
+func RandomName(base string) string {
 	return fmt.Sprintf("%s_%d", base, rand.Int63())
 }
 
 // nullOutArgs takes a string containing an SQL query and replaces
 // all strings which match the regex `\$[0-9]+` outside of quotes.
-func nullOutArgs(query string) string {
+func NullOutArgs(query string) string {
 	lastChunkEnd := 0
 	chunks := []string{}
 	quoteRune := 'X'

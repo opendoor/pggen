@@ -6,13 +6,15 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/include"
+	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/meta"
+	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
 // Generate code for all of the tables
-func (g *Generator) genTables(into io.Writer, tables []tableConfig) error {
+func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error {
 	if len(tables) > 0 {
-		g.infof("	generating %d tables\n", len(tables))
+		g.log.Infof("	generating %d tables\n", len(tables))
 	} else {
 		return nil
 	}
@@ -41,13 +43,13 @@ type tableGenCtx struct {
 	// taken from tableMeta
 	GoName string
 	// taken from tableMeta
-	PkeyCol *colMeta
+	PkeyCol *meta.ColMeta
 	// taken from tableMeta
 	PkeyColIdx int
 	// taken from tableMeta
-	Cols []colMeta
+	Cols []meta.ColMeta
 	// taken from tableMeta
-	References []refMeta
+	References []meta.RefMeta
 	// The include spec which represents the transitive closure of
 	// this tables family
 	AllIncludeSpec           string
@@ -61,33 +63,33 @@ type tableGenCtx struct {
 	UpdatedAtField           string
 }
 
-func tableGenCtxFromInfo(info *tableGenInfo) tableGenCtx {
+func tableGenCtxFromInfo(info *meta.TableGenInfo) tableGenCtx {
 	return tableGenCtx{
-		PgName:         info.meta.PgName,
-		GoName:         info.meta.GoName,
-		PkeyCol:        info.meta.PkeyCol,
-		PkeyColIdx:     info.meta.PkeyColIdx,
-		Cols:           info.meta.Cols,
-		References:     info.meta.References,
-		AllIncludeSpec: info.allIncludeSpec.String(),
+		PgName:         info.Meta.PgName,
+		GoName:         info.Meta.GoName,
+		PkeyCol:        info.Meta.PkeyCol,
+		PkeyColIdx:     info.Meta.PkeyColIdx,
+		Cols:           info.Meta.Cols,
+		References:     info.Meta.References,
+		AllIncludeSpec: info.AllIncludeSpec.String(),
 
-		HasCreatedAtField:        info.hasCreatedAtField,
-		CreatedAtField:           pgToGoName(info.config.CreatedAtField),
-		CreatedAtFieldIsNullable: info.createdAtFieldIsNullable,
-		CreatedAtHasTimezone:     info.createdAtHasTimezone,
+		HasCreatedAtField:        info.HasCreatedAtField,
+		CreatedAtField:           names.PgToGoName(info.Config.CreatedAtField),
+		CreatedAtFieldIsNullable: info.CreatedAtFieldIsNullable,
+		CreatedAtHasTimezone:     info.CreatedAtHasTimezone,
 
-		HasUpdatedAtField:        info.hasUpdateAtField,
-		UpdatedAtField:           pgToGoName(info.config.UpdatedAtField),
-		UpdatedAtFieldIsNullable: info.updatedAtFieldIsNullable,
-		UpdatedAtHasTimezone:     info.updatedAtHasTimezone,
+		HasUpdatedAtField:        info.HasUpdateAtField,
+		UpdatedAtField:           names.PgToGoName(info.Config.UpdatedAtField),
+		UpdatedAtFieldIsNullable: info.UpdatedAtFieldIsNullable,
+		UpdatedAtHasTimezone:     info.UpdatedAtHasTimezone,
 	}
 }
 
 func (g *Generator) genTable(
 	into io.Writer,
-	table *tableConfig,
+	table *config.TableConfig,
 ) (err error) {
-	g.infof("		generating table '%s'\n", table.Name)
+	g.log.Infof("		generating table '%s'\n", table.Name)
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf(
@@ -95,7 +97,10 @@ func (g *Generator) genTable(
 		}
 	}()
 
-	tableInfo := g.tables[table.Name]
+	tableInfo, ok := g.metaResolver.GenInfoForTable(table.Name)
+	if !ok {
+		return fmt.Errorf("could get schema info about table '%s'", table.Name)
+	}
 
 	genCtx := tableGenCtxFromInfo(tableInfo)
 	if genCtx.PkeyCol == nil {
@@ -110,8 +115,9 @@ func (g *Generator) genTable(
 	// asked to generate code for.
 	kept := 0
 	for _, ref := range genCtx.References {
-		if fromTable, inMap := g.tables[ref.PointsFrom.PgName]; inMap {
-			if !fromTable.config.NoInferBelongsTo {
+		fromTable, inMap := g.metaResolver.GenInfoForTable(ref.PointsFrom.PgName)
+		if inMap {
+			if !fromTable.Config.NoInferBelongsTo {
 				genCtx.References[kept] = ref
 				kept++
 			}
@@ -126,10 +132,10 @@ func (g *Generator) genTable(
 
 	genCtx.References = append(
 		genCtx.References,
-		g.tables[table.Name].explicitBelongsTo...,
+		tableInfo.ExplicitBelongsTo...,
 	)
 
-	if tableInfo.hasUpdateAtField || tableInfo.hasCreatedAtField {
+	if tableInfo.HasUpdateAtField || tableInfo.HasCreatedAtField {
 		g.imports[`"time"`] = true
 	}
 
@@ -144,7 +150,7 @@ func (g *Generator) genTable(
 	if err != nil {
 		return
 	}
-	err = g.types.emitType(genCtx.GoName, tableSig.String(), tableType.String())
+	err = g.typeResolver.EmitType(genCtx.GoName, tableSig.String(), tableType.String())
 	if err != nil {
 		return
 	}
@@ -1049,236 +1055,3 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFrom.GoName }}(
 
 {{ end }}
 `))
-
-// Information about tables required for code generation.
-//
-// The reason there is both a *Meta and *GenInfo struct for tables
-// is that `tableMeta` is meant to be narrowly focused on metadata
-// that postgres provides us, while things in `tableGenInfo` are
-// more specific to `pggen`'s internal needs.
-type tableGenInfo struct {
-	config *tableConfig
-	// Table relationships that have been explicitly configured
-	// rather than infered from the database schema itself.
-	explicitBelongsTo []refMeta
-	// The include spec which represents the transitive closure of
-	// this tables family
-	allIncludeSpec *include.Spec
-	// If true, this table does have an update timestamp field
-	hasUpdateAtField bool
-	// True if the update at field can be null
-	updatedAtFieldIsNullable bool
-	// True if the updated at field has a time zone
-	updatedAtHasTimezone bool
-	// If true, this table does have a create timestamp field
-	hasCreatedAtField bool
-	// True if the created at field can be null
-	createdAtFieldIsNullable bool
-	// True if the created at field has a time zone
-	createdAtHasTimezone bool
-	// The table metadata as postgres reports it
-	meta tableMeta
-}
-
-// nullFlags computes the null flags specifying the nullness of this
-// table in the same format used by the `null_flags` config option
-func (info tableGenInfo) nullFlags() string {
-	nf := make([]byte, 0, len(info.meta.Cols))
-	for _, c := range info.meta.Cols {
-		if c.Nullable {
-			nf = append(nf, 'n')
-		} else {
-			nf = append(nf, '-')
-		}
-	}
-	return string(nf)
-}
-
-func (g *Generator) populateTableInfo(tables []tableConfig) error {
-	g.tables = map[string]*tableGenInfo{}
-	g.tableTyNameToTableName = map[string]string{}
-	for i, table := range tables {
-		info := &tableGenInfo{}
-		info.config = &tables[i]
-
-		meta, err := g.tableMeta(table.Name)
-		if err != nil {
-			return fmt.Errorf("table '%s': %s", table.Name, err.Error())
-		}
-		info.meta = meta
-
-		g.tables[table.Name] = info
-		g.tableTyNameToTableName[meta.GoName] = meta.PgName
-	}
-
-	// fill in all the reference we can automatically detect
-	for _, table := range g.tables {
-		err := g.fillTableReferences(&table.meta)
-		if err != nil {
-			return err
-		}
-	}
-
-	err := g.buildExplicitBelongsToMapping(tables, g.tables)
-	if err != nil {
-		return err
-	}
-
-	// fill in all the allIncludeSpecs
-	for _, info := range g.tables {
-		err := ensureSpec(g.tables, info)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, info := range g.tables {
-		g.setTimestampFlags(info)
-	}
-
-	return nil
-}
-
-func (g *Generator) setTimestampFlags(info *tableGenInfo) {
-	if len(info.config.CreatedAtField) > 0 {
-		for _, cm := range info.meta.Cols {
-			if cm.PgName == info.config.CreatedAtField {
-				info.hasCreatedAtField = true
-				info.createdAtFieldIsNullable = cm.Nullable
-				info.createdAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
-				break
-			}
-		}
-
-		if !info.hasCreatedAtField {
-			g.warnf(
-				"table '%s' has no '%s' created at timestamp\n",
-				info.config.Name,
-				info.config.CreatedAtField,
-			)
-		}
-	}
-
-	if len(info.config.UpdatedAtField) > 0 {
-		for _, cm := range info.meta.Cols {
-			if cm.PgName == info.config.UpdatedAtField {
-				info.hasUpdateAtField = true
-				info.updatedAtFieldIsNullable = cm.Nullable
-				info.updatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
-				break
-			}
-		}
-
-		if !info.hasUpdateAtField {
-			g.warnf(
-				"table '%s' has no '%s' updated at timestamp\n",
-				info.config.Name,
-				info.config.UpdatedAtField,
-			)
-		}
-	}
-}
-
-func ensureSpec(tables map[string]*tableGenInfo, info *tableGenInfo) error {
-	if info.allIncludeSpec != nil {
-		// Some other `ensureSpec` already filled this in for us. Great!
-		return nil
-	}
-
-	info.allIncludeSpec = &include.Spec{
-		TableName: info.meta.PgName,
-		Includes:  map[string]*include.Spec{},
-	}
-
-	ensureReferencedSpec := func(ref *refMeta) error {
-		subInfo := tables[ref.PointsFrom.PgName]
-		if subInfo == nil {
-			// This table is referenced in the database schema but not in the
-			// config file.
-			return nil
-		}
-
-		err := ensureSpec(tables, subInfo)
-		if err != nil {
-			return err
-		}
-		subSpec := subInfo.allIncludeSpec
-		info.allIncludeSpec.Includes[subSpec.TableName] = subSpec
-
-		return nil
-	}
-
-	for _, ref := range info.meta.References {
-		err := ensureReferencedSpec(&ref)
-		if err != nil {
-			return err
-		}
-	}
-	for _, ref := range info.explicitBelongsTo {
-		err := ensureReferencedSpec(&ref)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(info.allIncludeSpec.Includes) == 0 {
-		info.allIncludeSpec.Includes = nil
-	}
-
-	return nil
-}
-
-func (g *Generator) buildExplicitBelongsToMapping(
-	tables []tableConfig,
-	infoTab map[string]*tableGenInfo,
-) error {
-	for _, table := range tables {
-		pointsFromTable := g.tables[table.Name]
-
-		for _, belongsTo := range table.BelongsTo {
-			if len(belongsTo.Table) == 0 {
-				return fmt.Errorf(
-					"%s: belongs_to requires 'name' key",
-					table.Name,
-				)
-			}
-
-			if len(belongsTo.KeyField) == 0 {
-				return fmt.Errorf(
-					"%s: belongs_to requires 'key_field' key",
-					table.Name,
-				)
-			}
-
-			var belongsToColMeta *colMeta
-			for i, col := range pointsFromTable.meta.Cols {
-				if col.PgName == belongsTo.KeyField {
-					belongsToColMeta = &pointsFromTable.meta.Cols[i]
-				}
-			}
-			if belongsToColMeta == nil {
-				return fmt.Errorf(
-					"table '%s' has no field '%s'",
-					table.Name,
-					belongsTo.KeyField,
-				)
-			}
-
-			pointsToMeta := infoTab[belongsTo.Table].meta
-			ref := refMeta{
-				PointsTo:         &g.tables[belongsTo.Table].meta,
-				PointsToFields:   []*colMeta{pointsToMeta.PkeyCol},
-				PointsFrom:       &g.tables[table.Name].meta,
-				PointsFromFields: []*colMeta{belongsToColMeta},
-				OneToOne:         belongsTo.OneToOne,
-				Nullable:         belongsToColMeta.Nullable,
-			}
-
-			info := infoTab[belongsTo.Table]
-			info.explicitBelongsTo = append(info.explicitBelongsTo, ref)
-			infoTab[belongsTo.Table] = info
-		}
-	}
-
-	return nil
-}
