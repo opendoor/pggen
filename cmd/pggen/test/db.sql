@@ -78,8 +78,13 @@ CREATE TABLE type_rainbow (
     serial_field SERIAL,
     serial_field_not_null SERIAL NOT NULL,
     big_serial_field BIGSERIAL,
-    big_serial_field_not_null BIGSERIAL NOT NULL
+    big_serial_field_not_null BIGSERIAL NOT NULL,
 
+    -- json types
+    json_field json,
+    json_field_not_null json NOT NULL,
+    jsonb_field jsonb,
+    jsonb_field_not_null jsonb NOT NULL
 
     -- TODO: postgis types
     -- TODO: geometric types
@@ -87,7 +92,6 @@ CREATE TABLE type_rainbow (
     -- TODO: bit string types
     -- TODO: text search types
     -- TODO: XML type
-    -- TODO: JSON type
     -- TODO: arrays
     -- TODO: composite types
     -- TODO: range types
@@ -312,8 +316,11 @@ INSERT INTO type_rainbow (
     bigint_field_not_null, decimal_field, decimal_field_not_null, numeric_field,
     numeric_field_not_null, numeric_prec_field, numeric_prec_field_not_null, numeric_prec_scale_field,
     numeric_prec_scale_field_not_null, real_field, real_field_not_null, double_field,
-    double_field_not_null
+    double_field_not_null,
     -- serial fields are left to auto-increment
+
+    -- json types
+    json_field, json_field_not_null, jsonb_field, jsonb_field_not_null
 ) VALUES (
     'foo', 'foo', 'foo', 'foo', 'foo', 'foo',
 
@@ -347,7 +354,11 @@ INSERT INTO type_rainbow (
     '\xdeadbeef', '\xdeadbeef',
 
     -- numeric types
-    1, 1, 2, 2, 3, 3, 15.4, 15.4, 16.4, 16.4, 999, 999, 19.99, 19.99, 2.3, 2.3, 9.3, 9.3
+    1, 1, 2, 2, 3, 3, 15.4, 15.4, 16.4, 16.4, 999, 999, 19.99, 19.99, 2.3, 2.3, 9.3, 9.3,
+
+    -- json types
+    '5'::json, '[1, 2, "foo", null]'::json,
+    '{"bar": "baz"}'::json, '{"foo": ["bar", 1]}'::json
 );
 
 INSERT INTO type_rainbow (
@@ -378,8 +389,11 @@ INSERT INTO type_rainbow (
     bigint_field_not_null, decimal_field_not_null,
     numeric_field_not_null, numeric_prec_field_not_null,
     numeric_prec_scale_field_not_null, real_field_not_null,
-    double_field_not_null
+    double_field_not_null,
     -- serial fields are left to auto-increment
+
+    -- json types
+    json_field_not_null, jsonb_field_not_null
 ) VALUES (
     'foo', 'foo', 'foo',
 
@@ -407,7 +421,10 @@ INSERT INTO type_rainbow (
     '\xdeadbeef',
 
     -- numeric types
-    1, 2, 3, 15.4, 16.4, 999, 19.99, 2.3, 9.3
+    1, 2, 3, 15.4, 16.4, 999, 19.99, 2.3, 9.3,
+
+    -- json types
+    '[1, 2, "foo", null]'::json, '{"foo": ["bar", 1]}'::json
 );
 
 INSERT INTO small_entities (anint) VALUES (17);

@@ -439,6 +439,13 @@ var defaultPgType2GoType = map[string]*Info{
 	"integer":  &int64GoTypeInfo,
 	"bigint":   &int64GoTypeInfo,
 
+	// Without knowing more about the shape of the data we are getting handed back,
+	// we will just use an untyped blob for json. We don't want to use an `interface{}`
+	// because and the user very well might have a struct that they want to deserialize
+	// stuff into.
+	"json":  &byteArrayGoTypeInfo,
+	"jsonb": &byteArrayGoTypeInfo,
+
 	// intervals seem to be passed as int64
 	"interval": &int64GoTypeInfo,
 

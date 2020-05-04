@@ -223,6 +223,18 @@
     name = "AllMatchingEnums"
     body = "SELECT array_agg(value) as variants FROM simple_enums WHERE value = ANY($1)"
 
+[[query]]
+    name = "SelectJSON"
+    not_null_fields = ["json_field_not_null", "jsonb_field_not_null"]
+    body = '''
+    SELECT
+        json_field,
+        json_field_not_null,
+        jsonb_field,
+        jsonb_field_not_null
+    FROM type_rainbow
+    '''
+
 #
 # Statements
 #

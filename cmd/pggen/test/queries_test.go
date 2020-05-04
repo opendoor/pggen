@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -223,4 +224,27 @@ func TestAllMatchingEnums(t *testing.T) {
 	check([]db_shims.EnumType{db_shims.EnumTypeOption1})
 	check([]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2})
 	check([]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption1, db_shims.EnumTypeOption2})
+}
+
+func TestJSON(t *testing.T) {
+	jsonValues, err := pgClient.SelectJSON(ctx)
+	chkErr(t, err)
+
+	for _, v := range jsonValues {
+		if !(v.JsonField == nil || bytes.Equal([]byte("5"), *v.JsonField)) {
+			t.Fatalf("unexpected json_field value")
+		}
+
+		if !(v.JsonbField == nil || bytes.Equal([]byte(`{"bar": "baz"}`), *v.JsonbField)) {
+			t.Fatalf("unexpected jsonb_field value")
+		}
+
+		if !bytes.Equal([]byte(`[1, 2, "foo", null]`), v.JsonFieldNotNull) {
+			t.Fatalf("unexpected json_field_not_null value: %s", string(v.JsonFieldNotNull))
+		}
+
+		if !bytes.Equal([]byte(`{"foo": ["bar", 1]}`), v.JsonbFieldNotNull) {
+			t.Fatalf("unexpected jsonb_field_not_null value")
+		}
+	}
 }
