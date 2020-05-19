@@ -32,10 +32,10 @@ Options:
 
 -e, --enable-var <var-pattern>               If <var-pattern> matches against the environment,
                                              run pggen, otherwise don't do anything. If both
-											 enable vars and disable vars are provided, pggen
-											 will be disabled if any of the patterns would
-											 lead to it being disabled (matching disable var,
-											 non-matching enable var).
+                                             enable vars and disable vars are provided, pggen
+                                             will be disabled if any of the patterns would
+                                             lead to it being disabled (matching disable var,
+                                             non-matching enable var).
 
 -c, --connection-string <connection-string>  The connection string to use to attach
                                              to the postgres instance we will
