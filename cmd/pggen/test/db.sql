@@ -284,6 +284,12 @@ CREATE TABLE will_get_new_column (
     f1 text NOT NULL
 );
 
+-- to test inserting when the primary key cannot be automatically computed by the database
+CREATE TABLE non_default_pkey (
+    id text PRIMARY KEY,
+    val integer
+);
+
 --
 -- Load Data
 --
