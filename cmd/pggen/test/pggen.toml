@@ -340,3 +340,6 @@
 
 [[table]]
     name = "will_get_new_column"
+
+[[table]]
+    name = "non_default_pkey"

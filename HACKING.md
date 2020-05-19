@@ -79,8 +79,8 @@ routine in `gen/utils.go` to skip the formatting and just dump the code to disk.
 ```
 diff --git a/gen/utils.go b/gen/utils.go
 index dd7804d..e3a446f 100644
---- a/gen/utils.go
-+++ b/gen/utils.go
+--- a/gen/internal/utils/utils.go
++++ b/gen/internal/utils/utils.go
 @@ -20,8 +20,9 @@ func writeGoFile(path string, src []byte) error {
 
  	formattedSrc, err := format.Source(src)

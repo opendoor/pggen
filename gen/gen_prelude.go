@@ -48,10 +48,11 @@ func genBulkInsertStmt(
 	fields []string,
 	nrecords int,
 	pkeyName string,
+	includeID bool,
 ) string {
 	var ret strings.Builder
 
-	genInsertCommon(&ret, table, fields, nrecords, pkeyName, true)
+	genInsertCommon(&ret, table, fields, nrecords, pkeyName, includeID)
 
 	ret.WriteString(" RETURNING \"")
 	ret.WriteString(pkeyName)

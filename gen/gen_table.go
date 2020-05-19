@@ -354,25 +354,28 @@ func (p *pgClientImpl) List{{ .GoName }}(
 func (p *PGClient) Insert{{ .GoName }}(
 	ctx context.Context,
 	value *{{ .GoName }},
+	opts ...pggen.InsertOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
-	return p.impl.Insert{{ .GoName }}(ctx, value)
+	return p.impl.Insert{{ .GoName }}(ctx, value, opts...)
 }
 // Insert a {{ .GoName }} into the database. Returns the primary
 // key of the inserted row.
 func (tx *TxPGClient) Insert{{ .GoName }}(
 	ctx context.Context,
 	value *{{ .GoName }},
+	opts ...pggen.InsertOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
-	return tx.impl.Insert{{ .GoName }}(ctx, value)
+	return tx.impl.Insert{{ .GoName }}(ctx, value, opts...)
 }
 // Insert a {{ .GoName }} into the database. Returns the primary
 // key of the inserted row.
 func (p *pgClientImpl) Insert{{ .GoName }}(
 	ctx context.Context,
 	value *{{ .GoName }},
+	opts ...pggen.InsertOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	var ids []{{ .PkeyCol.TypeInfo.Name }}
-	ids, err = p.BulkInsert{{ .GoName }}(ctx, []{{ .GoName }}{*value})
+	ids, err = p.BulkInsert{{ .GoName }}(ctx, []{{ .GoName }}{*value}, opts...)
 	if err != nil {
 		return
 	}
@@ -391,33 +394,33 @@ func (p *pgClientImpl) Insert{{ .GoName }}(
 func (p *PGClient) BulkInsert{{ .GoName }}(
 	ctx context.Context,
 	values []{{ .GoName }},
+	opts ...pggen.InsertOpt,
 ) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
-	return p.impl.BulkInsert{{ .GoName }}(ctx, values)
+	return p.impl.BulkInsert{{ .GoName }}(ctx, values, opts...)
 }
 // Insert a list of {{ .GoName }}. Returns a list of the primary keys of
 // the inserted rows.
 func (tx *TxPGClient) BulkInsert{{ .GoName }}(
 	ctx context.Context,
 	values []{{ .GoName }},
+	opts ...pggen.InsertOpt,
 ) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
-	return tx.impl.BulkInsert{{ .GoName }}(ctx, values)
+	return tx.impl.BulkInsert{{ .GoName }}(ctx, values, opts...)
 }
 // Insert a list of {{ .GoName }}. Returns a list of the primary keys of
 // the inserted rows.
 func (p *pgClientImpl) BulkInsert{{ .GoName }}(
 	ctx context.Context,
 	values []{{ .GoName }},
+	opts ...pggen.InsertOpt,
 ) ([]{{ .PkeyCol.TypeInfo.Name }}, error) {
 	if len(values) == 0 {
 		return []{{ .PkeyCol.TypeInfo.Name }}{}, nil
 	}
 
-	var fields []string = []string{
-		{{- range .Cols }}
-		{{- if (not .IsPrimary) }}
-		` + "`" + `{{ .PgName }}` + "`" + `,
-		{{- end }}
-		{{- end }}
+	opt := pggen.InsertOptions{}
+	for _, o := range opts {
+		o(&opt)
 	}
 
 	{{- if (or .HasCreatedAtField .HasUpdatedAtField) }}
@@ -469,15 +472,24 @@ func (p *pgClientImpl) BulkInsert{{ .GoName }}(
 		{{- else }}
 		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
 		{{- end }}
+		{{- else }}
+		if opt.UsePkey {
+			{{- if .Nullable }}
+			args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+			{{- else }}
+			args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+			{{- end }}
+		}
 		{{- end }}
 		{{- end }}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
 		"{{ .PgName }}",
-		fields,
+		fieldsFor{{ .GoName }},
 		len(values),
 		"{{ .PkeyCol.PgName }}",
+		opt.UsePkey,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)

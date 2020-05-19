@@ -940,3 +940,18 @@ func TestNewColumn(t *testing.T) {
 		t.Fatalf("expected foo")
 	}
 }
+
+func TestInsertPkey(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	one := int64(1)
+	_, err = txClient.InsertNonDefaultPkey(ctx, &db_shims.NonDefaultPkey{
+		Id:  "foo",
+		Val: &one,
+	}, pggen.UsePkey)
+	chkErr(t, err)
+}
