@@ -36,6 +36,10 @@ to generate code for an object is as simple as adding that object's name
 to the config file and letting `pggen` figure out the rest, but there are
 finer grained knobs if you want more control.
 
+## [Examples](./examples)
+
+The [examples directory](./examples) contains usage examples and common patterns.
+
 ## Features
 
 `pggen` offers two main features: automatic generation of shims wrapping

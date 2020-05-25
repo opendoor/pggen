@@ -6,7 +6,7 @@ IFS=$'\n\t'
 
 export DB_URL="postgres://postgres:test@${DB_HOST}/postgres?sslmode=disable"
 
-# Wait until `postgres` start accepting connections. It seems really
+# Wait until `postgres` starts accepting connections. It seems really
 # silly that we need to do this.
 ticks=0
 while ! echo exit | nc "${DB_HOST}" 5432
@@ -27,7 +27,7 @@ createdb -h "${DB_HOST}" -W test -U postgres -w -e pggen_test || /bin/true
 
 psql "$DB_URL" < cmd/pggen/test/db.sql
 
-go generate ./...
+go generate ./cmd/pggen/test/...
 
 if [[ -n "${LINT+x}" ]] ; then
     golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
