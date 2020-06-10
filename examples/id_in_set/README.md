@@ -13,7 +13,8 @@ Set up the database
 > psql pggen_example < db.sql
 ```
 
-generate the code
+edit the `generate.go` file so that the generate line starts with `//go:generate` instead of
+`// go:generate`, then generate the code
 
 ```bash
 > go generate ./...
