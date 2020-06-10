@@ -104,7 +104,7 @@ func FromConfig(config Config) (*Generator, error) {
 		return nil, err
 	}
 
-	imports := map[string]bool{}
+	imports := initialImports()
 	typeResolver := types.NewResolver(db, func(importStr string) {
 		imports[importStr] = true
 	})
@@ -116,6 +116,12 @@ func FromConfig(config Config) (*Generator, error) {
 		imports:      imports,
 		typeResolver: typeResolver,
 	}, nil
+}
+
+func initialImports() map[string]bool {
+	return map[string]bool{
+		`"context"`: true,
+	}
 }
 
 // Generate the code that this generator has been configured for

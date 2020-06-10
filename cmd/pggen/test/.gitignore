@@ -1,2 +1,3 @@
 # name of the binary left around by `go build -gcflags="all=-N -l"`
 main
+*.gen.go
