@@ -127,7 +127,7 @@ type TypeOverride struct {
 	NullableTypeName string `toml:"nullable_type_name"`
 }
 
-// Given a user provided configuration, convert it into a nomralized form that
+// Given a user provided configuration, convert it into a normalized form that
 // is suitable for use by pggen.
 //
 // In particular we:
