@@ -49,6 +49,10 @@ func (g *Generator) genQuery(
 	// not needed, but it does make the generated code a little nicer
 	config.Body = strings.TrimSpace(config.Body)
 
+	if config.Body == "" {
+		return fmt.Errorf("empty query body")
+	}
+
 	meta, err := g.metaResolver.QueryMeta(config, args == nil /* inferArgTypes */)
 	if err != nil {
 		return err

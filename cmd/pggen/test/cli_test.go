@@ -264,6 +264,15 @@ name = "small_entities"
 		exitCode: 0,
 		stdoutRE: "pggen: doing nothing because an enable var failed to match",
 	},
+	{
+		toml: `
+[[query]]
+    name = "EmptyQueryBody"
+	body = ""
+		`,
+		exitCode: 1,
+		stderrRE: "generating query 'EmptyQueryBody': empty query body",
+	},
 }
 
 func TestCLI(t *testing.T) {
