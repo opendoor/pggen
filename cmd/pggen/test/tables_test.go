@@ -10,7 +10,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 	"github.com/opendoor-labs/pggen/include"
 )
 
@@ -21,7 +21,7 @@ func TestInsertSmallEntity(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entity := db_shims.SmallEntity{
+	entity := models.SmallEntity{
 		Anint: 129,
 	}
 
@@ -47,7 +47,7 @@ func TestSmallEntityBulk(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entities := []db_shims.SmallEntity{
+	entities := []models.SmallEntity{
 		{
 			Anint: 1232,
 		},
@@ -101,7 +101,7 @@ func TestSmallEntityUpdate(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entities := []db_shims.SmallEntity{
+	entities := []models.SmallEntity{
 		{
 			Anint: 1232,
 		},
@@ -120,7 +120,7 @@ func TestSmallEntityUpdate(t *testing.T) {
 	chkErr(t, err)
 
 	noOpBitset := pggen.NewFieldSet(2)
-	noOpBitset.Set(db_shims.SmallEntityIdFieldIndex, true)
+	noOpBitset.Set(models.SmallEntityIdFieldIndex, true)
 
 	fetched[0].Anint = 34
 	id, err := txClient.UpdateSmallEntity(ctx, &fetched[0], noOpBitset)
@@ -138,7 +138,7 @@ func TestSmallEntityUpdate(t *testing.T) {
 	}
 
 	fetched[1].Anint = 42
-	id, err = txClient.UpdateSmallEntity(ctx, &fetched[1], db_shims.SmallEntityAllFields)
+	id, err = txClient.UpdateSmallEntity(ctx, &fetched[1], models.SmallEntityAllFields)
 	chkErr(t, err)
 	if id != fetched[1].Id {
 		t.Fatalf("id mismatch (passed in %d, got back %d)", fetched[1].Id, id)
@@ -159,7 +159,7 @@ func TestSmallEntityCreateDelete(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entities := []db_shims.SmallEntity{
+	entities := []models.SmallEntity{
 		{
 			Anint: 232,
 		},
@@ -211,27 +211,27 @@ func TestFillAll(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 129,
 	})
 	chkErr(t, err)
 
 	foo := "foo"
-	attachmentID1, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
+	attachmentID1, err := txClient.InsertAttachment(ctx, &models.Attachment{
 		SmallEntityId: entityID,
 		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	bar := "bar"
-	attachmentID2, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
+	attachmentID2, err := txClient.InsertAttachment(ctx, &models.Attachment{
 		SmallEntityId: entityID,
 		Value:         &bar,
 	})
 	chkErr(t, err)
 
 	aTime := time.Unix(5432553, 0)
-	_, err = txClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
+	_, err = txClient.InsertSingleAttachment(ctx, &models.SingleAttachment{
 		SmallEntityId: entityID,
 		CreatedAt:     aTime,
 	})
@@ -239,7 +239,7 @@ func TestFillAll(t *testing.T) {
 
 	e, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
-	err = txClient.SmallEntityFillIncludes(ctx, e, db_shims.SmallEntityAllIncludes)
+	err = txClient.SmallEntityFillIncludes(ctx, e, models.SmallEntityAllIncludes)
 	chkErr(t, err)
 
 	if len(e.Attachments) != 2 {
@@ -272,20 +272,20 @@ func TestFillIncludes(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 129,
 	})
 	chkErr(t, err)
 
 	foo := "foo"
-	attachmentID1, err := txClient.InsertAttachment(ctx, &db_shims.Attachment{
+	attachmentID1, err := txClient.InsertAttachment(ctx, &models.Attachment{
 		SmallEntityId: entityID,
 		Value:         &foo,
 	})
 	chkErr(t, err)
 
 	aTime := time.Unix(5432553, 0)
-	singleAttachmentID, err := txClient.InsertSingleAttachment(ctx, &db_shims.SingleAttachment{
+	singleAttachmentID, err := txClient.InsertSingleAttachment(ctx, &models.SingleAttachment{
 		SmallEntityId: entityID,
 		CreatedAt:     aTime,
 	})
@@ -330,19 +330,19 @@ func TestNullableAttachments(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 3,
 	})
 	chkErr(t, err)
 
 	// one that isn't attached
-	_, err = txClient.InsertNullableAttachment(ctx, &db_shims.NullableAttachment{
+	_, err = txClient.InsertNullableAttachment(ctx, &models.NullableAttachment{
 		Value: "not attached",
 	})
 	chkErr(t, err)
 
 	// and one that is
-	_, err = txClient.InsertNullableAttachment(ctx, &db_shims.NullableAttachment{
+	_, err = txClient.InsertNullableAttachment(ctx, &models.NullableAttachment{
 		SmallEntityId: &entityID,
 		Value:         "attached",
 	})
@@ -351,7 +351,7 @@ func TestNullableAttachments(t *testing.T) {
 	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
 
-	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, db_shims.SmallEntityAllIncludes)
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, models.SmallEntityAllIncludes)
 	chkErr(t, err)
 
 	if len(smallEntity.NullableAttachments) != 1 {
@@ -369,19 +369,19 @@ func TestNullableSingleAttachments(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	entityID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	entityID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 3,
 	})
 	chkErr(t, err)
 
 	// one that isn't attached
-	_, err = txClient.InsertNullableSingleAttachment(ctx, &db_shims.NullableSingleAttachment{
+	_, err = txClient.InsertNullableSingleAttachment(ctx, &models.NullableSingleAttachment{
 		Value: "not attached",
 	})
 	chkErr(t, err)
 
 	// and one that is
-	_, err = txClient.InsertNullableSingleAttachment(ctx, &db_shims.NullableSingleAttachment{
+	_, err = txClient.InsertNullableSingleAttachment(ctx, &models.NullableSingleAttachment{
 		SmallEntityId: &entityID,
 		Value:         "attached",
 	})
@@ -390,7 +390,7 @@ func TestNullableSingleAttachments(t *testing.T) {
 	smallEntity, err := txClient.GetSmallEntity(ctx, entityID)
 	chkErr(t, err)
 
-	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, db_shims.SmallEntityAllIncludes)
+	err = txClient.SmallEntityFillIncludes(ctx, smallEntity, models.SmallEntityAllIncludes)
 	chkErr(t, err)
 
 	if smallEntity.NullableSingleAttachment.Value != "attached" {
@@ -399,7 +399,7 @@ func TestNullableSingleAttachments(t *testing.T) {
 }
 
 func TestNoInfer(t *testing.T) {
-	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
+	smallEntityType := reflect.TypeOf(models.SmallEntity{})
 
 	_, has := smallEntityType.FieldByName("NoInfer")
 	if has {
@@ -408,7 +408,7 @@ func TestNoInfer(t *testing.T) {
 }
 
 func TestExplicitBelongsTo(t *testing.T) {
-	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
+	smallEntityType := reflect.TypeOf(models.SmallEntity{})
 
 	f, has := smallEntityType.FieldByName("ExplicitBelongsTo")
 	if !has {
@@ -421,7 +421,7 @@ func TestExplicitBelongsTo(t *testing.T) {
 }
 
 func TestExplicitBelongsToMany(t *testing.T) {
-	smallEntityType := reflect.TypeOf(db_shims.SmallEntity{})
+	smallEntityType := reflect.TypeOf(models.SmallEntity{})
 
 	f, has := smallEntityType.FieldByName("ExplicitBelongsToMany")
 	if !has {
@@ -441,7 +441,7 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 	}()
 
 	var nineteen int64 = 19
-	funnyID, err := txClient.InsertWeirdNaMe(ctx, &db_shims.WeirdNaMe{
+	funnyID, err := txClient.InsertWeirdNaMe(ctx, &models.WeirdNaMe{
 		WearetalkingReallyBadstyle: 1923,
 		GotWhitespace:              "yes",
 		ButWhyTho:                  &nineteen,
@@ -454,7 +454,7 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 	funny.GotWhitespace = "no"
 
 	funnyID, err = txClient.UpdateWeirdNaMe(
-		ctx, funny, db_shims.WeirdNaMeAllFields)
+		ctx, funny, models.WeirdNaMeAllFields)
 	chkErr(t, err)
 
 	funny, err = txClient.GetWeirdNaMe(ctx, funnyID)
@@ -464,11 +464,11 @@ func TestFunnyNamesInTableGeneratedFunc(t *testing.T) {
 		t.Fatalf("update failed")
 	}
 
-	kidID, err := txClient.InsertWeirdKid(ctx, &db_shims.WeirdKid{
+	kidID, err := txClient.InsertWeirdKid(ctx, &models.WeirdKid{
 		Daddy: funny.Evenidisweird,
 	})
 	chkErr(t, err)
-	err = txClient.WeirdNaMeFillIncludes(ctx, funny, db_shims.WeirdNaMeAllIncludes)
+	err = txClient.WeirdNaMeFillIncludes(ctx, funny, models.WeirdNaMeAllIncludes)
 	chkErr(t, err)
 
 	err = txClient.DeleteWeirdKid(ctx, kidID)
@@ -486,7 +486,7 @@ func TestArrayMembers(t *testing.T) {
 	}()
 
 	var nineteen int64 = 19
-	id, err := txClient.InsertArrayMember(ctx, &db_shims.ArrayMember{
+	id, err := txClient.InsertArrayMember(ctx, &models.ArrayMember{
 		TextArray: []string{"foo", "bar"},
 		IntArray:  []*int64{&nineteen, nil},
 	})
@@ -496,12 +496,12 @@ func TestArrayMembers(t *testing.T) {
 	chkErr(t, err)
 
 	_, err = txClient.UpdateArrayMember(
-		ctx, arrayMember, db_shims.ArrayMemberAllFields)
+		ctx, arrayMember, models.ArrayMemberAllFields)
 	chkErr(t, err)
 }
 
 func TestMaxFieldIndex(t *testing.T) {
-	if db_shims.SmallEntityMaxFieldIndex != db_shims.SmallEntityAnintFieldIndex {
+	if models.SmallEntityMaxFieldIndex != models.SmallEntityAnintFieldIndex {
 		t.Fatalf("max field index mismatch")
 	}
 }
@@ -541,7 +541,7 @@ func TestColOrdering(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	id, err := txClient.InsertColOrder(ctx, &db_shims.ColOrder{
+	id, err := txClient.InsertColOrder(ctx, &models.ColOrder{
 		Field1: "foo",
 		Field2: 1,
 		Field3: 2,
@@ -563,10 +563,10 @@ func TestUpsertInserts(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	allButID := db_shims.SmallEntityAllFields.Clone()
-	allButID.Set(db_shims.SmallEntityIdFieldIndex, false)
+	allButID := models.SmallEntityAllFields.Clone()
+	allButID.Set(models.SmallEntityIdFieldIndex, false)
 
-	id1, err := txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id1, err := txClient.UpsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
 	}, nil, allButID)
 	chkErr(t, err)
@@ -577,7 +577,7 @@ func TestUpsertInserts(t *testing.T) {
 		t.Fatal("expected 19")
 	}
 
-	id2, err := txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id2, err := txClient.UpsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 20,
 	}, nil, allButID)
 	chkErr(t, err)
@@ -600,15 +600,15 @@ func TestUpsertUpdates(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	id, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
 	})
 	chkErr(t, err)
 
-	id, err = txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id, err = txClient.UpsertSmallEntity(ctx, &models.SmallEntity{
 		Id:    id,
 		Anint: 14,
-	}, nil, db_shims.SmallEntityAllFields)
+	}, nil, models.SmallEntityAllFields)
 	chkErr(t, err)
 
 	fetched, err := txClient.GetSmallEntity(ctx, id)
@@ -625,15 +625,15 @@ func TestUpsertDoesntUpdateThingsNotInFieldSet(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	justID := pggen.NewFieldSet(db_shims.SmallEntityMaxFieldIndex)
-	justID.Set(db_shims.SmallEntityIdFieldIndex, true)
+	justID := pggen.NewFieldSet(models.SmallEntityMaxFieldIndex)
+	justID.Set(models.SmallEntityIdFieldIndex, true)
 
-	id, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
 	})
 	chkErr(t, err)
 
-	id, err = txClient.UpsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id, err = txClient.UpsertSmallEntity(ctx, &models.SmallEntity{
 		Id:    id,
 		Anint: 14,
 	}, []string{}, justID)
@@ -653,12 +653,12 @@ func TestBulkUpsert(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	id, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	id, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
 	})
 	chkErr(t, err)
 
-	ids, err := txClient.BulkUpsertSmallEntity(ctx, []db_shims.SmallEntity{
+	ids, err := txClient.BulkUpsertSmallEntity(ctx, []models.SmallEntity{
 		{
 			Id:    id,
 			Anint: 9,
@@ -666,7 +666,7 @@ func TestBulkUpsert(t *testing.T) {
 		{
 			Anint: 57,
 		},
-	}, nil, db_shims.SmallEntityAllFields)
+	}, nil, models.SmallEntityAllFields)
 	chkErr(t, err)
 
 	entities, err := txClient.ListSmallEntity(ctx, ids)
@@ -685,16 +685,16 @@ func TestUpsertWithExplicitConstraints(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	otherMask := pggen.NewFieldSet(db_shims.ConstraintMaxFieldIndex)
-	otherMask.Set(db_shims.ConstraintOtherFieldIndex, true)
+	otherMask := pggen.NewFieldSet(models.ConstraintMaxFieldIndex)
+	otherMask.Set(models.ConstraintOtherFieldIndex, true)
 
-	id1, err := txClient.UpsertConstraint(ctx, &db_shims.Constraint{
+	id1, err := txClient.UpsertConstraint(ctx, &models.Constraint{
 		Snowflake: 2,
 		Other:     19,
 	}, []string{"snowflake"}, otherMask)
 	chkErr(t, err)
 
-	id2, err := txClient.UpsertConstraint(ctx, &db_shims.Constraint{
+	id2, err := txClient.UpsertConstraint(ctx, &models.Constraint{
 		Snowflake: 2,
 		Other:     4,
 	}, []string{"snowflake"}, otherMask)
@@ -714,10 +714,10 @@ func TestBulkUpsertEmptyList(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	allButID := db_shims.SmallEntityAllFields.Clone()
-	allButID.Set(db_shims.SmallEntityIdFieldIndex, false)
+	allButID := models.SmallEntityAllFields.Clone()
+	allButID.Set(models.SmallEntityIdFieldIndex, false)
 
-	ids, err := txClient.BulkUpsertSmallEntity(ctx, []db_shims.SmallEntity{}, nil, allButID)
+	ids, err := txClient.BulkUpsertSmallEntity(ctx, []models.SmallEntity{}, nil, allButID)
 	chkErr(t, err)
 
 	if len(ids) != 0 {
@@ -732,9 +732,9 @@ func TestUpsertNullableArray(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	_, err = txClient.UpsertTextArray(ctx, &db_shims.TextArray{
+	_, err = txClient.UpsertTextArray(ctx, &models.TextArray{
 		Value: []*string{&[]string{"foo"}[0], nil},
-	}, nil, db_shims.TextArrayAllFields)
+	}, nil, models.TextArrayAllFields)
 	chkErr(t, err)
 }
 
@@ -745,24 +745,24 @@ func TestEnumBlanks(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	_, err = txClient.InsertEnumBlank(ctx, &db_shims.EnumBlank{
-		Value: db_shims.EnumTypeWithBlankBlank0,
+	_, err = txClient.InsertEnumBlank(ctx, &models.EnumBlank{
+		Value: models.EnumTypeWithBlankBlank0,
 	})
 	chkErr(t, err)
 
-	id, err := txClient.InsertEnumBlank(ctx, &db_shims.EnumBlank{
-		Value: db_shims.EnumTypeWithBlankBlank,
+	id, err := txClient.InsertEnumBlank(ctx, &models.EnumBlank{
+		Value: models.EnumTypeWithBlankBlank,
 	})
 	chkErr(t, err)
 
 	_, err = txClient.GetEnumBlank(ctx, id)
 	chkErr(t, err)
 
-	if db_shims.EnumTypeWithBlankBlank.String() != "blank" {
+	if models.EnumTypeWithBlankBlank.String() != "blank" {
 		t.Fatal("should not actually be blank")
 	}
 
-	if db_shims.EnumTypeWithBlankBlank0.String() != "" {
+	if models.EnumTypeWithBlankBlank0.String() != "" {
 		t.Fatal("should be blank")
 	}
 }
@@ -774,21 +774,21 @@ func TestBasicCycle(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	cycle1ID, err := txClient.InsertCycle1(ctx, &db_shims.Cycle1{
+	cycle1ID, err := txClient.InsertCycle1(ctx, &models.Cycle1{
 		Value: "foo",
 	})
 	chkErr(t, err)
 
-	cycle2ID, err := txClient.InsertCycle2(ctx, &db_shims.Cycle2{
+	cycle2ID, err := txClient.InsertCycle2(ctx, &models.Cycle2{
 		Cycle1Id: cycle1ID,
 		Value:    9,
 	})
 	chkErr(t, err)
 
-	cycle2IDMask := pggen.NewFieldSet(db_shims.Cycle1MaxFieldIndex)
-	cycle2IDMask.Set(db_shims.Cycle1IdFieldIndex, true)
-	cycle2IDMask.Set(db_shims.Cycle1Cycle2IdFieldIndex, true)
-	_, err = txClient.UpdateCycle1(ctx, &db_shims.Cycle1{
+	cycle2IDMask := pggen.NewFieldSet(models.Cycle1MaxFieldIndex)
+	cycle2IDMask.Set(models.Cycle1IdFieldIndex, true)
+	cycle2IDMask.Set(models.Cycle1Cycle2IdFieldIndex, true)
+	_, err = txClient.UpdateCycle1(ctx, &models.Cycle1{
 		Id:       cycle1ID,
 		Cycle2Id: &cycle2ID,
 	}, cycle2IDMask)
@@ -797,7 +797,7 @@ func TestBasicCycle(t *testing.T) {
 	cycle1, err := txClient.GetCycle1(ctx, cycle1ID)
 	chkErr(t, err)
 
-	err = txClient.Cycle1FillIncludes(ctx, cycle1, db_shims.Cycle1AllIncludes)
+	err = txClient.Cycle1FillIncludes(ctx, cycle1, models.Cycle1AllIncludes)
 	chkErr(t, err)
 
 	if len(cycle1.Cycle2) != 1 {
@@ -830,46 +830,46 @@ func TestCycleTree(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	rootID, err := txClient.InsertCycleTreeRoot(ctx, &db_shims.CycleTreeRoot{
+	rootID, err := txClient.InsertCycleTreeRoot(ctx, &models.CycleTreeRoot{
 		Value: "root",
 	})
 	chkErr(t, err)
 
-	branch1ID, err := txClient.InsertCycleTreeBranch1(ctx, &db_shims.CycleTreeBranch1{
+	branch1ID, err := txClient.InsertCycleTreeBranch1(ctx, &models.CycleTreeBranch1{
 		Value:           "branch-1",
 		CycleTreeRootId: rootID,
 	})
 	chkErr(t, err)
 
-	branch2ID, err := txClient.InsertCycleTreeBranch2(ctx, &db_shims.CycleTreeBranch2{
+	branch2ID, err := txClient.InsertCycleTreeBranch2(ctx, &models.CycleTreeBranch2{
 		Value:           "branch-2",
 		CycleTreeRootId: rootID,
 	})
 	chkErr(t, err)
 
-	cycle1ID, err := txClient.InsertCycleTreeCycle1(ctx, &db_shims.CycleTreeCycle1{
+	cycle1ID, err := txClient.InsertCycleTreeCycle1(ctx, &models.CycleTreeCycle1{
 		Value:              "cycle-1",
 		CycleTreeBranch1Id: branch1ID,
 	})
 	chkErr(t, err)
 
-	cycle2ID, err := txClient.InsertCycleTreeCycle2(ctx, &db_shims.CycleTreeCycle2{
+	cycle2ID, err := txClient.InsertCycleTreeCycle2(ctx, &models.CycleTreeCycle2{
 		Value:              "cycle-2",
 		CycleTreeBranch2Id: branch2ID,
 		CycleTreeCycle1Id:  cycle1ID,
 	})
 	chkErr(t, err)
 
-	cycle3ID, err := txClient.InsertCycleTreeCycle3(ctx, &db_shims.CycleTreeCycle3{
+	cycle3ID, err := txClient.InsertCycleTreeCycle3(ctx, &models.CycleTreeCycle3{
 		Value:             "cycle-3",
 		CycleTreeCycle2Id: cycle2ID,
 	})
 	chkErr(t, err)
 
-	cycle3IDMask := pggen.NewFieldSet(db_shims.CycleTreeCycle1MaxFieldIndex)
-	cycle3IDMask.Set(db_shims.CycleTreeCycle1IdFieldIndex, true)
-	cycle3IDMask.Set(db_shims.CycleTreeCycle1CycleTreeCycle3IdFieldIndex, true)
-	_, err = txClient.UpdateCycleTreeCycle1(ctx, &db_shims.CycleTreeCycle1{
+	cycle3IDMask := pggen.NewFieldSet(models.CycleTreeCycle1MaxFieldIndex)
+	cycle3IDMask.Set(models.CycleTreeCycle1IdFieldIndex, true)
+	cycle3IDMask.Set(models.CycleTreeCycle1CycleTreeCycle3IdFieldIndex, true)
+	_, err = txClient.UpdateCycleTreeCycle1(ctx, &models.CycleTreeCycle1{
 		Id:                cycle1ID,
 		CycleTreeCycle3Id: &cycle3ID,
 	}, cycle3IDMask)
@@ -878,12 +878,12 @@ func TestCycleTree(t *testing.T) {
 	root, err := txClient.GetCycleTreeRoot(ctx, rootID)
 	chkErr(t, err)
 
-	err = txClient.CycleTreeRootFillIncludes(ctx, root, db_shims.CycleTreeRootAllIncludes)
+	err = txClient.CycleTreeRootFillIncludes(ctx, root, models.CycleTreeRootAllIncludes)
 	chkErr(t, err)
 
 	c1 := root.CycleTreeBranch1[0].CycleTreeCycle1
 	c2 := root.CycleTreeBranch2.CycleTreeCycle2
-	cycle1s := []*db_shims.CycleTreeCycle1{
+	cycle1s := []*models.CycleTreeCycle1{
 		c1,
 		c1.CycleTreeCycle2.CycleTreeCycle3.CycleTreeCycle1[0],
 		c2.CycleTreeCycle3.CycleTreeCycle1[0],
@@ -905,7 +905,7 @@ func TestCycleTree(t *testing.T) {
 // We should be able to work with tables that have had an extra column
 // added since we generated code.
 func TestNewColumn(t *testing.T) {
-	willGetNewColumnType := reflect.TypeOf(db_shims.WillGetNewColumn{})
+	willGetNewColumnType := reflect.TypeOf(models.WillGetNewColumn{})
 	_, has := willGetNewColumnType.FieldByName("F2")
 	if has {
 		t.Fatalf("pggen generated an F2 field. There is something wrong with the db state.")
@@ -928,7 +928,7 @@ func TestNewColumn(t *testing.T) {
 	// logic triggers.
 	txClient.ClearCaches()
 
-	id, err := txClient.InsertWillGetNewColumn(ctx, &db_shims.WillGetNewColumn{
+	id, err := txClient.InsertWillGetNewColumn(ctx, &models.WillGetNewColumn{
 		F1: "foo",
 	})
 	chkErr(t, err)
@@ -949,7 +949,7 @@ func TestInsertPkey(t *testing.T) {
 	}()
 
 	one := int64(1)
-	_, err = txClient.InsertNonDefaultPkey(ctx, &db_shims.NonDefaultPkey{
+	_, err = txClient.InsertNonDefaultPkey(ctx, &models.NonDefaultPkey{
 		Id:  "foo",
 		Val: &one,
 	}, pggen.UsePkey)

@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 func TestTxRollback(t *testing.T) {
@@ -13,7 +13,7 @@ func TestTxRollback(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	seID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	seID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
 	})
 	chkErr(t, err)
@@ -43,7 +43,7 @@ func TestTxCommit(t *testing.T) {
 		}
 	}()
 
-	seID, err := txClient.InsertSmallEntity(ctx, &db_shims.SmallEntity{
+	seID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
 	})
 	chkErr(t, err)

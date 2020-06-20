@@ -6,7 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 var gormDB *gorm.DB
@@ -22,9 +22,9 @@ func init() {
 // A basic smoke test making sure we can fetch a pggen generated record
 // with GORM.
 func TestGormGetSmallEntity(t *testing.T) {
-	var smallEntity db_shims.SmallEntity
+	var smallEntity models.SmallEntity
 
-	chkErr(t, gormDB.Model(&db_shims.SmallEntity{}).
+	chkErr(t, gormDB.Model(&models.SmallEntity{}).
 		First(&smallEntity).Error)
 	if smallEntity.Anint != 17 {
 		t.Fatalf("anint = %d, expected 17", smallEntity.Anint)
@@ -37,9 +37,9 @@ func TestGormGetSmallEntity(t *testing.T) {
 
 // Make sure that using the Preload routine to load child objects works.
 func TestGormPreload(t *testing.T) {
-	var smallEntity db_shims.SmallEntity
+	var smallEntity models.SmallEntity
 
-	chkErr(t, gormDB.Model(&db_shims.SmallEntity{}).
+	chkErr(t, gormDB.Model(&models.SmallEntity{}).
 		Preload("Attachments").
 		First(&smallEntity).Error)
 

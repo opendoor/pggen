@@ -8,11 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/overridden_db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/overridden_models"
 )
 
 func TestOverriddenGetTimes(t *testing.T) {
-	overriddenPgClient := overridden_db_shims.NewPGClient(pgClient.Handle().(*sql.DB))
+	overriddenPgClient := overridden_models.NewPGClient(pgClient.Handle().(*sql.DB))
 
 	res, err := overriddenPgClient.GetTimes(ctx)
 	chkErr(t, err)
@@ -29,7 +29,7 @@ func TestOverriddenGetTimes(t *testing.T) {
 }
 
 func TestOverriddenSelectUUID(t *testing.T) {
-	overriddenPgClient := overridden_db_shims.NewPGClient(pgClient.Handle().(*sql.DB))
+	overriddenPgClient := overridden_models.NewPGClient(pgClient.Handle().(*sql.DB))
 
 	res, err := overriddenPgClient.SelectUuid(ctx)
 	chkErr(t, err)

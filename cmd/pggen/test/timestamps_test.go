@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/global_ts_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/global_ts_models"
 )
 
 func TestTimestampsBoth(t *testing.T) {
@@ -19,7 +19,7 @@ func TestTimestampsBoth(t *testing.T) {
 
 	now := time.Now()
 	blah := "blah"
-	id, err := txClient.InsertTimestampsBoth(ctx, &db_shims.TimestampsBoth{
+	id, err := txClient.InsertTimestampsBoth(ctx, &models.TimestampsBoth{
 		Payload: &blah,
 	})
 	chkErr(t, err)
@@ -43,8 +43,8 @@ func TestTimestampsBoth(t *testing.T) {
 	oldUpdatedAt := fetched.UpdatedAt
 
 	mask := pggen.NewFieldSet(10)
-	mask.Set(db_shims.TimestampsBothIdFieldIndex, true)
-	mask.Set(db_shims.TimestampsBothPayloadFieldIndex, true)
+	mask.Set(models.TimestampsBothIdFieldIndex, true)
+	mask.Set(models.TimestampsBothPayloadFieldIndex, true)
 	id, err = txClient.UpdateTimestampsBoth(ctx, fetched, mask)
 	chkErr(t, err)
 
@@ -80,7 +80,7 @@ func TestTimestampsJustCreated(t *testing.T) {
 
 	now := time.Now().UTC()
 	blah := "blah"
-	id, err := txClient.InsertTimestampsJustCreated(ctx, &db_shims.TimestampsJustCreated{
+	id, err := txClient.InsertTimestampsJustCreated(ctx, &models.TimestampsJustCreated{
 		Payload: &blah,
 	})
 	chkErr(t, err)
@@ -109,7 +109,7 @@ func TestTimestampsJustUpdated(t *testing.T) {
 
 	now := time.Now()
 	blah := "blah"
-	id, err := txClient.InsertTimestampsJustUpdated(ctx, &db_shims.TimestampsJustUpdated{
+	id, err := txClient.InsertTimestampsJustUpdated(ctx, &models.TimestampsJustUpdated{
 		Payload: &blah,
 	})
 	chkErr(t, err)
@@ -129,8 +129,8 @@ func TestTimestampsJustUpdated(t *testing.T) {
 	time.Sleep(time.Millisecond * 1250)
 
 	mask := pggen.NewFieldSet(10)
-	mask.Set(db_shims.TimestampsJustUpdatedPayloadFieldIndex, true)
-	mask.Set(db_shims.TimestampsJustUpdatedIdFieldIndex, true)
+	mask.Set(models.TimestampsJustUpdatedPayloadFieldIndex, true)
+	mask.Set(models.TimestampsJustUpdatedIdFieldIndex, true)
 	now = time.Now()
 	id, err = txClient.UpdateTimestampsJustUpdated(ctx, fetched, mask)
 	chkErr(t, err)
@@ -155,7 +155,7 @@ func TestTimestampsJustUpdated(t *testing.T) {
 }
 
 func TestTimestampsGlobal(t *testing.T) {
-	dbClient := global_ts_shims.NewPGClient(pgClient.Handle().(*sql.DB))
+	dbClient := global_ts_models.NewPGClient(pgClient.Handle().(*sql.DB))
 	txClient, err := dbClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
@@ -164,7 +164,7 @@ func TestTimestampsGlobal(t *testing.T) {
 
 	now := time.Now()
 	blah := "blah"
-	id, err := txClient.InsertTimestampsGlobal(ctx, &global_ts_shims.TimestampsGlobal{
+	id, err := txClient.InsertTimestampsGlobal(ctx, &global_ts_models.TimestampsGlobal{
 		Payload: &blah,
 	})
 	chkErr(t, err)
@@ -185,7 +185,7 @@ func TestTimestampsGlobal(t *testing.T) {
 }
 
 func TestUpsertCreateTimestamps(t *testing.T) {
-	dbClient := global_ts_shims.NewPGClient(pgClient.Handle().(*sql.DB))
+	dbClient := global_ts_models.NewPGClient(pgClient.Handle().(*sql.DB))
 	txClient, err := dbClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
@@ -194,9 +194,9 @@ func TestUpsertCreateTimestamps(t *testing.T) {
 
 	now := time.Now()
 	blah := "blah"
-	id, err := txClient.UpsertTimestampsGlobal(ctx, &global_ts_shims.TimestampsGlobal{
+	id, err := txClient.UpsertTimestampsGlobal(ctx, &global_ts_models.TimestampsGlobal{
 		Payload: &blah,
-	}, nil, global_ts_shims.TimestampsGlobalAllFields)
+	}, nil, global_ts_models.TimestampsGlobalAllFields)
 	chkErr(t, err)
 
 	fetched, err := txClient.GetTimestampsGlobal(ctx, id)
@@ -211,7 +211,7 @@ func TestUpsertCreateTimestamps(t *testing.T) {
 }
 
 func TestUpsertUpdateTimestamps(t *testing.T) {
-	dbClient := global_ts_shims.NewPGClient(pgClient.Handle().(*sql.DB))
+	dbClient := global_ts_models.NewPGClient(pgClient.Handle().(*sql.DB))
 	txClient, err := dbClient.BeginTx(ctx, nil)
 	chkErr(t, err)
 	defer func() {
@@ -219,17 +219,17 @@ func TestUpsertUpdateTimestamps(t *testing.T) {
 	}()
 
 	blah := "blah"
-	id, err := txClient.UpsertTimestampsGlobal(ctx, &global_ts_shims.TimestampsGlobal{
+	id, err := txClient.UpsertTimestampsGlobal(ctx, &global_ts_models.TimestampsGlobal{
 		Payload: &blah,
-	}, nil, global_ts_shims.TimestampsGlobalAllFields)
+	}, nil, global_ts_models.TimestampsGlobalAllFields)
 	chkErr(t, err)
 
 	fetched, err := txClient.GetTimestampsGlobal(ctx, id)
 	chkErr(t, err)
 
-	updateMask := pggen.NewFieldSet(global_ts_shims.TimestampsGlobalMaxFieldIndex)
-	updateMask.Set(global_ts_shims.TimestampsGlobalPayloadFieldIndex, true)
-	updateMask.Set(global_ts_shims.TimestampsGlobalIdFieldIndex, true)
+	updateMask := pggen.NewFieldSet(global_ts_models.TimestampsGlobalMaxFieldIndex)
+	updateMask.Set(global_ts_models.TimestampsGlobalPayloadFieldIndex, true)
+	updateMask.Set(global_ts_models.TimestampsGlobalIdFieldIndex, true)
 
 	time.Sleep(time.Millisecond * 50)
 

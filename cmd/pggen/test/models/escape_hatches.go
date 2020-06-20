@@ -1,4 +1,4 @@
-package db_shims
+package models
 
 // expose some private stuff for testing purposes
 

@@ -10,12 +10,12 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 var (
 	ctx      context.Context
-	pgClient *db_shims.PGClient
+	pgClient *models.PGClient
 	dbURL    string
 )
 
@@ -30,7 +30,7 @@ func init() {
 		log.Fatal(err)
 	}
 
-	pgClient = db_shims.NewPGClient(db)
+	pgClient = models.NewPGClient(db)
 	ctx = context.Background()
 }
 

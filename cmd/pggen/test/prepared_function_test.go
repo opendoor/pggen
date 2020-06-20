@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 func TestReturnsText(t *testing.T) {
@@ -46,7 +46,7 @@ func TestConcatText(t *testing.T) {
 func TestSelectStringTypes(t *testing.T) {
 	foo := "foo"
 	fooPad := "foo                                     "
-	expected := []db_shims.SelectStringTypesRow{
+	expected := []models.SelectStringTypesRow{
 		{
 			TextField:           &foo,
 			TextFieldNotNull:    &foo,

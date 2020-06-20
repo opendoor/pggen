@@ -11,7 +11,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/db_shims"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 func TestNonNullText(t *testing.T) {
@@ -97,7 +97,7 @@ func TestBooleanArg(t *testing.T) {
 func TestEnumArg(t *testing.T) {
 	Expectation{
 		call: func() (interface{}, error) {
-			return pgClient.EnumArg(ctx, db_shims.EnumTypeOption1)
+			return pgClient.EnumArg(ctx, models.EnumTypeOption1)
 		},
 		expected: `\[1\]`,
 	}.test(t)
@@ -171,7 +171,7 @@ func TestEnumArrays(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.ListEnumAsArray(
 				ctx,
-				[]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2},
+				[]models.EnumType{models.EnumTypeOption1, models.EnumTypeOption2},
 			)
 		},
 		expected: regexp.QuoteMeta(`[[2,1]]`),
@@ -181,7 +181,7 @@ func TestEnumArrays(t *testing.T) {
 		call: func() (interface{}, error) {
 			return pgClient.ListEnumAsArrayWithNulls(
 				ctx,
-				[]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2},
+				[]models.EnumType{models.EnumTypeOption1, models.EnumTypeOption2},
 			)
 		},
 		expected: regexp.QuoteMeta(`[[1,null]]`),
@@ -200,11 +200,11 @@ func TestQueryErrors(t *testing.T) {
 }
 
 func TestAllMatchingEnums(t *testing.T) {
-	check := func(variants []db_shims.EnumType) {
+	check := func(variants []models.EnumType) {
 		matching, err := pgClient.AllMatchingEnums(ctx, variants)
 		chkErr(t, err)
 
-		expected := make(map[db_shims.EnumType]bool, len(variants))
+		expected := make(map[models.EnumType]bool, len(variants))
 		for _, v := range variants {
 			expected[v] = true
 		}
@@ -219,11 +219,11 @@ func TestAllMatchingEnums(t *testing.T) {
 		}
 	}
 
-	check([]db_shims.EnumType{})
-	check([]db_shims.EnumType{db_shims.EnumTypeBlank})
-	check([]db_shims.EnumType{db_shims.EnumTypeOption1})
-	check([]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption2})
-	check([]db_shims.EnumType{db_shims.EnumTypeOption1, db_shims.EnumTypeOption1, db_shims.EnumTypeOption2})
+	check([]models.EnumType{})
+	check([]models.EnumType{models.EnumTypeBlank})
+	check([]models.EnumType{models.EnumTypeOption1})
+	check([]models.EnumType{models.EnumTypeOption1, models.EnumTypeOption2})
+	check([]models.EnumType{models.EnumTypeOption1, models.EnumTypeOption1, models.EnumTypeOption2})
 }
 
 func TestJSON(t *testing.T) {
