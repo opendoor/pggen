@@ -182,9 +182,9 @@ type {{ .GoName }} struct {
 	{{- end }}
 	{{- range .References }}
 	{{- if .OneToOne }}
-	{{ .PointsFrom.GoName }} *{{ .PointsFrom.GoName }}
+	{{ .PointsFromFieldName }} *{{ .PointsFrom.GoName }}
 	{{- else }}
-	{{ .PointsFrom.PluralGoName }} []*{{ .PointsFrom.GoName }}
+	{{ .PointsFromFieldName }} []*{{ .PointsFrom.GoName }}
 	{{- end }}
 	{{- end }}
 }
@@ -953,7 +953,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 	// Fill in the {{ .PointsFrom.PluralGoName }} if it is in includes
 	subSpec, inIncludeSet = includes.Includes[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `]
 	if inIncludeSet {
-		err = p.private{{ $.GoName }}Fill{{ .PointsFrom.GoName }}(ctx, loadedRecordTab)
+		err = p.private{{ $.GoName }}Fill{{ .PointsFromFieldName }}(ctx, loadedRecordTab)
 		if err != nil {
 			return
 		}
@@ -962,16 +962,16 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 		for _, outer := range recs {
 			{{- if .OneToOne }}
 			if outer.{{ .PointsFrom.GoName }} != nil {
-				subRecs = append(subRecs, outer.{{ .PointsFrom.GoName }})
+				subRecs = append(subRecs, outer.{{ .PointsFromFieldName }})
 			}
 			{{- else }}
 			for i := range outer.{{ .PointsFrom.PluralGoName }} {
 				{{- if .Nullable }}
-				if outer.{{ .PointsFrom.PluralGoName }}[i] == nil {
+				if outer.{{ .PointsFromFieldName }}[i] == nil {
 					continue
 				}
 				{{- end }}
-				subRecs = append(subRecs, outer.{{ .PointsFrom.PluralGoName }}[i])
+				subRecs = append(subRecs, outer.{{ .PointsFromFieldName }}[i])
 			}
 			{{- end }}
 		}
@@ -990,7 +990,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 
 // For a give set of {{ $.GoName }}, fill in all the {{ .PointsFrom.GoName }}
 // connected to them using a single query.
-func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFrom.GoName }}(
+func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFromFieldName }}(
 	ctx context.Context,
 	loadedRecordTab map[string]interface{},
 ) error {
@@ -1055,10 +1055,10 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFrom.GoName }}(
 		{{- end }}
 
 		{{- if .OneToOne }}
-		parentRec.{{ .PointsFrom.GoName }} = childRec
+		parentRec.{{ .PointsFromFieldName }} = childRec
 		break
 		{{- else }}
-		parentRec.{{ .PointsFrom.PluralGoName }} = append(parentRec.{{ .PointsFrom.PluralGoName }}, childRec)
+		parentRec.{{ .PointsFromFieldName }} = append(parentRec.{{ .PointsFrom.PluralGoName }}, childRec)
 		{{- end }}
 	}
 

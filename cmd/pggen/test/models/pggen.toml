@@ -343,3 +343,18 @@
 
 [[table]]
     name = "non_default_pkey"
+
+[[table]]
+    name = "alternative_reference_name"
+    [[table.belongs_to]]
+        table = "small_entities"
+        key_field = "small_entity_id"
+        parent_field_name = "CustomReferenceName"
+
+[[table]]
+    name = "alternative_reference_name_1to1"
+    [[table.belongs_to]]
+        table = "small_entities"
+        key_field = "small_entity_id"
+        one_to_one = true
+        parent_field_name = "Custom1to1ReferenceName"
