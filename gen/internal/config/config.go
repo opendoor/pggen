@@ -102,6 +102,9 @@ type BelongsTo struct {
 	KeyField string `toml:"key_field"`
 	// If true the owning table has at most one of this table
 	OneToOne bool `toml:"one_to_one"`
+	// Optional. The name to give the pointer field in the generated parent
+	// struct. If not provided, this will just be the name of the child struct.
+	ParentFieldName string `toml:"parent_field_name"`
 }
 
 type TypeOverride struct {

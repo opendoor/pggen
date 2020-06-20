@@ -257,14 +257,24 @@ func (tr *tableResolver) buildExplicitBelongsToMapping(
 				)
 			}
 
+			pointsFromFieldName := belongsTo.ParentFieldName
+			if pointsFromFieldName == "" {
+				if belongsTo.OneToOne {
+					pointsFromFieldName = tr.meta.tableInfo[table.Name].Info.GoName
+				} else {
+					pointsFromFieldName = tr.meta.tableInfo[table.Name].Info.PluralGoName
+				}
+			}
+
 			pointsToMeta := infoTab[belongsTo.Table].Info
 			ref := RefMeta{
-				PointsTo:         &tr.meta.tableInfo[belongsTo.Table].Info,
-				PointsToFields:   []*ColMeta{pointsToMeta.PkeyCol},
-				PointsFrom:       &tr.meta.tableInfo[table.Name].Info,
-				PointsFromFields: []*ColMeta{belongsToColMeta},
-				OneToOne:         belongsTo.OneToOne,
-				Nullable:         belongsToColMeta.Nullable,
+				PointsTo:            &tr.meta.tableInfo[belongsTo.Table].Info,
+				PointsToFields:      []*ColMeta{pointsToMeta.PkeyCol},
+				PointsFrom:          &tr.meta.tableInfo[table.Name].Info,
+				PointsFromFields:    []*ColMeta{belongsToColMeta},
+				PointsFromFieldName: pointsFromFieldName,
+				OneToOne:            belongsTo.OneToOne,
+				Nullable:            belongsToColMeta.Nullable,
 			}
 
 			info := infoTab[belongsTo.Table]
@@ -490,6 +500,13 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 			ref.PointsFromFields = append(ref.PointsFromFields, fcol)
 			ref.OneToOne = ref.OneToOne && fcol.IsUnique
 			ref.Nullable = fcol.Nullable
+		}
+
+		// generate a name to use to refer to the referencing table
+		if ref.OneToOne {
+			ref.PointsFromFieldName = ref.PointsFrom.GoName
+		} else {
+			ref.PointsFromFieldName = ref.PointsFrom.PluralGoName
 		}
 
 		meta.References = append(meta.References, ref)

@@ -290,6 +290,17 @@ CREATE TABLE non_default_pkey (
     val integer
 );
 
+CREATE TABLE alternative_reference_name (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer NOT NULL
+        REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE alternative_reference_name_1to1 (
+    id SERIAL PRIMARY KEY NOT NULL,
+    small_entity_id integer NOT NULL
+        REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
 --
 -- Load Data
 --

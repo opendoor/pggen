@@ -955,3 +955,15 @@ func TestInsertPkey(t *testing.T) {
 	}, pggen.UsePkey)
 	chkErr(t, err)
 }
+
+func TestCustomReferenceNames(t *testing.T) {
+	smallEntityType := reflect.TypeOf(models.SmallEntity{})
+
+	names := []string{"CustomReferenceName", "Custom1to1ReferenceName"}
+	for _, n := range names {
+		_, has := smallEntityType.FieldByName(n)
+		if !has {
+			t.Fatalf("pggen failed to generate '%s'", n)
+		}
+	}
+}

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/global_ts_models"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 func TestTimestampsBoth(t *testing.T) {
