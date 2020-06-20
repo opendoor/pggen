@@ -19,7 +19,7 @@ type tablesMeta struct {
 	// name for that table.
 	tableTyNameToTableName map[string]string
 	// A mapping from the postgres table name to information about the table
-	tableInfo map[string]*TableGenInfo
+	tableInfo map[string]*TableMeta
 }
 
 type tableResolver struct {
@@ -33,7 +33,7 @@ func newTableResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *
 	return &tableResolver{
 		meta: tablesMeta{
 			tableTyNameToTableName: map[string]string{},
-			tableInfo:              map[string]*TableGenInfo{},
+			tableInfo:              map[string]*TableMeta{},
 		},
 		log:          l,
 		typeResolver: typeResolver,
@@ -41,13 +41,15 @@ func newTableResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *
 	}
 }
 
-// Information about a single table required for code generation.
+// TableMeta contains information about a single table required for
+// code generation.
 //
-// The reason there is both a *Meta and *GenInfo struct for tables
-// is that `tableMeta` is meant to be narrowly focused on metadata
-// that postgres provides us, while things in `TableGenInfo` are
-// more specific to `pggen`'s internal needs.
-type TableGenInfo struct {
+// The reason there is both a *Meta and *Info struct for tables
+// is that `PgTableInfo` is meant to be narrowly focused on metadata
+// that postgres provides us, while things in `TableMeta` are
+// more specific to `pggen`'s internal needs and contain some computed
+// fields.
+type TableMeta struct {
 	Config *config.TableConfig
 	// Table relationships that have been explicitly configured
 	// rather than infered from the database schema itself.
@@ -68,14 +70,14 @@ type TableGenInfo struct {
 	// True if the created at field has a time zone
 	CreatedAtHasTimezone bool
 	// The table metadata as postgres reports it
-	Meta tableMeta
+	Info PgTableInfo
 }
 
 // nullFlags computes the null flags specifying the nullness of this
 // table in the same format used by the `null_flags` config option
-func (info TableGenInfo) nullFlags() string {
-	nf := make([]byte, 0, len(info.Meta.Cols))
-	for _, c := range info.Meta.Cols {
+func (info TableMeta) nullFlags() string {
+	nf := make([]byte, 0, len(info.Info.Cols))
+	for _, c := range info.Info.Cols {
 		if c.Nullable {
 			nf = append(nf, 'n')
 		} else {
@@ -86,17 +88,17 @@ func (info TableGenInfo) nullFlags() string {
 }
 
 func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
-	tr.meta.tableInfo = map[string]*TableGenInfo{}
+	tr.meta.tableInfo = map[string]*TableMeta{}
 	tr.meta.tableTyNameToTableName = map[string]string{}
 	for i, table := range tables {
-		info := &TableGenInfo{}
+		info := &TableMeta{}
 		info.Config = &tables[i]
 
-		meta, err := tr.tableMeta(table.Name)
+		meta, err := tr.tableInfo(table.Name)
 		if err != nil {
 			return fmt.Errorf("table '%s': %s", table.Name, err.Error())
 		}
-		info.Meta = meta
+		info.Info = meta
 
 		tr.meta.tableInfo[table.Name] = info
 		tr.meta.tableTyNameToTableName[meta.GoName] = meta.PgName
@@ -104,7 +106,7 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 
 	// fill in all the reference we can automatically detect
 	for _, table := range tr.meta.tableInfo {
-		err := tr.fillTableReferences(&table.Meta)
+		err := tr.fillTableReferences(&table.Info)
 		if err != nil {
 			return err
 		}
@@ -130,9 +132,9 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 	return nil
 }
 
-func (tr *tableResolver) setTimestampFlags(info *TableGenInfo) {
+func (tr *tableResolver) setTimestampFlags(info *TableMeta) {
 	if len(info.Config.CreatedAtField) > 0 {
-		for _, cm := range info.Meta.Cols {
+		for _, cm := range info.Info.Cols {
 			if cm.PgName == info.Config.CreatedAtField {
 				info.HasCreatedAtField = true
 				info.CreatedAtFieldIsNullable = cm.Nullable
@@ -151,7 +153,7 @@ func (tr *tableResolver) setTimestampFlags(info *TableGenInfo) {
 	}
 
 	if len(info.Config.UpdatedAtField) > 0 {
-		for _, cm := range info.Meta.Cols {
+		for _, cm := range info.Info.Cols {
 			if cm.PgName == info.Config.UpdatedAtField {
 				info.HasUpdateAtField = true
 				info.UpdatedAtFieldIsNullable = cm.Nullable
@@ -170,14 +172,14 @@ func (tr *tableResolver) setTimestampFlags(info *TableGenInfo) {
 	}
 }
 
-func ensureSpec(tables map[string]*TableGenInfo, info *TableGenInfo) error {
+func ensureSpec(tables map[string]*TableMeta, info *TableMeta) error {
 	if info.AllIncludeSpec != nil {
 		// Some other `ensureSpec` already filled this in for us. Great!
 		return nil
 	}
 
 	info.AllIncludeSpec = &include.Spec{
-		TableName: info.Meta.PgName,
+		TableName: info.Info.PgName,
 		Includes:  map[string]*include.Spec{},
 	}
 
@@ -199,7 +201,7 @@ func ensureSpec(tables map[string]*TableGenInfo, info *TableGenInfo) error {
 		return nil
 	}
 
-	for _, ref := range info.Meta.References {
+	for _, ref := range info.Info.References {
 		err := ensureReferencedSpec(&ref)
 		if err != nil {
 			return err
@@ -221,7 +223,7 @@ func ensureSpec(tables map[string]*TableGenInfo, info *TableGenInfo) error {
 
 func (tr *tableResolver) buildExplicitBelongsToMapping(
 	tables []config.TableConfig,
-	infoTab map[string]*TableGenInfo,
+	infoTab map[string]*TableMeta,
 ) error {
 	for _, table := range tables {
 		pointsFromTable := tr.meta.tableInfo[table.Name]
@@ -242,9 +244,9 @@ func (tr *tableResolver) buildExplicitBelongsToMapping(
 			}
 
 			var belongsToColMeta *ColMeta
-			for i, col := range pointsFromTable.Meta.Cols {
+			for i, col := range pointsFromTable.Info.Cols {
 				if col.PgName == belongsTo.KeyField {
-					belongsToColMeta = &pointsFromTable.Meta.Cols[i]
+					belongsToColMeta = &pointsFromTable.Info.Cols[i]
 				}
 			}
 			if belongsToColMeta == nil {
@@ -255,11 +257,11 @@ func (tr *tableResolver) buildExplicitBelongsToMapping(
 				)
 			}
 
-			pointsToMeta := infoTab[belongsTo.Table].Meta
+			pointsToMeta := infoTab[belongsTo.Table].Info
 			ref := RefMeta{
-				PointsTo:         &tr.meta.tableInfo[belongsTo.Table].Meta,
+				PointsTo:         &tr.meta.tableInfo[belongsTo.Table].Info,
 				PointsToFields:   []*ColMeta{pointsToMeta.PkeyCol},
-				PointsFrom:       &tr.meta.tableInfo[table.Name].Meta,
+				PointsFrom:       &tr.meta.tableInfo[table.Name].Info,
 				PointsFromFields: []*ColMeta{belongsToColMeta},
 				OneToOne:         belongsTo.OneToOne,
 				Nullable:         belongsToColMeta.Nullable,
@@ -278,8 +280,10 @@ func (tr *tableResolver) buildExplicitBelongsToMapping(
 // queries
 //
 
-// tableMeta contains metadata about a postgres table
-type tableMeta struct {
+// PgTableInfo contains metadata about a postgres table that we get directly
+// from postgres. Contrast with the `TableMeta` struct which also contains
+// computed fields that are needed for codegen.
+type PgTableInfo struct {
 	PgName       string
 	GoName       string
 	PluralGoName string
@@ -297,7 +301,7 @@ type tableMeta struct {
 	PkeyColIdx int
 }
 
-// colMeta contains metadata about postgres table columns such column
+// ColMeta contains metadata about postgres table columns such column
 // names, types, nullability, default...
 type ColMeta struct {
 	// postgres's internal column number for this column
@@ -321,7 +325,7 @@ type ColMeta struct {
 }
 
 // Given the name of a table returns metadata about it
-func (tr *tableResolver) tableMeta(table string) (tableMeta, error) {
+func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 	rows, err := tr.db.Query(`
 		WITH unique_cols AS (
 			SELECT
@@ -354,7 +358,7 @@ func (tr *tableResolver) tableMeta(table string) (tableMeta, error) {
 		ORDER BY a.attnum
 		`, table)
 	if err != nil {
-		return tableMeta{}, err
+		return PgTableInfo{}, err
 	}
 
 	var cols []ColMeta
@@ -370,18 +374,18 @@ func (tr *tableResolver) tableMeta(table string) (tableMeta, error) {
 			&col.IsUnique,
 		)
 		if err != nil {
-			return tableMeta{}, err
+			return PgTableInfo{}, err
 		}
 		typeInfo, err := tr.typeResolver.TypeInfoOf(col.PgType)
 		if err != nil {
-			return tableMeta{}, fmt.Errorf("column '%s': %s", col.PgName, err.Error())
+			return PgTableInfo{}, fmt.Errorf("column '%s': %s", col.PgName, err.Error())
 		}
 		col.TypeInfo = *typeInfo
 		col.GoName = names.PgToGoName(col.PgName)
 		cols = append(cols, col)
 	}
 	if len(cols) == 0 {
-		return tableMeta{}, fmt.Errorf(
+		return PgTableInfo{}, fmt.Errorf(
 			"could not find table '%s' in the database",
 			table,
 		)
@@ -394,7 +398,7 @@ func (tr *tableResolver) tableMeta(table string) (tableMeta, error) {
 	for i, c := range cols {
 		if c.IsPrimary {
 			if pkeyCol != nil {
-				return tableMeta{}, fmt.Errorf("tables with multiple primary keys not supported")
+				return PgTableInfo{}, fmt.Errorf("tables with multiple primary keys not supported")
 			}
 
 			pkeyCol = &cols[i]
@@ -402,7 +406,7 @@ func (tr *tableResolver) tableMeta(table string) (tableMeta, error) {
 		}
 	}
 
-	return tableMeta{
+	return PgTableInfo{
 		PgName:       table,
 		GoName:       names.PgTableToGoModel(table),
 		PluralGoName: names.PgToGoName(table),
@@ -415,7 +419,7 @@ func (tr *tableResolver) tableMeta(table string) (tableMeta, error) {
 // Given a tableMeta with the PgName and Cols already filled out, fill in the
 // References list. Any tables which are referenced by the given table must
 // already be loaded into `g.tables`.
-func (tr *tableResolver) fillTableReferences(meta *tableMeta) error {
+func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 	rows, err := tr.db.Query(`
 		SELECT
 			pt.relname as points_to,
@@ -469,8 +473,8 @@ func (tr *tableResolver) fillTableReferences(meta *tableMeta) error {
 			ref.PointsToFields = append(ref.PointsToFields, &meta.Cols[idx])
 		}
 
-		ref.PointsTo = &tr.meta.tableInfo[pgPointsTo].Meta
-		ref.PointsFrom = &tr.meta.tableInfo[pgPointsFrom].Meta
+		ref.PointsTo = &tr.meta.tableInfo[pgPointsTo].Info
+		ref.PointsFrom = &tr.meta.tableInfo[pgPointsFrom].Info
 
 		fromCols := ref.PointsFrom.Cols
 		fromColsColNumToIdx := columnResolverTable(fromCols)

@@ -63,14 +63,14 @@ type tableGenCtx struct {
 	UpdatedAtField           string
 }
 
-func tableGenCtxFromInfo(info *meta.TableGenInfo) tableGenCtx {
+func tableGenCtxFromInfo(info *meta.TableMeta) tableGenCtx {
 	return tableGenCtx{
-		PgName:         info.Meta.PgName,
-		GoName:         info.Meta.GoName,
-		PkeyCol:        info.Meta.PkeyCol,
-		PkeyColIdx:     info.Meta.PkeyColIdx,
-		Cols:           info.Meta.Cols,
-		References:     info.Meta.References,
+		PgName:         info.Info.PgName,
+		GoName:         info.Info.GoName,
+		PkeyCol:        info.Info.PkeyCol,
+		PkeyColIdx:     info.Info.PkeyColIdx,
+		Cols:           info.Info.Cols,
+		References:     info.Info.References,
 		AllIncludeSpec: info.AllIncludeSpec.String(),
 
 		HasCreatedAtField:        info.HasCreatedAtField,
@@ -97,7 +97,7 @@ func (g *Generator) genTable(
 		}
 	}()
 
-	tableInfo, ok := g.metaResolver.GenInfoForTable(table.Name)
+	tableInfo, ok := g.metaResolver.TableMeta(table.Name)
 	if !ok {
 		return fmt.Errorf("could get schema info about table '%s'", table.Name)
 	}
@@ -115,7 +115,7 @@ func (g *Generator) genTable(
 	// asked to generate code for.
 	kept := 0
 	for _, ref := range genCtx.References {
-		fromTable, inMap := g.metaResolver.GenInfoForTable(ref.PointsFrom.PgName)
+		fromTable, inMap := g.metaResolver.TableMeta(ref.PointsFrom.PgName)
 		if inMap {
 			if !fromTable.Config.NoInferBelongsTo {
 				genCtx.References[kept] = ref

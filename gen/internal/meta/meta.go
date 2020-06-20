@@ -43,7 +43,7 @@ func (r *Resolver) Resolve(conf *config.DbConfig) error {
 // Get gen information about the given table
 //
 // The second return value indicates if the value was found
-func (r *Resolver) GenInfoForTable(pgName string) (*TableGenInfo, bool) {
+func (r *Resolver) TableMeta(pgName string) (*TableMeta, bool) {
 	res, ok := r.tableResolver.meta.tableInfo[pgName]
 	return res, ok
 }
@@ -435,7 +435,7 @@ func (mc *Resolver) queryReturns(query string) ([]ColMeta, error) {
 		return nil, err
 	}
 
-	viewMeta, err := mc.tableResolver.tableMeta(viewName)
+	viewMeta, err := mc.tableResolver.tableInfo(viewName)
 	if err != nil {
 		return nil, err
 	}
@@ -457,12 +457,12 @@ func (mc *Resolver) queryReturns(query string) ([]ColMeta, error) {
 // (a foreign key relationship)
 type RefMeta struct {
 	// The metadata for the table that holds the foreign key
-	PointsTo *tableMeta
+	PointsTo *PgTableInfo
 	// The names of the fields in the referenced table that are used as keys
 	// (usually the primary keys of that table). Order matters.
 	PointsToFields []*ColMeta
 	// The metadata for the table is being referred to
-	PointsFrom *tableMeta
+	PointsFrom *PgTableInfo
 	// The names of the fields that are being used to refer to the key fields
 	// for the referenced table. Order matters.
 	PointsFromFields []*ColMeta
