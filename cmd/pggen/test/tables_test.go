@@ -966,4 +966,67 @@ func TestCustomReferenceNames(t *testing.T) {
 			t.Fatalf("pggen failed to generate '%s'", n)
 		}
 	}
+
+	shouldBeMissingNames := []string{"AlternativeReferenceName", "AlternativeReferenceName1to1"}
+	for _, n := range shouldBeMissingNames {
+		_, has := smallEntityType.FieldByName(n)
+		if has {
+			t.Fatalf("pggen generated '%s'", n)
+		}
+	}
+}
+
+func TestIncludeCustomNames(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	entity := models.SmallEntity{
+		Anint: 1892,
+	}
+	smallEntityID, err := txClient.InsertSmallEntity(ctx, &entity)
+	chkErr(t, err)
+
+	altRef1 := models.AlternativeReferenceName{
+		SmallEntityId: smallEntityID,
+	}
+	_, err = txClient.InsertAlternativeReferenceName(ctx, &altRef1)
+	chkErr(t, err)
+
+	altRef2 := models.AlternativeReferenceName{
+		SmallEntityId: smallEntityID,
+	}
+	_, err = txClient.InsertAlternativeReferenceName(ctx, &altRef2)
+	chkErr(t, err)
+
+	alt1to1Ref := models.AlternativeReferenceName1to1{
+		SmallEntityId: smallEntityID,
+	}
+	_, err = txClient.InsertAlternativeReferenceName1to1(ctx, &alt1to1Ref)
+	chkErr(t, err)
+
+	smallE, err := txClient.GetSmallEntity(ctx, smallEntityID)
+	chkErr(t, err)
+
+	// We can construct a spec with our custom name, not the name of the table.
+	// Because they are custom names, we need to to use a rename expressions in the spec.
+	spec := include.Must(include.Parse(`
+		small_entities.{
+			custom_reference_name -> alternative_reference_name,
+			custom_1to1_reference_name -> alternative_reference_name_1to1
+		}
+	`))
+
+	err = txClient.SmallEntityFillIncludes(ctx, smallE, spec)
+	chkErr(t, err)
+
+	if len(smallE.CustomReferenceName) != 2 {
+		t.Fatal("custom entities not attached")
+	}
+
+	if smallE.Custom1to1ReferenceName == nil {
+		t.Fatal("custom 1to1 entity not attached")
+	}
 }
