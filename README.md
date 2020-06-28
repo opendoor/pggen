@@ -336,7 +336,7 @@ in the configuration file
 
 #### Special Fields
 
-Mostly, `pggen` doesn't know anything about the semantics about the fields of the tables
+Mostly, `pggen` doesn't know anything about the semantics of the fields of the tables
 it generates code for, it just generates type safe converters for the fields and leaves
 the semantics up to higher level code. There are a few types of fields that `pggen` will
 manipulate or rely on though.
