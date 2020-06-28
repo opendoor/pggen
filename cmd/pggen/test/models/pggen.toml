@@ -349,7 +349,7 @@
     [[table.belongs_to]]
         table = "small_entities"
         key_field = "small_entity_id"
-        parent_field_name = "CustomReferenceName"
+        parent_field_name = "custom_reference_name"
 
 [[table]]
     name = "alternative_reference_name_1to1"
@@ -357,4 +357,4 @@
         table = "small_entities"
         key_field = "small_entity_id"
         one_to_one = true
-        parent_field_name = "Custom1to1ReferenceName"
+        parent_field_name = "custom_1to1_reference_name"

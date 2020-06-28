@@ -51,9 +51,8 @@ func newTableResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *
 // fields.
 type TableMeta struct {
 	Config *config.TableConfig
-	// Table relationships that have been explicitly configured
-	// rather than infered from the database schema itself.
-	ExplicitBelongsTo []RefMeta
+	// All references to this table (both infered and configured).
+	AllReferences []RefMeta
 	// The include spec which represents the transitive closure of
 	// this tables family
 	AllIncludeSpec *include.Spec
@@ -112,7 +111,9 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 		}
 	}
 
-	err := tr.buildExplicitBelongsToMapping(tables, tr.meta.tableInfo)
+	// copy the auto-detected references over and add the explicitly configured
+	// ones into the mix
+	err := tr.buildAllReferencesMapping(tables, tr.meta.tableInfo)
 	if err != nil {
 		return err
 	}
@@ -196,18 +197,12 @@ func ensureSpec(tables map[string]*TableMeta, info *TableMeta) error {
 			return err
 		}
 		subSpec := subInfo.AllIncludeSpec
-		info.AllIncludeSpec.Includes[subSpec.TableName] = subSpec
+		info.AllIncludeSpec.Includes[ref.PgPointsFromFieldName] = subSpec
 
 		return nil
 	}
 
-	for _, ref := range info.Info.References {
-		err := ensureReferencedSpec(&ref)
-		if err != nil {
-			return err
-		}
-	}
-	for _, ref := range info.ExplicitBelongsTo {
+	for _, ref := range info.AllReferences {
 		err := ensureReferencedSpec(&ref)
 		if err != nil {
 			return err
@@ -221,10 +216,26 @@ func ensureSpec(tables map[string]*TableMeta, info *TableMeta) error {
 	return nil
 }
 
-func (tr *tableResolver) buildExplicitBelongsToMapping(
+func (tr *tableResolver) buildAllReferencesMapping(
 	tables []config.TableConfig,
 	infoTab map[string]*TableMeta,
 ) error {
+	// a mapping of table names to sets of reference names which were
+	// infered rather than explicitly configured.
+	inferedReferencs := map[string]map[string]bool{}
+	for _, table := range tables {
+		meta := infoTab[table.Name]
+		inferedReferencs[table.Name] = map[string]bool{}
+		for _, ref := range meta.Info.References {
+			refererMeta := infoTab[ref.PointsFrom.PgName]
+
+			// don't pass the infered relationship along if we've been asked not to
+			if !refererMeta.Config.NoInferBelongsTo {
+				inferedReferencs[table.Name][ref.PointsFrom.PgName] = true
+			}
+		}
+	}
+
 	for _, table := range tables {
 		pointsFromTable := tr.meta.tableInfo[table.Name]
 
@@ -257,29 +268,47 @@ func (tr *tableResolver) buildExplicitBelongsToMapping(
 				)
 			}
 
-			pointsFromFieldName := belongsTo.ParentFieldName
-			if pointsFromFieldName == "" {
+			pgPointsFromFieldName := belongsTo.ParentFieldName
+			goPointsFromFieldName := names.PgToGoName(belongsTo.ParentFieldName)
+			if pgPointsFromFieldName == "" {
+				info := &tr.meta.tableInfo[table.Name].Info
 				if belongsTo.OneToOne {
-					pointsFromFieldName = tr.meta.tableInfo[table.Name].Info.GoName
+					goPointsFromFieldName = info.GoName
 				} else {
-					pointsFromFieldName = tr.meta.tableInfo[table.Name].Info.PluralGoName
+					goPointsFromFieldName = info.PluralGoName
 				}
+				pgPointsFromFieldName = info.PgName
 			}
 
 			pointsToMeta := infoTab[belongsTo.Table].Info
 			ref := RefMeta{
-				PointsTo:            &tr.meta.tableInfo[belongsTo.Table].Info,
-				PointsToFields:      []*ColMeta{pointsToMeta.PkeyCol},
-				PointsFrom:          &tr.meta.tableInfo[table.Name].Info,
-				PointsFromFields:    []*ColMeta{belongsToColMeta},
-				PointsFromFieldName: pointsFromFieldName,
-				OneToOne:            belongsTo.OneToOne,
-				Nullable:            belongsToColMeta.Nullable,
+				PointsTo:              &tr.meta.tableInfo[belongsTo.Table].Info,
+				PointsToFields:        []*ColMeta{pointsToMeta.PkeyCol},
+				PointsFrom:            &tr.meta.tableInfo[table.Name].Info,
+				PointsFromFields:      []*ColMeta{belongsToColMeta},
+				GoPointsFromFieldName: goPointsFromFieldName,
+				PgPointsFromFieldName: pgPointsFromFieldName,
+				OneToOne:              belongsTo.OneToOne,
+				Nullable:              belongsToColMeta.Nullable,
 			}
+			// prevent inference when we have an explicit config
+			inferedReferencs[belongsTo.Table][ref.PointsFrom.PgName] = false
 
 			info := infoTab[belongsTo.Table]
-			info.ExplicitBelongsTo = append(info.ExplicitBelongsTo, ref)
+			info.AllReferences = append(info.AllReferences, ref)
 			infoTab[belongsTo.Table] = info
+		}
+	}
+
+	// fill in with infered references that have not been overridden by an
+	// explicit config
+	for _, table := range tables {
+		meta := infoTab[table.Name]
+
+		for _, ref := range meta.Info.References {
+			if inferedReferencs[table.Name][ref.PointsFrom.PgName] {
+				meta.AllReferences = append(meta.AllReferences, ref)
+			}
 		}
 	}
 
@@ -504,10 +533,11 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 
 		// generate a name to use to refer to the referencing table
 		if ref.OneToOne {
-			ref.PointsFromFieldName = ref.PointsFrom.GoName
+			ref.GoPointsFromFieldName = ref.PointsFrom.GoName
 		} else {
-			ref.PointsFromFieldName = ref.PointsFrom.PluralGoName
+			ref.GoPointsFromFieldName = ref.PointsFrom.PluralGoName
 		}
+		ref.PgPointsFromFieldName = ref.PointsFrom.PgName
 
 		meta.References = append(meta.References, ref)
 	}

@@ -70,6 +70,24 @@ func TestParseSuccess(t *testing.T) {
 			src:    "  foos.{bars .blip. flip.dip ,bim.{a, b   ,c.{d   ,    e}}}    ",
 			result: "foos.{bars.blip.flip.dip,bim.{a,b,c.{d,e}}}",
 		},
+		{
+			// basic rename expression
+			src: `f.a->b`,
+		},
+		{
+			// normalize rename expressions
+			src:    "f.a->a",
+			result: "f.a",
+		},
+		{
+			// longer names and spaces
+			src:    " f . longer -> names_can_be_renamed_as_well ",
+			result: "f.longer->names_can_be_renamed_as_well",
+		},
+		{
+			// rename expression w/subspec
+			src: "f.n1->n2.baz",
+		},
 		// funny names
 		{
 			src: "f$",
@@ -158,6 +176,10 @@ func TestParseErrors(t *testing.T) {
 		{
 			src: `"blah balhjl`,
 			re:  "unexpected end of input in quoted identifier",
+		},
+		{
+			src: `top_level->rename.bad`,
+			re:  "unexpected extra token begining with '-'",
 		},
 	}
 

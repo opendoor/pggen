@@ -468,7 +468,9 @@ type RefMeta struct {
 	PointsFromFields []*ColMeta
 	// The name of the field that should be generated in the model being pointed
 	// to by the foreign key (parent model).
-	PointsFromFieldName string
+	GoPointsFromFieldName string
+	// A snake_case version of GoPointsFromFieldName
+	PgPointsFromFieldName string
 	// Indicates that there can be at most one of these references between
 	// the two tables.
 	OneToOne bool

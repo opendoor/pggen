@@ -33,13 +33,25 @@
 // a valid include spec. Just like in SQL, you can escape a `"` in a
 // quoted identifier with `""`.
 //
+// If a parent table uses a name besides the name of a child table to refer to it,
+// the include spec must include this information somehow. In order to do this,
+// include specs have rename expressions, which consist of the name used by the
+// parent the '->' operator and the name of the child table. For example if the
+// `sales` table referred to the users table with the name `customer`, an include
+// spec for pulling customer data would look like `sales.customer->users`.
+//
 // More formally, the grammar for include specs is:
 //
 // spec ::= id
-//        | id '.' spec
+//        | id '.' inner_spec
 //        | id '.' '{' spec_list '}'
-// spec_list ::= spec
-//             | spec ',' spec
+// inner_spec ::= id
+//        | rename_or_id '.' inner_spec
+//        | rename_or_id '.' '{' spec_list '}'
+// rename_or_id ::= id '->' id
+//                | id
+// spec_list ::= inner_spec
+//             | inner_spec ',' inner_spec
 //
 // Cyclic Include Specs:
 //
@@ -77,55 +89,9 @@ func (s *Spec) String() string {
 	var out strings.Builder
 
 	seen := map[*Spec]bool{}
-	s.writeToBuilder(&out, seen, false)
+	s.writeToBuilder(&out, seen, false, nil)
 
 	return out.String()
-}
-
-var unquotedIdentRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_$]*$")
-
-func (s *Spec) writeToBuilder(b *strings.Builder, seen map[*Spec]bool, stop bool) {
-	if unquotedIdentRE.Match([]byte(s.TableName)) {
-		b.WriteString(s.TableName)
-	} else {
-		quotedQuotes := strings.Replace(
-			s.TableName, `"`, `""`, int(math.MinInt64))
-		b.WriteByte('"')
-		b.WriteString(quotedQuotes)
-		b.WriteByte('"')
-	}
-
-	if stop {
-		return
-	}
-	seen[s] = true
-
-	if len(s.Includes) == 1 {
-		b.WriteByte('.')
-		for _, subSpec := range s.Includes {
-			subSpec.writeToBuilder(b, seen, seen[subSpec])
-		}
-	} else if len(s.Includes) > 1 {
-		b.WriteByte('.')
-
-		// sort the sub-specs to ensure stable output
-		subSpecs := make([]*Spec, len(s.Includes))[:0]
-		for _, subSpec := range s.Includes {
-			subSpecs = append(subSpecs, subSpec)
-		}
-		sort.Slice(subSpecs, func(i, j int) bool {
-			return subSpecs[i].TableName < subSpecs[j].TableName
-		})
-
-		b.WriteByte('{')
-		for i, subSpec := range subSpecs {
-			subSpec.writeToBuilder(b, seen, seen[subSpec])
-			if i < len(subSpecs)-1 {
-				b.WriteByte(',')
-			}
-		}
-		b.WriteByte('}')
-	}
 }
 
 // Must can be used to turn an error from `include.Parse` into a panic
@@ -138,10 +104,8 @@ func Must(spec *Spec, err error) *Spec {
 
 // Parse an Spec from the given source string or an error on failure
 func Parse(src string) (spec *Spec, err error) {
-	var idx int
-	spec, idx, err = parseSpec(src, 0)
+	specRef, idx, err := parseSpec(src, 0, false)
 	if err != nil {
-		spec = nil
 		return
 	}
 
@@ -155,12 +119,16 @@ func Parse(src string) (spec *Spec, err error) {
 				string(src[idx]),
 			),
 		}
-		spec = nil
 		return
 	}
 
+	spec = specRef.subSpec
 	return
 }
+
+//
+// parse helpers
+//
 
 type parseError struct {
 	pos int
@@ -186,8 +154,8 @@ func skipWS(src string, idx int) int {
 	return idx + max + 1
 }
 
-func parseSpec(src string, idx int) (spec *Spec, nextIdx int, err error) {
-	var s Spec
+func parseSpec(src string, idx int, inner bool) (spec specReference, nextIdx int, err error) {
+	spec = specReference{subSpec: &Spec{}}
 
 	idx = skipWS(src, idx)
 	if idx >= len(src) {
@@ -197,15 +165,23 @@ func parseSpec(src string, idx int) (spec *Spec, nextIdx int, err error) {
 		}
 		return
 	}
-	s.TableName, idx, err = parseID(src, idx)
-	if err != nil {
-		return
+	if inner {
+		spec.parentName, spec.subSpec.TableName, idx, err = parseRenameOrID(src, idx)
+		if err != nil {
+			return
+		}
+	} else {
+		spec.subSpec.TableName, idx, err = parseID(src, idx)
+		if err != nil {
+
+			return
+		}
+		spec.parentName = spec.subSpec.TableName
 	}
 
 	idx = skipWS(src, idx)
 	if idx >= len(src) || src[idx] != '.' {
-		// a bare identifier is a valid include spec
-		spec = &s
+		// a bare identifier or rename expression is a valid include spec
 		nextIdx = idx
 		return
 	}
@@ -222,33 +198,37 @@ func parseSpec(src string, idx int) (spec *Spec, nextIdx int, err error) {
 
 	if src[idx] == '{' {
 		// look for a list of sub specs
-		var specList []*Spec
+		var specList []specReference
 		specList, idx, err = parseSpecList(src, idx)
 		if err != nil {
 			return
 		}
 
-		s.Includes = map[string]*Spec{}
-		for _, subSpec := range specList {
-			s.Includes[subSpec.TableName] = subSpec
+		spec.subSpec.Includes = map[string]*Spec{}
+		for _, specRef := range specList {
+			spec.subSpec.Includes[specRef.parentName] = specRef.subSpec
 		}
 	} else {
 		// look for a solitary sub-spec not bracketed by curlies
-		var subSpec *Spec
-		subSpec, idx, err = parseSpec(src, idx)
+		var specRef specReference
+		specRef, idx, err = parseSpec(src, idx, true)
 		if err != nil {
 			return
 		}
-		s.Includes = map[string]*Spec{subSpec.TableName: subSpec}
+		spec.subSpec.Includes = map[string]*Spec{specRef.parentName: specRef.subSpec}
 	}
 
-	spec = &s
 	nextIdx = idx
 	return
 }
 
-func parseSpecList(src string, idx int) (specs []*Spec, nextIdx int, err error) {
-	specs = []*Spec{}
+type specReference struct {
+	parentName string
+	subSpec    *Spec
+}
+
+func parseSpecList(src string, idx int) (specs []specReference, nextIdx int, err error) {
+	specs = []specReference{}
 
 	if src[idx] != '{' {
 		err = &parseError{
@@ -282,13 +262,13 @@ func parseSpecList(src string, idx int) (specs []*Spec, nextIdx int, err error) 
 	}
 
 	for {
-		var subSpec *Spec
-		subSpec, idx, err = parseSpec(src, idx)
+		var specRef specReference
+		specRef, idx, err = parseSpec(src, idx, true)
 		if err != nil {
 			return
 		}
 
-		specs = append(specs, subSpec)
+		specs = append(specs, specRef)
 
 		idx = skipWS(src, idx)
 		if idx >= len(src) {
@@ -320,6 +300,51 @@ func parseSpecList(src string, idx int) (specs []*Spec, nextIdx int, err error) 
 			idx++
 			break
 		}
+	}
+
+	nextIdx = idx
+	return
+}
+
+// parse id '->' id | id
+//
+// If this just parses a solitary id, then the returned `id` with be the
+// same as `renameTo`.
+func parseRenameOrID(src string, idx int) (
+	id string,
+	renameTo string,
+	nextIdx int,
+	err error,
+) {
+	unexpectedEOI := func(i int) error {
+		return &parseError{
+			pos: idx,
+			msg: "unexpected end of input when parsing a rename expression",
+		}
+	}
+
+	id, idx, err = parseID(src, idx)
+	if err != nil {
+		return
+	}
+
+	idx = skipWS(src, idx)
+	if idx+1 >= len(src) || !(src[idx] == '-' && src[idx+1] == '>') {
+		// just a bare id
+		nextIdx = idx
+		renameTo = id
+		return
+	}
+
+	idx = skipWS(src, idx+2)
+	if idx >= len(src) {
+		err = unexpectedEOI(idx)
+		return
+	}
+
+	renameTo, idx, err = parseID(src, idx)
+	if err != nil {
+		return
 	}
 
 	nextIdx = idx
@@ -360,7 +385,7 @@ func parseID(src string, idx int) (id string, nextIdx int, err error) {
 	// for a normal identifier
 
 	seenFirst := false
-	max := 0
+	max := -1
 	for i, r := range src[idx:] {
 		stop := true
 		if unicode.IsLetter(r) || r == '_' {
@@ -390,7 +415,7 @@ func parseID(src string, idx int) (id string, nextIdx int, err error) {
 		seenFirst = true
 	}
 
-	if max == 0 {
+	if max == -1 {
 		return "", idx, &parseError{
 			pos: idx,
 			msg: "unexpected end of input when parsing an identifier",
@@ -399,5 +424,77 @@ func parseID(src string, idx int) (id string, nextIdx int, err error) {
 		id = src[idx : idx+max+1]
 		nextIdx = idx + max + 1
 		return
+	}
+}
+
+//
+// write helpers
+//
+
+var unquotedIdentRE = regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_$]*$")
+
+func (s *Spec) writeToBuilder(b *strings.Builder, seen map[*Spec]bool, stop bool, parentName *string) {
+	if parentName != nil && s.TableName != *parentName {
+		// The name of the field in the parent struct and the child table
+		// name do not match, so we need to print a rename expression.
+		writeIdent(b, *parentName)
+		b.WriteString("->")
+		writeIdent(b, s.TableName)
+	} else {
+		// the field in the parent is the same as the table name, so we can just print
+		// the table name.
+		writeIdent(b, s.TableName)
+	}
+
+	if stop {
+		return
+	}
+	seen[s] = true
+
+	if len(s.Includes) == 1 {
+		b.WriteByte('.')
+		for n, subSpec := range s.Includes {
+			subSpec.writeToBuilder(b, seen, seen[subSpec], &n)
+		}
+	} else if len(s.Includes) > 1 {
+		b.WriteByte('.')
+
+		type childSpec struct {
+			parentName string
+			subSpec    *Spec
+		}
+
+		// sort the sub-specs to ensure stable output
+		childSpecs := make([]childSpec, len(s.Includes))[:0]
+		for n, subSpec := range s.Includes {
+			childSpecs = append(childSpecs, childSpec{
+				parentName: n,
+				subSpec:    subSpec,
+			})
+		}
+		sort.Slice(childSpecs, func(i, j int) bool {
+			return childSpecs[i].parentName < childSpecs[j].parentName
+		})
+
+		b.WriteByte('{')
+		for i, childSpec := range childSpecs {
+			childSpec.subSpec.writeToBuilder(b, seen, seen[childSpec.subSpec], &childSpec.parentName)
+			if i < len(childSpecs)-1 {
+				b.WriteByte(',')
+			}
+		}
+		b.WriteByte('}')
+	}
+}
+
+func writeIdent(b *strings.Builder, ident string) {
+	if unquotedIdentRE.Match([]byte(ident)) {
+		b.WriteString(ident)
+	} else {
+		quotedQuotes := strings.Replace(
+			ident, `"`, `""`, int(math.MinInt64))
+		b.WriteByte('"')
+		b.WriteString(quotedQuotes)
+		b.WriteByte('"')
 	}
 }

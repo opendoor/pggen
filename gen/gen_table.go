@@ -130,10 +130,7 @@ func (g *Generator) genTable(
 	}
 	genCtx.References = genCtx.References[:kept]
 
-	genCtx.References = append(
-		genCtx.References,
-		tableInfo.ExplicitBelongsTo...,
-	)
+	genCtx.References = tableInfo.AllReferences
 
 	if tableInfo.HasUpdateAtField || tableInfo.HasCreatedAtField {
 		g.imports[`"time"`] = true
@@ -182,9 +179,9 @@ type {{ .GoName }} struct {
 	{{- end }}
 	{{- range .References }}
 	{{- if .OneToOne }}
-	{{ .PointsFromFieldName }} *{{ .PointsFrom.GoName }}
+	{{ .GoPointsFromFieldName }} *{{ .PointsFrom.GoName }}
 	{{- else }}
-	{{ .PointsFromFieldName }} []*{{ .PointsFrom.GoName }}
+	{{ .GoPointsFromFieldName }} []*{{ .PointsFrom.GoName }}
 	{{- end }}
 	{{- end }}
 }
@@ -920,7 +917,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 	includes *include.Spec,
 	loadedRecordTab map[string]interface{},
 ) (err error) {
-	if includes.TableName != "{{ .PgName }}" {
+	if includes.TableName != ` + "`" + `{{ .PgName }}` + "`" + ` {
 		return fmt.Errorf(
 			"expected includes for '{{ .PgName }}', got '%s'",
 			includes.TableName,
@@ -951,9 +948,9 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 
 	{{- range .References }}
 	// Fill in the {{ .PointsFrom.PluralGoName }} if it is in includes
-	subSpec, inIncludeSet = includes.Includes[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `]
+	subSpec, inIncludeSet = includes.Includes[` + "`" + `{{ .PgPointsFromFieldName }}` + "`" + `]
 	if inIncludeSet {
-		err = p.private{{ $.GoName }}Fill{{ .PointsFromFieldName }}(ctx, loadedRecordTab)
+		err = p.private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(ctx, loadedRecordTab)
 		if err != nil {
 			return
 		}
@@ -961,17 +958,17 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 		subRecs := make([]*{{ .PointsFrom.GoName }}, 0, len(recs))
 		for _, outer := range recs {
 			{{- if .OneToOne }}
-			if outer.{{ .PointsFrom.GoName }} != nil {
-				subRecs = append(subRecs, outer.{{ .PointsFromFieldName }})
+			if outer.{{ .GoPointsFromFieldName }} != nil {
+				subRecs = append(subRecs, outer.{{ .GoPointsFromFieldName }})
 			}
 			{{- else }}
-			for i := range outer.{{ .PointsFrom.PluralGoName }} {
+			for i := range outer.{{ .GoPointsFromFieldName }} {
 				{{- if .Nullable }}
-				if outer.{{ .PointsFromFieldName }}[i] == nil {
+				if outer.{{ .GoPointsFromFieldName }}[i] == nil {
 					continue
 				}
 				{{- end }}
-				subRecs = append(subRecs, outer.{{ .PointsFromFieldName }}[i])
+				subRecs = append(subRecs, outer.{{ .GoPointsFromFieldName }}[i])
 			}
 			{{- end }}
 		}
@@ -990,7 +987,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 
 // For a give set of {{ $.GoName }}, fill in all the {{ .PointsFrom.GoName }}
 // connected to them using a single query.
-func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFromFieldName }}(
+func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 	ctx context.Context,
 	loadedRecordTab map[string]interface{},
 ) error {
@@ -1055,10 +1052,10 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .PointsFromFieldName }}(
 		{{- end }}
 
 		{{- if .OneToOne }}
-		parentRec.{{ .PointsFromFieldName }} = childRec
+		parentRec.{{ .GoPointsFromFieldName }} = childRec
 		break
 		{{- else }}
-		parentRec.{{ .PointsFromFieldName }} = append(parentRec.{{ .PointsFrom.PluralGoName }}, childRec)
+		parentRec.{{ .GoPointsFromFieldName }} = append(parentRec.{{ .GoPointsFromFieldName }}, childRec)
 		{{- end }}
 	}
 
