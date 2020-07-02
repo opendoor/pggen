@@ -174,7 +174,7 @@ type {{ .GoName }} struct {
 	{{ .GoName }} {{ .TypeInfo.Name }}
 	{{- end }} ` +
 	"`" + `gorm:"column:{{ .PgName }}"
-	{{- if .IsPrimary }} gorm:"is_primary" {{- end }}` +
+	{{- if .IsPrimary }} gorm:"is_primary" {{- end }} {{ .ExtraTags -}}` +
 	"`" + `
 	{{- end }}
 	{{- range .References }}

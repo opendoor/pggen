@@ -90,6 +90,8 @@ type TableConfig struct {
 	// The timestamp to update in `Update` and `Insert`.
 	// Overriddes global version.
 	UpdatedAtField string `toml:"updated_at_field"`
+	// A list of extra annotations to add to the generated fields.
+	FieldTags []FieldTag `toml:"field_tags"`
 }
 
 // An explicitly configured foreign key relationship which can be attached
@@ -105,6 +107,13 @@ type BelongsTo struct {
 	// Optional. The name to give the pointer field in the generated parent
 	// struct. If not provided, this will just be the name of the child struct.
 	ParentFieldName string `toml:"parent_field_name"`
+}
+
+// Custom annotations to attach to the field generated for a given
+// database column.
+type FieldTag struct {
+	ColumnName string `toml:"column_name"`
+	Tags       string `toml:"tags"`
 }
 
 type TypeOverride struct {
