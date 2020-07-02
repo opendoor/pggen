@@ -358,3 +358,9 @@
         key_field = "small_entity_id"
         one_to_one = true
         parent_field_name = "custom_1to1_reference_name"
+
+[[table]]
+    name = "custom_default_uuids"
+    [[table.field_tags]]
+        column_name = "uuid"
+        tags = "customtag:\"my-custom-tag\""

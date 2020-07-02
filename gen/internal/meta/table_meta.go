@@ -119,68 +119,97 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 	}
 
 	// fill in all the allIncludeSpecs
-	for _, info := range tr.meta.tableInfo {
-		err := ensureSpec(tr.meta.tableInfo, info)
+	for _, meta := range tr.meta.tableInfo {
+		err := ensureSpec(tr.meta.tableInfo, meta)
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, info := range tr.meta.tableInfo {
-		tr.setTimestampFlags(info)
+	for _, meta := range tr.meta.tableInfo {
+		tr.setTimestampFlags(meta)
+	}
+
+	for _, meta := range tr.meta.tableInfo {
+		err := populateFieldTags(meta)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (tr *tableResolver) setTimestampFlags(info *TableMeta) {
-	if len(info.Config.CreatedAtField) > 0 {
-		for _, cm := range info.Info.Cols {
-			if cm.PgName == info.Config.CreatedAtField {
-				info.HasCreatedAtField = true
-				info.CreatedAtFieldIsNullable = cm.Nullable
-				info.CreatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+func populateFieldTags(meta *TableMeta) error {
+	knownCols := make(map[string]bool, len(meta.Info.Cols))
+	for _, col := range meta.Info.Cols {
+		knownCols[col.PgName] = true
+	}
+
+	colToAnn := make(map[string]string, len(meta.Config.FieldTags))
+	for _, ann := range meta.Config.FieldTags {
+		if !knownCols[ann.ColumnName] {
+			return fmt.Errorf("column '%s' is not part of table '%s'", ann.ColumnName, meta.Config.Name)
+		}
+
+		colToAnn[ann.ColumnName] = ann.Tags
+	}
+
+	for i, col := range meta.Info.Cols {
+		meta.Info.Cols[i].ExtraTags = colToAnn[col.PgName]
+	}
+
+	return nil
+}
+
+func (tr *tableResolver) setTimestampFlags(meta *TableMeta) {
+	if len(meta.Config.CreatedAtField) > 0 {
+		for _, cm := range meta.Info.Cols {
+			if cm.PgName == meta.Config.CreatedAtField {
+				meta.HasCreatedAtField = true
+				meta.CreatedAtFieldIsNullable = cm.Nullable
+				meta.CreatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
 				break
 			}
 		}
 
-		if !info.HasCreatedAtField {
+		if !meta.HasCreatedAtField {
 			tr.log.Warnf(
 				"table '%s' has no '%s' created at timestamp\n",
-				info.Config.Name,
-				info.Config.CreatedAtField,
+				meta.Config.Name,
+				meta.Config.CreatedAtField,
 			)
 		}
 	}
 
-	if len(info.Config.UpdatedAtField) > 0 {
-		for _, cm := range info.Info.Cols {
-			if cm.PgName == info.Config.UpdatedAtField {
-				info.HasUpdateAtField = true
-				info.UpdatedAtFieldIsNullable = cm.Nullable
-				info.UpdatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+	if len(meta.Config.UpdatedAtField) > 0 {
+		for _, cm := range meta.Info.Cols {
+			if cm.PgName == meta.Config.UpdatedAtField {
+				meta.HasUpdateAtField = true
+				meta.UpdatedAtFieldIsNullable = cm.Nullable
+				meta.UpdatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
 				break
 			}
 		}
 
-		if !info.HasUpdateAtField {
+		if !meta.HasUpdateAtField {
 			tr.log.Warnf(
 				"table '%s' has no '%s' updated at timestamp\n",
-				info.Config.Name,
-				info.Config.UpdatedAtField,
+				meta.Config.Name,
+				meta.Config.UpdatedAtField,
 			)
 		}
 	}
 }
 
-func ensureSpec(tables map[string]*TableMeta, info *TableMeta) error {
-	if info.AllIncludeSpec != nil {
+func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
+	if meta.AllIncludeSpec != nil {
 		// Some other `ensureSpec` already filled this in for us. Great!
 		return nil
 	}
 
-	info.AllIncludeSpec = &include.Spec{
-		TableName: info.Info.PgName,
+	meta.AllIncludeSpec = &include.Spec{
+		TableName: meta.Info.PgName,
 		Includes:  map[string]*include.Spec{},
 	}
 
@@ -197,20 +226,20 @@ func ensureSpec(tables map[string]*TableMeta, info *TableMeta) error {
 			return err
 		}
 		subSpec := subInfo.AllIncludeSpec
-		info.AllIncludeSpec.Includes[ref.PgPointsFromFieldName] = subSpec
+		meta.AllIncludeSpec.Includes[ref.PgPointsFromFieldName] = subSpec
 
 		return nil
 	}
 
-	for _, ref := range info.AllReferences {
+	for _, ref := range meta.AllReferences {
 		err := ensureReferencedSpec(&ref)
 		if err != nil {
 			return err
 		}
 	}
 
-	if len(info.AllIncludeSpec.Includes) == 0 {
-		info.AllIncludeSpec.Includes = nil
+	if len(meta.AllIncludeSpec.Includes) == 0 {
+		meta.AllIncludeSpec.Includes = nil
 	}
 
 	return nil
@@ -361,6 +390,8 @@ type ColMeta struct {
 	IsPrimary bool
 	// true if this column has a UNIQUE index on it
 	IsUnique bool
+	// extra tags to attach to the generated field
+	ExtraTags string
 }
 
 // Given the name of a table returns metadata about it

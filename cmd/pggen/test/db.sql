@@ -301,6 +301,11 @@ CREATE TABLE alternative_reference_name_1to1 (
         REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+CREATE TABLE custom_default_uuids (
+    id SERIAL PRIMARY KEY NOT NULL,
+    uuid uuid NOT NULL DEFAULT uuid_generate_v4()
+);
+
 --
 -- Load Data
 --

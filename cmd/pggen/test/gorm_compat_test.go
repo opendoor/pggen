@@ -2,6 +2,8 @@ package test
 
 import (
 	"log"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jinzhu/gorm"
@@ -62,5 +64,18 @@ func TestGormPreload(t *testing.T) {
 		if !allowedValues[*a.Value] {
 			t.Fatalf("unexpected value: '%s'", *a.Value)
 		}
+	}
+}
+
+// This one is not strictly gorm related, but in practice it will probably mostly
+// be used for gorm compatibility.
+func TestCustomAnnotations(t *testing.T) {
+	field, ok := reflect.TypeOf(&models.CustomDefaultUuid{}).Elem().FieldByName("Uuid")
+	if !ok {
+		t.Fatal("field no found")
+	}
+
+	if !strings.Contains(field.Tag.Get("customtag"), "my-custom-tag") {
+		t.Fatal("missing tag")
 	}
 }
