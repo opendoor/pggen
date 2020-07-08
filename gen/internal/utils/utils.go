@@ -52,7 +52,8 @@ func RandomName(base string) string {
 }
 
 // nullOutArgs takes a string containing an SQL query and replaces
-// all strings which match the regex `\$[0-9]+` outside of quotes.
+// all substrings which match the regex `\$[0-9]+` outside of quotes
+// with the string "NULL".
 func NullOutArgs(query string) string {
 	lastChunkEnd := 0
 	chunks := []string{}

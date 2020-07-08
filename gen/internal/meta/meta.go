@@ -460,17 +460,22 @@ type RefMeta struct {
 	PointsTo *PgTableInfo
 	// The names of the fields in the referenced table that are used as keys
 	// (usually the primary keys of that table). Order matters.
-	PointsToFields []*ColMeta
+	PointsToField *ColMeta
 	// The metadata for the table is being referred to
 	PointsFrom *PgTableInfo
 	// The names of the fields that are being used to refer to the key fields
 	// for the referenced table. Order matters.
-	PointsFromFields []*ColMeta
+	PointsFromField *ColMeta
 	// The name of the field that should be generated in the model being pointed
 	// to by the foreign key (parent model).
 	GoPointsFromFieldName string
 	// A snake_case version of GoPointsFromFieldName
 	PgPointsFromFieldName string
+	// The name of the field that should be generated in the model being pointed
+	// from by the foreign key (child model).
+	GoPointsToFieldName string
+	// A snake_case version of GoPointsToFieldName.
+	PgPointsToFieldName string
 	// Indicates that there can be at most one of these references between
 	// the two tables.
 	OneToOne bool

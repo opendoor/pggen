@@ -65,6 +65,20 @@
 // For example, if the table `foo` referenced the table `bar` which contained a
 // reference back to `foo`, the include spec `foo.bar.foo` could be used to capture
 // that cycle.
+//
+// Filling in Parent References:
+//
+// SQL references are bidirectional, and pggen preserves those semantics in generated
+// code by emitting pointers back to parent records in the model structs that it generates.
+// These can be filled in using include specs, just like ordinary references, and doing so
+// will not hit the database again if the parent record had already been loaded into memory.
+// You do still need to explicitly tell pggen to fill in these references for you, which you
+// can do by adding a sub-spec pointing to the parent. For example if the `bar` table refers
+// to the `foo` table with a foreign key, we would usually think of the `foo` table as the
+// parent and the `bar` table as the child. We have already seen that the include spec
+// `foo.bar` would fill in the references in the generated `Foo` struct with generated `Bar`
+// structs, but that won't fill in the references back to the parent from the `Bar` children.
+// To do that we would need to use an include spec of `foo.bar.foo`.
 package include
 
 import (
