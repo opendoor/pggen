@@ -107,6 +107,9 @@ type BelongsTo struct {
 	// Optional. The name to give the pointer field in the generated parent
 	// struct. If not provided, this will just be the name of the child struct.
 	ParentFieldName string `toml:"parent_field_name"`
+	// Optional. The name to give the pointer field in the generated child
+	// struct. If not provided, this will just be the name of the parent struct.
+	ChildFieldName string `toml:"child_field_name"`
 }
 
 // Custom annotations to attach to the field generated for a given

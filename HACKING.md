@@ -60,7 +60,7 @@ be able to re-run the command because the test will have cleaned up after
 itself. You can enable re-running the cli tests with
 
 ```bash
-> cd pggen/test
+> cd cmd/pggen/test
 > PGGEN_DEBUG_CLI=1 go test --run TestCLI
 ```
 
@@ -73,8 +73,8 @@ immediately point your delve at it.
 When modifying the output of the codegenerator, you are likely to introduce compile
 errors in the generated code. Because we run the `go/format` package over our output
 before landing it to a disk you won't be able to debug the issue by looking at the
-generated file by default. In order to make this easier, you can modify the `writeGoFile`
-routine in `gen/utils.go` to skip the formatting and just dump the code to disk.
+generated file by default. In order to make this easier, you can modify the `WriteGoFile`
+routine in `gen/internal/utils/utils.go` to skip the formatting and just dump the code to disk.
 
 ```
 diff --git a/gen/utils.go b/gen/utils.go
@@ -94,4 +94,5 @@ index dd7804d..e3a446f 100644
  }
 ```
 
-Even without formatting it is actually pretty readable.
+Even without formatting the generated code is pretty readable, so this trick doesn't
+usually result in less debuggable generated code.

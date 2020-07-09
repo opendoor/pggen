@@ -3,6 +3,7 @@ package meta
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	"github.com/lib/pq"
 
@@ -51,8 +52,10 @@ func newTableResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *
 // fields.
 type TableMeta struct {
 	Config *config.TableConfig
-	// All references to this table (both infered and configured).
-	AllReferences []RefMeta
+	// All references to this table from other tables (both infered and configured).
+	AllIncomingReferences []RefMeta
+	// All references from this table to other tables (both infered and configured).
+	AllOutgoingReferences []RefMeta
 	// The include spec which represents the transitive closure of
 	// this tables family
 	AllIncludeSpec *include.Spec
@@ -111,12 +114,14 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 		}
 	}
 
-	// copy the auto-detected references over and add the explicitly configured
-	// ones into the mix
-	err := tr.buildAllReferencesMapping(tables, tr.meta.tableInfo)
+	// Resolve references. Copy the auto-detected references over and add
+	// the explicitly configured ones into the mix, and sync the incoming and
+	// outgoing references.
+	err := tr.buildAllIncomingReferencesMapping(tables, tr.meta.tableInfo)
 	if err != nil {
 		return err
 	}
+	populateOutgoingReferencesMapping(tr.meta.tableInfo)
 
 	// fill in all the allIncludeSpecs
 	for _, meta := range tr.meta.tableInfo {
@@ -213,7 +218,7 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 		Includes:  map[string]*include.Spec{},
 	}
 
-	ensureReferencedSpec := func(ref *RefMeta) error {
+	ensureIncomingReferencedSpec := func(ref *RefMeta) error {
 		subInfo := tables[ref.PointsFrom.PgName]
 		if subInfo == nil {
 			// This table is referenced in the database schema but not in the
@@ -231,8 +236,33 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 		return nil
 	}
 
-	for _, ref := range meta.AllReferences {
-		err := ensureReferencedSpec(&ref)
+	for _, ref := range meta.AllIncomingReferences {
+		err := ensureIncomingReferencedSpec(&ref)
+		if err != nil {
+			return err
+		}
+	}
+
+	ensureOutgoingReferencedSpec := func(ref *RefMeta) error {
+		subInfo := tables[ref.PointsTo.PgName]
+		if subInfo == nil {
+			// This table is referenced in the database schema but not in the
+			// config file.
+			return nil
+		}
+
+		err := ensureSpec(tables, subInfo)
+		if err != nil {
+			return err
+		}
+		subSpec := subInfo.AllIncludeSpec
+		meta.AllIncludeSpec.Includes[ref.PgPointsToFieldName] = subSpec
+
+		return nil
+	}
+
+	for _, ref := range meta.AllOutgoingReferences {
+		err := ensureOutgoingReferencedSpec(&ref)
 		if err != nil {
 			return err
 		}
@@ -245,7 +275,7 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 	return nil
 }
 
-func (tr *tableResolver) buildAllReferencesMapping(
+func (tr *tableResolver) buildAllIncomingReferencesMapping(
 	tables []config.TableConfig,
 	infoTab map[string]*TableMeta,
 ) error {
@@ -255,7 +285,7 @@ func (tr *tableResolver) buildAllReferencesMapping(
 	for _, table := range tables {
 		meta := infoTab[table.Name]
 		inferedReferencs[table.Name] = map[string]bool{}
-		for _, ref := range meta.Info.References {
+		for _, ref := range meta.Info.IncomingReferences {
 			refererMeta := infoTab[ref.PointsFrom.PgName]
 
 			// don't pass the infered relationship along if we've been asked not to
@@ -309,14 +339,24 @@ func (tr *tableResolver) buildAllReferencesMapping(
 				pgPointsFromFieldName = info.PgName
 			}
 
+			pgPointsToFieldName := belongsTo.ChildFieldName
+			goPointsToFieldName := names.PgToGoName(pgPointsToFieldName)
+			if pgPointsToFieldName == "" {
+				info := &tr.meta.tableInfo[belongsTo.Table].Info
+				goPointsToFieldName = info.GoName
+				pgPointsToFieldName = info.PgName
+			}
+
 			pointsToMeta := infoTab[belongsTo.Table].Info
 			ref := RefMeta{
 				PointsTo:              &tr.meta.tableInfo[belongsTo.Table].Info,
-				PointsToFields:        []*ColMeta{pointsToMeta.PkeyCol},
+				PointsToField:         pointsToMeta.PkeyCol,
 				PointsFrom:            &tr.meta.tableInfo[table.Name].Info,
-				PointsFromFields:      []*ColMeta{belongsToColMeta},
+				PointsFromField:       belongsToColMeta,
 				GoPointsFromFieldName: goPointsFromFieldName,
 				PgPointsFromFieldName: pgPointsFromFieldName,
+				GoPointsToFieldName:   goPointsToFieldName,
+				PgPointsToFieldName:   pgPointsToFieldName,
 				OneToOne:              belongsTo.OneToOne,
 				Nullable:              belongsToColMeta.Nullable,
 			}
@@ -324,7 +364,7 @@ func (tr *tableResolver) buildAllReferencesMapping(
 			inferedReferencs[belongsTo.Table][ref.PointsFrom.PgName] = false
 
 			info := infoTab[belongsTo.Table]
-			info.AllReferences = append(info.AllReferences, ref)
+			info.AllIncomingReferences = append(info.AllIncomingReferences, ref)
 			infoTab[belongsTo.Table] = info
 		}
 	}
@@ -334,14 +374,64 @@ func (tr *tableResolver) buildAllReferencesMapping(
 	for _, table := range tables {
 		meta := infoTab[table.Name]
 
-		for _, ref := range meta.Info.References {
+		for _, ref := range meta.Info.IncomingReferences {
 			if inferedReferencs[table.Name][ref.PointsFrom.PgName] {
-				meta.AllReferences = append(meta.AllReferences, ref)
+				meta.AllIncomingReferences = append(meta.AllIncomingReferences, ref)
 			}
 		}
 	}
 
 	return nil
+}
+
+// Fill in all the outgoing references to a table. MUST be called after the
+// incoming references to all tables have been filled in.
+//
+// Mutates its argument
+func populateOutgoingReferencesMapping(infoTab map[string]*TableMeta) {
+	// build a mapping from target tables to lists of references to those target tables
+	outgoingRefMap := make(map[string][]RefMeta, len(infoTab))
+	for _, meta := range infoTab {
+		for i, ref := range meta.AllIncomingReferences {
+
+			slice, inMap := outgoingRefMap[ref.PointsFrom.PgName]
+			if inMap {
+				slice = append(slice, meta.AllIncomingReferences[i])
+				outgoingRefMap[ref.PointsFrom.PgName] = slice
+			} else {
+				outgoingRefMap[ref.PointsFrom.PgName] = []RefMeta{meta.AllIncomingReferences[i]}
+			}
+		}
+	}
+
+	// go through and actually attach each list to the right metadata object
+	for _, meta := range infoTab {
+		meta.AllOutgoingReferences = outgoingRefMap[meta.Info.PgName]
+
+		// prevent name collisions by detecting them and appending Parent to the names of
+		// any outgoing references.
+		incomingRefPgFieldNames := map[string]bool{}
+		for _, ref := range meta.AllIncomingReferences {
+			incomingRefPgFieldNames[ref.PgPointsFromFieldName] = true
+		}
+
+		for i, ref := range meta.AllOutgoingReferences {
+			// check for and fix up name collisions
+			counter := 0
+			origPgPointsToFieldName := ref.PgPointsToFieldName
+			for incomingRefPgFieldNames[meta.AllOutgoingReferences[i].PgPointsToFieldName] {
+				meta.AllOutgoingReferences[i].PgPointsToFieldName = origPgPointsToFieldName + "_parent"
+				if counter > 0 {
+					meta.AllOutgoingReferences[i].PgPointsToFieldName =
+						meta.AllOutgoingReferences[i].PgPointsToFieldName + strconv.FormatInt(int64(counter), 10)
+				}
+				meta.AllOutgoingReferences[i].GoPointsToFieldName =
+					names.PgToGoName(meta.AllOutgoingReferences[i].PgPointsToFieldName)
+
+				counter++
+			}
+		}
+	}
 }
 
 //
@@ -360,7 +450,7 @@ type PgTableInfo struct {
 	// Metadata about the tables columns
 	Cols []ColMeta
 	// A list of the postgres names of tables which reference this one
-	References []RefMeta
+	IncomingReferences []RefMeta
 	// If true, this table does have an update timestamp field
 	HasUpdateAtField bool
 	// If true, this table does have a create timestamp field
@@ -533,15 +623,18 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 			continue
 		}
 
-		for _, idx := range pointsToIdxs {
-			// convert the ColNum to an index into the Cols array
-			if idx < 0 || int64(len(metaColNumToIdx)) <= idx {
-				return fmt.Errorf("out of bounds foreign key field (to) at index %d", idx)
-			}
-			idx = int64(metaColNumToIdx[idx])
-
-			ref.PointsToFields = append(ref.PointsToFields, &meta.Cols[idx])
+		if len(pointsToIdxs) != 1 || len(pointsFromIdxs) != 1 {
+			tr.log.Warnf("skipping multi-column foreign key")
+			continue
 		}
+
+		// convert the ColNum to an index into the Cols array
+		pointsToIdx := pointsToIdxs[0]
+		if pointsToIdx < 0 || int64(len(metaColNumToIdx)) <= pointsToIdx {
+			return fmt.Errorf("out of bounds foreign key field (to) at index %d", pointsToIdx)
+		}
+		pointsToIdx = int64(metaColNumToIdx[pointsToIdx])
+		ref.PointsToField = &meta.Cols[pointsToIdx]
 
 		ref.PointsTo = &tr.meta.tableInfo[pgPointsTo].Info
 		ref.PointsFrom = &tr.meta.tableInfo[pgPointsFrom].Info
@@ -549,18 +642,16 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 		fromCols := ref.PointsFrom.Cols
 		fromColsColNumToIdx := columnResolverTable(fromCols)
 
-		ref.OneToOne = true
-		for _, idx := range pointsFromIdxs {
-			if idx < 0 || int64(len(fromColsColNumToIdx)) <= idx {
-				return fmt.Errorf("out of bounds foreign key field (from) at index %d", idx)
-			}
-			idx = int64(fromColsColNumToIdx[idx])
-
-			fcol := &fromCols[idx]
-			ref.PointsFromFields = append(ref.PointsFromFields, fcol)
-			ref.OneToOne = ref.OneToOne && fcol.IsUnique
-			ref.Nullable = fcol.Nullable
+		pointsFromIdx := pointsFromIdxs[0]
+		if pointsFromIdx < 0 || int64(len(fromColsColNumToIdx)) <= pointsFromIdx {
+			return fmt.Errorf("out of bounds foreign key field (from) at index %d", pointsFromIdx)
 		}
+		pointsFromIdx = int64(fromColsColNumToIdx[pointsFromIdx])
+
+		fcol := &fromCols[pointsFromIdx]
+		ref.PointsFromField = fcol
+		ref.OneToOne = fcol.IsUnique
+		ref.Nullable = fcol.Nullable
 
 		// generate a name to use to refer to the referencing table
 		if ref.OneToOne {
@@ -568,9 +659,12 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 		} else {
 			ref.GoPointsFromFieldName = ref.PointsFrom.PluralGoName
 		}
-		ref.PgPointsFromFieldName = ref.PointsFrom.PgName
+		ref.GoPointsToFieldName = ref.PointsTo.GoName
 
-		meta.References = append(meta.References, ref)
+		ref.PgPointsFromFieldName = ref.PointsFrom.PgName
+		ref.PgPointsToFieldName = ref.PointsTo.PgName
+
+		meta.IncomingReferences = append(meta.IncomingReferences, ref)
 	}
 
 	return nil

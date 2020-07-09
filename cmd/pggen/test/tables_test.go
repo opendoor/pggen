@@ -821,6 +821,13 @@ func TestBasicCycle(t *testing.T) {
 	if cycle1 != roundaboutCycle1 {
 		t.Fatalf("expected them to actually be the same object, not just have the same values")
 	}
+
+	if cycle1 != cycle1.Cycle2[0].Cycle1Parent {
+		t.Fatal("parent pointer mishap 1")
+	}
+	if cycle2 != cycle2.Cycle1[0].Cycle2Parent {
+		t.Fatal("parent pointer mishap 2")
+	}
 }
 
 func TestCycleTree(t *testing.T) {
@@ -1028,5 +1035,45 @@ func TestIncludeCustomNames(t *testing.T) {
 
 	if smallE.Custom1to1ReferenceName == nil {
 		t.Fatal("custom 1to1 entity not attached")
+	}
+}
+
+func TestParentPointers(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	entity := models.SmallEntity{
+		Anint: 1892,
+	}
+	smallEntityID, err := txClient.InsertSmallEntity(ctx, &entity)
+	chkErr(t, err)
+	entity.Id = smallEntityID
+
+	foo := "foo"
+	_, err = txClient.InsertAttachment(ctx, &models.Attachment{
+		SmallEntityId: smallEntityID,
+		Value:         &foo,
+	})
+	chkErr(t, err)
+
+	bar := "bar"
+	_, err = txClient.InsertAttachment(ctx, &models.Attachment{
+		SmallEntityId: smallEntityID,
+		Value:         &bar,
+	})
+	chkErr(t, err)
+
+	err = txClient.SmallEntityFillIncludes(ctx, &entity, models.SmallEntityAllIncludes)
+	chkErr(t, err)
+
+	if &entity != entity.Attachments[0].SmallEntity {
+		t.Fatal("Attachment(0): bad parent pointer")
+	}
+
+	if &entity != entity.Attachments[1].SmallEntity {
+		t.Fatal("Attachment(1): bad parent pointer")
 	}
 }
