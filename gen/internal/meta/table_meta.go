@@ -642,8 +642,6 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 		fromCols := ref.PointsFrom.Cols
 		fromColsColNumToIdx := columnResolverTable(fromCols)
 
-		// ref.OneToOne = true TODO(ethan): delete
-
 		pointsFromIdx := pointsFromIdxs[0]
 		if pointsFromIdx < 0 || int64(len(fromColsColNumToIdx)) <= pointsFromIdx {
 			return fmt.Errorf("out of bounds foreign key field (from) at index %d", pointsFromIdx)
@@ -652,7 +650,6 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 
 		fcol := &fromCols[pointsFromIdx]
 		ref.PointsFromField = fcol
-		// ref.OneToOne = ref.OneToOne && fcol.IsUnique TODO(ethan): delete
 		ref.OneToOne = fcol.IsUnique
 		ref.Nullable = fcol.Nullable
 

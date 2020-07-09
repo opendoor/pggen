@@ -1077,7 +1077,3 @@ func TestParentPointers(t *testing.T) {
 		t.Fatal("Attachment(1): bad parent pointer")
 	}
 }
-
-// TODO(ethan): test multiple 1-1 relationships between a child and the parent. I think I just
-//              fixed a bug in that and it would be nice to confirm.
-
