@@ -364,3 +364,10 @@
     [[table.field_tags]]
         column_name = "uuid"
         tags = "customtag:\"my-custom-tag\""
+
+[[table]]
+    name = "wacky_roots"
+[[table]]
+    name = "wacky_attachments"
+[[table]]
+    name = "wacky_single_attachments"

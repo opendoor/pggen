@@ -306,6 +306,23 @@ CREATE TABLE custom_default_uuids (
     uuid uuid NOT NULL DEFAULT uuid_generate_v4()
 );
 
+CREATE TABLE wacky_roots (
+    id SERIAL PRIMARY KEY NOT NULL,
+    value text NOT NULL
+);
+CREATE TABLE wacky_attachments (
+    id SERIAL PRIMARY KEY NOT NULL,
+    value text NOT NULL,
+    wacky_ref integer NOT NULL
+        REFERENCES wacky_roots(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE wacky_single_attachments (
+    id SERIAL PRIMARY KEY NOT NULL,
+    value text NOT NULL,
+    wacky_ref integer NOT NULL UNIQUE
+        REFERENCES wacky_roots(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
 --
 -- Load Data
 --

@@ -158,9 +158,11 @@ type {{ .GoName }} struct {
 	{{- end }}
 	{{- range .IncomingReferences }}
 	{{- if .OneToOne }}
-	{{ .GoPointsFromFieldName }} *{{ .PointsFrom.GoName }}
+	{{ .GoPointsFromFieldName }} *{{ .PointsFrom.GoName }} ` +
+	"`" + `gorm:"foreignKey:{{ .PointsFromField.GoName }}"` + "`" + `
 	{{- else }}
-	{{ .GoPointsFromFieldName }} []*{{ .PointsFrom.GoName }}
+	{{ .GoPointsFromFieldName }} []*{{ .PointsFrom.GoName }} ` +
+	"`" + `gorm:"foreignKey:{{ .PointsFromField.GoName }}"` + "`" + `
 	{{- end }}
 	{{- end }}
 	{{- range .OutgoingReferences }}
