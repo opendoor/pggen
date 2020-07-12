@@ -79,3 +79,55 @@ func TestCustomAnnotations(t *testing.T) {
 		t.Fatal("missing tag")
 	}
 }
+
+func Test1ToManyForeignKey(t *testing.T) {
+	// load some data into the db
+	wackyRootID, err := pgClient.InsertWackyRoot(ctx, &models.WackyRoot{
+		Value: "root",
+	})
+	chkErr(t, err)
+	defer pgClient.DeleteWackyRoot(ctx, wackyRootID) // nolint: errcheck
+	attachment1ID, err := pgClient.InsertWackyAttachment(ctx, &models.WackyAttachment{
+		Value:    "foo",
+		WackyRef: wackyRootID,
+	})
+	chkErr(t, err)
+	defer pgClient.DeleteWackyAttachment(ctx, attachment1ID) // nolint: errcheck
+	attachment2ID, err := pgClient.InsertWackyAttachment(ctx, &models.WackyAttachment{
+		Value:    "bar",
+		WackyRef: wackyRootID,
+	})
+	chkErr(t, err)
+	defer pgClient.DeleteWackyAttachment(ctx, attachment2ID) // nolint: errcheck
+
+	// preload the attachments
+	var roots []models.WackyRoot
+	err = gormDB.Preload("WackyAttachments").Find(&roots).Where("id = ?", wackyRootID).Error
+	chkErr(t, err)
+
+	if len(roots[0].WackyAttachments) != 2 {
+		log.Fatal("wrong number of attachments loaded")
+	}
+}
+
+func Test1To1ForeignKey(t *testing.T) {
+	wackyRootID, err := pgClient.InsertWackyRoot(ctx, &models.WackyRoot{
+		Value: "root",
+	})
+	chkErr(t, err)
+	defer pgClient.DeleteWackyRoot(ctx, wackyRootID) // nolint: errcheck
+	attachmentID, err := pgClient.InsertWackySingleAttachment(ctx, &models.WackySingleAttachment{
+		Value:    "foo",
+		WackyRef: wackyRootID,
+	})
+	chkErr(t, err)
+	defer pgClient.DeleteWackySingleAttachment(ctx, attachmentID) // nolint: errcheck
+
+	var roots []models.WackyRoot
+	err = gormDB.Preload("WackySingleAttachment").Find(&roots).Where("id = ?", wackyRootID).Error
+	chkErr(t, err)
+
+	if roots[0].WackySingleAttachment == nil {
+		log.Fatal("failed to load single attachemnt")
+	}
+}
