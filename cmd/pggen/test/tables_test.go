@@ -918,10 +918,10 @@ func TestNewColumn(t *testing.T) {
 		t.Fatalf("pggen generated an F2 field. There is something wrong with the db state.")
 	}
 
-	_, err := pgClient.Handle().Exec("ALTER TABLE will_get_new_column ADD COLUMN f2 integer")
+	_, err := pgClient.Handle().ExecContext(ctx, "ALTER TABLE will_get_new_column ADD COLUMN f2 integer")
 	chkErr(t, err)
 	defer func() {
-		_, err = pgClient.Handle().Exec("ALTER TABLE will_get_new_column DROP COLUMN f2")
+		_, err = pgClient.Handle().ExecContext(ctx, "ALTER TABLE will_get_new_column DROP COLUMN f2")
 		chkErr(t, err)
 	}()
 

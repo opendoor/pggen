@@ -32,7 +32,7 @@ var pgClientTmpl *template.Template = template.Must(template.New("pgclient-tmpl"
 // database access methods for this package are attached to it.
 type PGClient struct {
 	impl pgClientImpl
-	topLevelDB *sql.DB
+	topLevelDB pggen.DBConn
 
 	// These column indexes are used at run time to enable us to 'SELECT *' against
 	// a table that has the same columns in a different order from the ones that we
@@ -44,7 +44,13 @@ type PGClient struct {
 	{{- end }}
 }
 
-func NewPGClient(conn *sql.DB) *PGClient {
+// NewPGClient creates a new PGClient out of a '*sql.DB' or a
+// custom wrapper around a db connection.
+//
+// If you provide your own wrapper around a '*sql.DB' for logging or
+// custom tracing, you MUST forward all calls to an underlying '*sql.DB'
+// member of your wrapper.
+func NewPGClient(conn pggen.DBConn) *PGClient {
 	client := PGClient {
 		topLevelDB: conn,
 	}
