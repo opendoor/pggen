@@ -75,7 +75,11 @@ func FromConfig(config Config) (*Generator, error) {
 	var err error
 	var db *sql.DB
 	for _, connStr := range config.ConnectionStrings {
-		if len(connStr) > 0 && connStr[0] == '$' {
+		if len(connStr) == 0 {
+			continue
+		}
+
+		if connStr[0] == '$' {
 			connStr = os.Getenv(connStr[1:])
 		}
 
