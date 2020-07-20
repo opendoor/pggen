@@ -102,7 +102,7 @@ type BelongsTo struct {
 	// The name of the foreign key which points to the table this table
 	// belongs to.
 	KeyField string `toml:"key_field"`
-	// If true the owning table has at most one of this table
+	// Optional. If true the owning table has at most one of this table
 	OneToOne bool `toml:"one_to_one"`
 	// Optional. The name to give the pointer field in the generated parent
 	// struct. If not provided, this will just be the name of the child struct.

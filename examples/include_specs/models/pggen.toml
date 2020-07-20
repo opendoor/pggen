@@ -1,0 +1,18 @@
+[[table]]
+    name = "grandparents"
+
+    # we want to customize the name of the struct field that shows up in the
+    # Grandparent struct, so we will explicitly configure the relationship
+    # rather than just letting `pggen` infer it for us as we do for other
+    # relationships
+    [[table.belongs_to]]
+        table = "children"
+        key_field = "favorite_grandkid_id"
+        child_field_name = "favorite_grandkid"
+        parent_field_name = "darling_grandparents"
+
+[[table]]
+    name = "parents"
+
+[[table]]
+    name = "children"

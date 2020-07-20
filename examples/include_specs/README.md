@@ -1,8 +1,7 @@
-# Example: id_in_set
+# Example: include_spec
 
-This example shows how to write a query that checks for set containment
-using the `= ANY` idiom rather than the `IN` operator that is typically
-used with other database interactivity libraries.
+This example shows how to use include specs to tell pggen how to fill in
+records which are associated with one another via foreign keys.
 
 ## Running
 
