@@ -12,23 +12,12 @@ import (
 type ExecFunc func(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 type ExecMiddleware func(ExecFunc) ExecFunc
 
-// ChainExecMiddleware creates a single exec middleware from a chain
-// of multiple middlewares. Execution is done is done left to right
-func ChainExecMiddleware(execMiddlewares ...ExecMiddleware) ExecMiddleware {
-	return func(next ExecFunc) ExecFunc {
-		for i := len(execMiddlewares) - 1; i >= 0; i-- {
-			next = execMiddlewares[i](next)
-		}
-		return next
-	}
-}
-
 type DBConnWrapper struct {
 	dbConn         pggen.DBConn
 	execMiddleware ExecMiddleware
 }
 
-func WrapDBConn(dbConn pggen.DBConn) *DBConnWrapper {
+func NewDBConnWrapper(dbConn pggen.DBConn) *DBConnWrapper {
 	return &DBConnWrapper{
 		dbConn: dbConn,
 	}
@@ -39,11 +28,9 @@ func (dbConnWrapper *DBConnWrapper) WithExecMiddleware(execMiddleware ExecMiddle
 	return dbConnWrapper
 }
 
-// ExecContext apply the midlle ware if any and execute ExecContext on the wrapped DBConn
+// ExecContext apply the middleware if any and execute ExecContext on the wrapped DBConn
 func (dbConnWrapper *DBConnWrapper) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	execFunc := func(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-		return dbConnWrapper.dbConn.ExecContext(ctx, query, args)
-	}
+	execFunc := dbConnWrapper.dbConn.ExecContext
 	if dbConnWrapper.execMiddleware != nil {
 		execFunc = dbConnWrapper.execMiddleware(execFunc)
 	}
