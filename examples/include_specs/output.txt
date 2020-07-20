@@ -16,3 +16,8 @@ Favorite Grandkid is: <nil>
 spec: grandparents.favorite_grandkid->children
 Parents is: []
 FavoriteGrandkid is: Alexis Slygh
+
+spec: models.GrandparentAllIncludes
+Child of parent is: Alexis Slygh
+Parent of parent is: Sue Slygh
+FavoriteGrandkid is: Alexis Slygh

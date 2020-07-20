@@ -115,4 +115,19 @@ func main() {
 	}
 	fmt.Println("Parents is:", sue.Parents)
 	fmt.Println("FavoriteGrandkid is:", sue.FavoriteGrandkid.Name)
+
+	// Use the pggen-generated include spec to fill everything.
+	// Be careful with this.
+	sue, err = pgClient.GetGrandparent(ctx, sueID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("\nspec: models.GrandparentAllIncludes")
+	err = pgClient.GrandparentFillIncludes(ctx, sue, models.GrandparentAllIncludes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Child of parent is:", sue.Parents[0].Children[0].Name)
+	fmt.Println("Parent of parent is:", sue.Parents[0].Grandparent.Name)
+	fmt.Println("FavoriteGrandkid is:", sue.FavoriteGrandkid.Name)
 }
