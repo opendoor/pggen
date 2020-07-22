@@ -34,7 +34,7 @@ func (dbConnWrapper *DBConnWrapper) ExecContext(ctx context.Context, query strin
 	if dbConnWrapper.execMiddleware != nil {
 		execFunc = dbConnWrapper.execMiddleware(execFunc)
 	}
-	return execFunc(ctx, query, args)
+	return execFunc(ctx, query, args...)
 }
 
 // Unchanged
