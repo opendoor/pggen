@@ -480,8 +480,11 @@ type ColMeta struct {
 	IsPrimary bool
 	// true if this column has a UNIQUE index on it
 	IsUnique bool
-	// extra tags to attach to the generated field
+	// extra (user provided) tags to attach to the generated field TODO(ethan): delete?
 	ExtraTags string
+	// the tags to attach to the generated field (a combination of fields
+	// that pggen computes and ExtraTags)
+	Tags string
 }
 
 // Given the name of a table returns metadata about it
