@@ -32,14 +32,14 @@ func main() {
 		log.Fatal(err)
 	}
 	paulID, err := pgClient.InsertParent(ctx, &models.Parent{
-		Name: "Paul Slygh",
+		Name:          "Paul Slygh",
 		GrandparentId: sueID,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	alexisID, err := pgClient.InsertChild(ctx, &models.Child{
-		Name: "Alexis Slygh",
+		Name:     "Alexis Slygh",
 		ParentId: paulID,
 	})
 	if err != nil {
