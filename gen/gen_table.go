@@ -25,6 +25,7 @@ func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error
 	g.imports[`"strings"`] = true
 	g.imports[`"github.com/lib/pq"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen/include"`] = true
+	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen"`] = true
 
 	for _, table := range tables {
@@ -258,7 +259,7 @@ func (p *pgClientImpl) Get{{ .GoName }}(
 	ctx context.Context,
 	id {{ .PkeyCol.TypeInfo.Name }},
 ) (*{{ .GoName }}, error) {
-	values, err := p.List{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
+	values, err := p.List{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id}, true /* isGet */)
 	if err != nil {
 		return nil, err
 	}
@@ -272,17 +273,18 @@ func (p *PGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) (ret []{{ .GoName }}, err error) {
-	return p.impl.List{{ .GoName }}(ctx, ids)
+	return p.impl.List{{ .GoName }}(ctx, ids, false /* isGet */)
 }
 func (tx *TxPGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 ) (ret []{{ .GoName }}, err error) {
-	return tx.impl.List{{ .GoName }}(ctx, ids)
+	return tx.impl.List{{ .GoName }}(ctx, ids, false /* isGet */)
 }
 func (p *pgClientImpl) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
+	isGet bool,
 ) (ret []{{ .GoName }}, err error) {
 	if len(ids) == 0 {
 		return []{{ .GoName }}{}, nil
@@ -321,11 +323,19 @@ func (p *pgClientImpl) List{{ .GoName }}(
 	}
 
 	if len(ret) != len(ids) {
-		return nil, fmt.Errorf(
-			"List{{ .GoName }}: asked for %d records, found %d",
-			len(ids),
-			len(ret),
-		)
+		if isGet {
+			return nil, &unstable.NotFoundError{
+				Msg: "Get{{ .GoName }}: record not found",
+			}
+		} else {
+			return nil, &unstable.NotFoundError{
+				Msg: fmt.Sprintf(
+					"List{{ .GoName }}: asked for %d records, found %d",
+					len(ids),
+					len(ret),
+				),
+			}
+		}
 	}
 
 	return ret, nil

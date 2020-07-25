@@ -1077,3 +1077,43 @@ func TestParentPointers(t *testing.T) {
 		t.Fatal("Attachment(1): bad parent pointer")
 	}
 }
+
+func TestNotFoundGet(t *testing.T) {
+	_, err := pgClient.GetSmallEntity(ctx, 23423)
+	if err == nil {
+		t.Fatal("expected err")
+	}
+	if !pggen.IsNotFoundError(err) {
+		t.Fatal("expected NotFoundError")
+	}
+}
+
+func TestNotFoundList(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	entity := models.SmallEntity{
+		Anint: 1892,
+	}
+	smallEntityID, err := txClient.InsertSmallEntity(ctx, &entity)
+	chkErr(t, err)
+
+	params := [][]int64{
+		{23423, smallEntityID}, // partial match
+		{23423},                // just completely missing
+	}
+
+	for _, p := range params {
+		// a partial match will be tagged with NotFoundError
+		_, err = pgClient.ListSmallEntity(ctx, p)
+		if err == nil {
+			t.Fatal("expected err")
+		}
+		if !pggen.IsNotFoundError(err) {
+			t.Fatal("expected NotFoundError")
+		}
+	}
+}
