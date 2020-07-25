@@ -323,6 +323,11 @@ CREATE TABLE wacky_single_attachments (
         REFERENCES wacky_roots(id) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+CREATE TABLE gorm_defaults (
+    id SERIAL PRIMARY KEY NOT NULL,
+    uuid uuid NOT NULL DEFAULT uuid_generate_v4()
+);
+
 --
 -- Load Data
 --

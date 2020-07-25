@@ -49,6 +49,11 @@ func TestMergeTags(t *testing.T) {
 			t2:  `slim:"j\"im"`,
 			out: `foo:"bar" slim:"j\"im"`,
 		},
+		{
+			t1:  `foo:"bar"`,
+			t2:  ``,
+			out: `foo:"bar"`,
+		},
 	}
 
 	for i, c := range cases {

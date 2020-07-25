@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jinzhu/gorm"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
@@ -129,5 +130,15 @@ func Test1To1ForeignKey(t *testing.T) {
 
 	if roots[0].WackySingleAttachment == nil {
 		log.Fatal("failed to load single attachemnt")
+	}
+}
+
+func TestGormDefault(t *testing.T) {
+	gormDefault := models.GormDefault{}
+	gormDB.Create(&gormDefault)
+
+	var zero uuid.UUID
+	if zero == gormDefault.Uuid {
+		t.Fatal("uuid was not filled in")
 	}
 }

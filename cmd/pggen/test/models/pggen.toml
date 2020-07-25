@@ -371,3 +371,9 @@
     name = "wacky_attachments"
 [[table]]
     name = "wacky_single_attachments"
+
+[[table]]
+    name = "gorm_defaults"
+    [[table.field_tags]]
+        column_name = "uuid"
+        tags = "gorm:\"default:'uuid_generate_v4()'\""

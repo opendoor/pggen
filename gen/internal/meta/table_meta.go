@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/lib/pq"
 
@@ -161,7 +162,15 @@ func populateFieldTags(meta *TableMeta) error {
 	}
 
 	for i, col := range meta.Info.Cols {
-		meta.Info.Cols[i].ExtraTags = colToAnn[col.PgName]
+		var tags strings.Builder
+		tags.WriteString(`gorm:"column:`)
+		tags.WriteString(col.PgName)
+		tags.WriteRune('"')
+		if col.IsPrimary {
+			tags.WriteString(` gorm:"is_primary"`)
+		}
+
+		meta.Info.Cols[i].Tags = mergeTags(tags.String(), colToAnn[col.PgName])
 	}
 
 	return nil
@@ -480,10 +489,8 @@ type ColMeta struct {
 	IsPrimary bool
 	// true if this column has a UNIQUE index on it
 	IsUnique bool
-	// extra (user provided) tags to attach to the generated field TODO(ethan): delete?
-	ExtraTags string
 	// the tags to attach to the generated field (a combination of fields
-	// that pggen computes and ExtraTags)
+	// that pggen computes and user provided tags)
 	Tags string
 }
 
