@@ -153,9 +153,7 @@ type {{ .GoName }} struct {
 	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }}
 	{{- end }} ` +
-	"`" + `gorm:"column:{{ .PgName }}"
-	{{- if .IsPrimary }} gorm:"is_primary" {{- end }} {{ .ExtraTags -}}` +
-	"`" + `
+	"`" + `{{ .Tags }}` + "`" + `
 	{{- end }}
 	{{- range .IncomingReferences }}
 	{{- if .OneToOne }}
