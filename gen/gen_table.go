@@ -195,7 +195,27 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
-		return err
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabFor{{ .GoName }}) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabFor{{ .GoName }},
+				` + "`" + `drop_cols` + "`" + `,
+				&client.colIdxTabFor{{ .GoName }},
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
 	}
 
 	{{- range .Cols }}

@@ -377,3 +377,6 @@
     [[table.field_tags]]
         column_name = "uuid"
         tags = "gorm:\"default:'uuid_generate_v4()'\""
+
+[[table]]
+    name = "drop_cols"

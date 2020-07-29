@@ -1117,3 +1117,45 @@ func TestNotFoundList(t *testing.T) {
 		}
 	}
 }
+
+func TestDroppingColumnOnTheFly(t *testing.T) {
+	// make sure we always start in a consistant state
+	_, err := pgClient.Handle().ExecContext(ctx, `
+		DROP TABLE drop_cols;
+		CREATE TABLE drop_cols (
+			id SERIAL PRIMARY KEY NOT NULL,
+			f1 int NOT NULL,
+			f2 int NOT NULL
+		);
+	`)
+	chkErr(t, err)
+
+	// force the `Scan` method to be called to populate the caches
+	id, err := pgClient.InsertDropCol(ctx, &models.DropCol{
+		F1: 1,
+		F2: 2,
+	})
+	chkErr(t, err)
+	_, err = pgClient.GetDropCol(ctx, id)
+	chkErr(t, err)
+
+	// pull the rug out from under us
+	_, err = pgClient.Handle().ExecContext(ctx, `ALTER TABLE drop_cols DROP COLUMN f1`)
+	chkErr(t, err)
+
+	// load the record again
+	dc, err := pgClient.GetDropCol(ctx, id)
+	chkErr(t, err)
+
+	if dc.F1 != 0 {
+		t.Fatalf("expected F1 to be the zero value, was %d", dc.F1)
+	}
+
+	if dc.F2 != 2 {
+		t.Fatalf("expected F2 to be 2, was %d", dc.F2)
+	}
+
+	// pull the rug out from under us
+	_, err = pgClient.Handle().ExecContext(ctx, `ALTER TABLE drop_cols ADD COLUMN f1 int NOT NULL DEFAULT 1`)
+	chkErr(t, err)
+}

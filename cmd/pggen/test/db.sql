@@ -328,6 +328,12 @@ CREATE TABLE gorm_defaults (
     uuid uuid NOT NULL DEFAULT uuid_generate_v4()
 );
 
+CREATE TABLE drop_cols (
+    id SERIAL PRIMARY KEY NOT NULL,
+    f1 int NOT NULL DEFAULT 1,
+    f2 int NOT NULL
+);
+
 --
 -- Load Data
 --
