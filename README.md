@@ -223,15 +223,16 @@ and the following entries in your toml file
 
 ```golang
 type SmallEntity struct {
-	Id int64 `gorm:"column:id" gorm:"is_primary"`
-	Anint int64 `gorm:"column:anint"`
-	Attachments []Attachment
+	Id                       int64                         `gorm:"column:id;is_primary"`
+	Anint                    int64                         `gorm:"column:anint"`
+	Attachments              []*Attachment                 `gorm:"foreignKey:SmallEntityId"`
 }
 
 type Attachment struct {
-	Id uuid.UUID `gorm:"column:id" gorm:"is_primary"`
-	SmallEntityId int64 `gorm:"column:small_entity_id"`
-	Value *string `gorm:"column:value"`
+	Id            uuid.UUID `gorm:"column:id;is_primary"`
+	SmallEntityId int64     `gorm:"column:small_entity_id"`
+	Value         *string   `gorm:"column:value"`
+	SmallEntity   *SmallEntity
 }
 ```
 
@@ -258,11 +259,11 @@ imposes the same rule on table vs struct names. In fact, `pggen` and `gorm` use 
 the [same code](https://github.com/jinzhu/inflection) to determine which names are plural
 and which are singular.
 
-The second thing to note here is that `SmallEntity` has an `Attachments` field, which doesn't
-show up in the DDL for the database tables. This is because `pggen` has noticed the foreign
-key constraint on the `attachments` table and inferred that `Attachment` is a child entity
-of `SmallEntity`. Child entities are not automatically filled in by the various accessor
-methods when a record is fetched from the database, but `pggen` does provide utility code
+The second thing to note here is that `SmallEntity` has an `Attachments` field and `Attachment` has
+a `SmallEntity` field, neither of these show up in the DDL for the database tables. This is because
+`pggen` has noticed the foreign key constraint on the `attachments` table and inferred that `Attachment`
+is a child entity of `SmallEntity`. Child entities are not automatically filled in by the various accessor
+methods when a record is fetched from the database, but `pggen` does generate utility code
 which can be invoked for populating them. Child entities are only attached to a generated
 struct if the table which holds the foreign key is also registered in the toml file.
 
