@@ -219,9 +219,9 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 
 func (p *PGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
-	{{- range .Args}}
+	{{- range .Args }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
-	{{- end}}
+	{{- end }}
 ) (*sql.Rows, error) {
 	return p.impl.{{ .ConfigData.Name }}Query(
 		ctx,
@@ -232,9 +232,9 @@ func (p *PGClient) {{ .ConfigData.Name }}Query(
 }
 func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
-	{{- range .Args}}
+	{{- range .Args }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
-	{{- end}}
+	{{- end }}
 ) (*sql.Rows, error) {
 	return tx.impl.{{ .ConfigData.Name }}Query(
 		ctx,
@@ -245,9 +245,9 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
 }
 func (p *pgClientImpl) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
-	{{- range .Args}}
+	{{- range .Args }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
-	{{- end}}
+	{{- end }}
 ) (*sql.Rows, error) {
 	return p.db.QueryContext(
 		ctx,
