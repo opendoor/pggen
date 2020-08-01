@@ -76,6 +76,7 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 		if err != nil {
 			return err
 		}
+		meta.Args = args
 
 		genCtx.StoredFuncs = append(genCtx.StoredFuncs, meta)
 	}
