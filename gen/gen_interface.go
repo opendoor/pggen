@@ -3,12 +3,10 @@ package gen
 import (
 	"fmt"
 	"io"
-	"strings"
 	"text/template"
 
 	"github.com/opendoor-labs/pggen/gen/internal/config"
 	"github.com/opendoor-labs/pggen/gen/internal/meta"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
 // genInterfaces emits the DBQueries interface shared between the generated PGClient
@@ -33,7 +31,6 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 	}
 
 	// poplulate queries
-	// TODO(ethan): avoid hitting the database twice for query metadata
 	genCtx.Queries = make([]meta.QueryMeta, 0, len(conf.Queries))
 	for _, qc := range conf.Queries {
 		meta, err := g.metaResolver.QueryMeta(&qc, true /* inferArgTypes */)
@@ -44,35 +41,14 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 	}
 
 	// populate stored function metadata
-	// TODO(ethan): avoid computing this stuff twice
 	genCtx.StoredFuncs = make([]meta.QueryMeta, 0, len(conf.StoredFunctions))
-	for _, sfc := range conf.StoredFunctions {
-		args, err := g.metaResolver.FuncArgs(sfc.Name)
+	for i := range conf.StoredFunctions {
+		queryConf, args, err := g.storedFuncToQueryConf(&conf.StoredFunctions[i])
 		if err != nil {
 			return err
 		}
 
-		var queryTxt strings.Builder
-		err = storedFuncQueryTmpl.Execute(&queryTxt, map[string]interface{}{
-			"name": sfc.Name,
-			"args": args,
-		})
-		if err != nil {
-			return err
-		}
-
-		// generate a fake query config because stored procs are
-		// just a special case of queries where we can do a little
-		// bit better when it comes to naming arguments.
-		queryConf := config.QueryConfig{
-			Name:          names.PgToGoName(sfc.Name),
-			Body:          queryTxt.String(),
-			NullFlags:     sfc.NullFlags,
-			NotNullFields: sfc.NotNullFields,
-			ReturnType:    names.PgTableToGoModel(sfc.ReturnType),
-		}
-
-		meta, err := g.metaResolver.QueryMeta(&queryConf, false /* inferArgTypes */)
+		meta, err := g.metaResolver.QueryMeta(queryConf, false /* inferArgTypes */)
 		if err != nil {
 			return err
 		}
@@ -82,7 +58,6 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 	}
 
 	// populate the statement gen ctx
-	// TODO(ethan): avoid computing this stuff twice
 	genCtx.Stmts = make([]meta.StmtMeta, 0, len(conf.Stmts))
 	for _, sc := range conf.Stmts {
 		meta, err := g.metaResolver.StmtMeta(&sc)
@@ -98,11 +73,6 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 type tableIfaceGenCtx struct {
 	GoName   string
 	PkeyType string
-}
-
-type queryIfaceGenCtx struct {
-	Name           string
-	ReturnTypeName string
 }
 
 type ifaceGenCtx struct {
