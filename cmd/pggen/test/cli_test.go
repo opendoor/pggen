@@ -96,7 +96,7 @@ name = "small_entities"
 		`,
 		exitCode: 1,
 		stderrRE: "return_type cannot be provided.*primitive",
-		stdoutRE: "(?s)stored functions.*generating query 'returns_text'",
+		stdoutRE: "(?s)stored functions.*generating query 'ReturnsText'",
 	},
 	{
 		// malformed toml
@@ -176,7 +176,7 @@ name = "small_entities"
     name = "concats_text"
 		`,
 		exitCode: 0,
-		stdoutRE: "concats_text",
+		stdoutRE: "ConcatsText",
 	},
 	{
 		// test that we try the connection strings in order
@@ -186,7 +186,7 @@ name = "small_entities"
     name = "concats_text"
 		`,
 		exitCode: 0,
-		stdoutRE: "concats_text",
+		stdoutRE: "ConcatsText",
 	},
 	{
 		cmd: "{{ .Exe }} -o {{ .Output }} -c bad -c bader -c badest {{ .Toml }}",
@@ -253,7 +253,7 @@ name = "small_entities"
     name = "returns_text"
 		`,
 		exitCode: 0,
-		stdoutRE: "query 'returns_text'",
+		stdoutRE: "query 'ReturnsText'",
 	},
 	{
 		cmd: "{{ .Exe }} -o {{ .Output }} --enable-var UNSET=missing_value {{ .Toml }}",

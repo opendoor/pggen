@@ -183,6 +183,11 @@ func (g *Generator) Gen() error {
 		return err
 	}
 
+	err = g.genInterfaces(&body, conf)
+	if err != nil {
+		return err
+	}
+
 	//
 	// Write the generated code to the file
 	//

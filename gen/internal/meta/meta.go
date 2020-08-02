@@ -63,7 +63,7 @@ type Arg struct {
 	TypeInfo types.Info
 }
 
-type queryMeta struct {
+type QueryMeta struct {
 	// The configuation data for this query from the .toml file
 	ConfigData config.QueryConfig
 	// The metadata for the arguments to this query
@@ -80,7 +80,7 @@ type queryMeta struct {
 func (mc *Resolver) QueryMeta(
 	config *config.QueryConfig,
 	inferArgTypes bool,
-) (ret queryMeta, err error) {
+) (ret QueryMeta, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("getting metadata for '%s': %s", config.Name, err.Error())
@@ -146,7 +146,7 @@ func (mc *Resolver) QueryMeta(
 	return
 }
 
-type stmtMeta struct {
+type StmtMeta struct {
 	// The configuation data for this stmt from the .toml file
 	ConfigData config.StmtConfig
 	// The metadata for the arguments to this query
@@ -155,7 +155,7 @@ type stmtMeta struct {
 
 func (mc *Resolver) StmtMeta(
 	config *config.StmtConfig,
-) (ret stmtMeta, err error) {
+) (ret StmtMeta, err error) {
 	ret.ConfigData = *config
 
 	args, err := mc.argsOfStmt(config.Body)
