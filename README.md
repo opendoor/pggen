@@ -169,7 +169,7 @@ which would cause the result type
 
 ```golang
 type GetIdAndCreatedRow struct {
-	Id int64 `gorm:"column:id" gorm:"is_primary"`
+	Id int64 `gorm:"column:id;is_primary"`
 	CreatedAt time.Time `gorm:"column:created_at"`
 }
 ```
