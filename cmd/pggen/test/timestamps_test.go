@@ -235,7 +235,7 @@ func TestUpsertUpdateTimestamps(t *testing.T) {
 
 	dip := "dip"
 	fetched.Payload = &dip
-	_, err = txClient.UpsertTimestampsGlobal(ctx, fetched, nil, updateMask)
+	_, err = txClient.UpsertTimestampsGlobal(ctx, fetched, nil, updateMask, pggen.UpsertUsePkey)
 	chkErr(t, err)
 
 	refetched, err := txClient.GetTimestampsGlobal(ctx, id)
