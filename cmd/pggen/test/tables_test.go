@@ -625,8 +625,7 @@ func TestUpsertDoesntUpdateThingsNotInFieldSet(t *testing.T) {
 		_ = txClient.Rollback()
 	}()
 
-	justID := pggen.NewFieldSet(models.SmallEntityMaxFieldIndex)
-	justID.Set(models.SmallEntityIdFieldIndex, true)
+	empty := pggen.NewFieldSet(models.SmallEntityMaxFieldIndex)
 
 	id, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
 		Anint: 19,
@@ -636,7 +635,7 @@ func TestUpsertDoesntUpdateThingsNotInFieldSet(t *testing.T) {
 	id, err = txClient.UpsertSmallEntity(ctx, &models.SmallEntity{
 		Id:    id,
 		Anint: 14,
-	}, []string{}, justID)
+	}, []string{}, empty, pggen.UpsertUsePkey)
 	chkErr(t, err)
 
 	fetched, err := txClient.GetSmallEntity(ctx, id)
@@ -959,7 +958,7 @@ func TestInsertPkey(t *testing.T) {
 	_, err = txClient.InsertNonDefaultPkey(ctx, &models.NonDefaultPkey{
 		Id:  "foo",
 		Val: &one,
-	}, pggen.UsePkey)
+	}, pggen.InsertUsePkey)
 	chkErr(t, err)
 }
 
