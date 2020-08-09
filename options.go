@@ -36,6 +36,15 @@ type ListOptions struct {
 
 type DeleteOpt func(opts *DeleteOptions)
 type DeleteOptions struct {
+	DoHardDelete bool
+}
+
+// DeleteDoHardDelete tells a delete method to delete the data from the database
+// even if a `deleted_at` timestamp has been configured for soft deletes. If soft
+// deletes have not been configured for the table (via the `deleted_at_field` config
+// key), this flag has no effect.
+func DeleteDoHardDelete(opts *DeleteOptions) {
+	opts.DoHardDelete = true
 }
 
 type UpdateOpt func(opts *UpdateOptions)

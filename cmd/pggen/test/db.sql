@@ -334,6 +334,19 @@ CREATE TABLE drop_cols (
     f2 int NOT NULL
 );
 
+CREATE TABLE soft_deletables (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    deleted_ts timestamp
+);
+CREATE TABLE deletable_leafs (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    soft_deletable_id integer NOT NULL
+        REFERENCES soft_deletables(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    deleted_at timestamp
+);
+
 --
 -- Load Data
 --

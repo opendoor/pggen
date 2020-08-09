@@ -5,12 +5,16 @@ package config
 type DbConfig struct {
 	// The name of the field that should be updated by pggen's generated
 	// `Insert` methods. Overridden by the config option of the same name
-	// on tableConfig.
+	// on TableConfig.
 	CreatedAtField string `toml:"created_at_field"`
 	// The name of the field that should be updated by pggen's generated
 	// `Update` and `Insert` methods. Overridden by the config option of
-	// the same name on tableConfig.
-	UpdatedAtField  string             `toml:"updated_at_field"`
+	// the same name on TableConfig.
+	UpdatedAtField string `toml:"updated_at_field"`
+	// The name of the nullable timestamp field that should be used to
+	// implement soft deletes. Overridden by the config option of the
+	// same name on TableConfig.
+	DeletedAtField  string             `toml:"deleted_at_field"`
 	TypeOverrides   []TypeOverride     `toml:"type_override"`
 	StoredFunctions []StoredFuncConfig `toml:"stored_function"`
 	Queries         []QueryConfig      `toml:"query"`
@@ -90,6 +94,9 @@ type TableConfig struct {
 	// The timestamp to update in `Update` and `Insert`.
 	// Overriddes global version.
 	UpdatedAtField string `toml:"updated_at_field"`
+	// The nullable timestamp for implementing soft deletes.
+	// Overriddes global version.
+	DeletedAtField string `toml:"deleted_at_field"`
 	// A list of extra annotations to add to the generated fields.
 	FieldTags []FieldTag `toml:"field_tags"`
 }
@@ -152,6 +159,10 @@ func (c *DbConfig) Normalize() error {
 
 		if len(tc.UpdatedAtField) == 0 && len(c.UpdatedAtField) > 0 {
 			c.Tables[i].UpdatedAtField = c.UpdatedAtField
+		}
+
+		if len(tc.DeletedAtField) == 0 && len(c.DeletedAtField) > 0 {
+			c.Tables[i].DeletedAtField = c.DeletedAtField
 		}
 	}
 

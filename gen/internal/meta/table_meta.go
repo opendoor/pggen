@@ -60,18 +60,32 @@ type TableMeta struct {
 	// The include spec which represents the transitive closure of
 	// this tables family
 	AllIncludeSpec *include.Spec
+
 	// If true, this table does have an update timestamp field
-	HasUpdateAtField bool
+	HasUpdatedAtField bool
 	// True if the update at field can be null
 	UpdatedAtFieldIsNullable bool
 	// True if the updated at field has a time zone
 	UpdatedAtHasTimezone bool
+	// The name of the updated at field
+	GoUpdatedAtField string
+
 	// If true, this table does have a create timestamp field
 	HasCreatedAtField bool
 	// True if the created at field can be null
 	CreatedAtFieldIsNullable bool
 	// True if the created at field has a time zone
 	CreatedAtHasTimezone bool
+	// The name of the created at field
+	GoCreatedAtField string
+
+	// If true, this table has a nullable soft-delete timestamp field
+	HasDeletedAtField bool
+	// True if the deleleted at timestamp has a timezone
+	DeletedAtHasTimezone bool
+	// The name of the deleted at field
+	PgDeletedAtField string
+
 	// The table metadata as postgres reports it
 	Info PgTableInfo
 }
@@ -183,6 +197,7 @@ func (tr *tableResolver) setTimestampFlags(meta *TableMeta) {
 				meta.HasCreatedAtField = true
 				meta.CreatedAtFieldIsNullable = cm.Nullable
 				meta.CreatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+				meta.GoCreatedAtField = names.PgToGoName(meta.Config.CreatedAtField)
 				break
 			}
 		}
@@ -199,18 +214,38 @@ func (tr *tableResolver) setTimestampFlags(meta *TableMeta) {
 	if len(meta.Config.UpdatedAtField) > 0 {
 		for _, cm := range meta.Info.Cols {
 			if cm.PgName == meta.Config.UpdatedAtField {
-				meta.HasUpdateAtField = true
+				meta.HasUpdatedAtField = true
 				meta.UpdatedAtFieldIsNullable = cm.Nullable
 				meta.UpdatedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+				meta.GoUpdatedAtField = names.PgToGoName(meta.Config.UpdatedAtField)
 				break
 			}
 		}
 
-		if !meta.HasUpdateAtField {
+		if !meta.HasUpdatedAtField {
 			tr.log.Warnf(
 				"table '%s' has no '%s' updated at timestamp\n",
 				meta.Config.Name,
 				meta.Config.UpdatedAtField,
+			)
+		}
+	}
+
+	if len(meta.Config.DeletedAtField) > 0 {
+		for _, cm := range meta.Info.Cols {
+			if cm.PgName == meta.Config.DeletedAtField && cm.Nullable {
+				meta.HasDeletedAtField = true
+				meta.DeletedAtHasTimezone = cm.TypeInfo.IsTimestampWithZone
+				meta.PgDeletedAtField = meta.Config.DeletedAtField
+				break
+			}
+		}
+
+		if !meta.HasDeletedAtField {
+			tr.log.Warnf(
+				"table '%s' has no nullable '%s' deleted at timestamp\n",
+				meta.Config.Name,
+				meta.Config.DeletedAtField,
 			)
 		}
 	}
@@ -228,7 +263,7 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 	}
 
 	ensureIncomingReferencedSpec := func(ref *RefMeta) error {
-		subInfo := tables[ref.PointsFrom.PgName]
+		subInfo := tables[ref.PointsFrom.Info.PgName]
 		if subInfo == nil {
 			// This table is referenced in the database schema but not in the
 			// config file.
@@ -253,7 +288,7 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 	}
 
 	ensureOutgoingReferencedSpec := func(ref *RefMeta) error {
-		subInfo := tables[ref.PointsTo.PgName]
+		subInfo := tables[ref.PointsTo.Info.PgName]
 		if subInfo == nil {
 			// This table is referenced in the database schema but not in the
 			// config file.
@@ -295,11 +330,11 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 		meta := infoTab[table.Name]
 		inferedReferencs[table.Name] = map[string]bool{}
 		for _, ref := range meta.Info.IncomingReferences {
-			refererMeta := infoTab[ref.PointsFrom.PgName]
+			refererMeta := infoTab[ref.PointsFrom.Info.PgName]
 
 			// don't pass the infered relationship along if we've been asked not to
 			if !refererMeta.Config.NoInferBelongsTo {
-				inferedReferencs[table.Name][ref.PointsFrom.PgName] = true
+				inferedReferencs[table.Name][ref.PointsFrom.Info.PgName] = true
 			}
 		}
 	}
@@ -358,9 +393,9 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 
 			pointsToMeta := infoTab[belongsTo.Table].Info
 			ref := RefMeta{
-				PointsTo:              &tr.meta.tableInfo[belongsTo.Table].Info,
+				PointsTo:              tr.meta.tableInfo[belongsTo.Table],
 				PointsToField:         pointsToMeta.PkeyCol,
-				PointsFrom:            &tr.meta.tableInfo[table.Name].Info,
+				PointsFrom:            tr.meta.tableInfo[table.Name],
 				PointsFromField:       belongsToColMeta,
 				GoPointsFromFieldName: goPointsFromFieldName,
 				PgPointsFromFieldName: pgPointsFromFieldName,
@@ -370,7 +405,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 				Nullable:              belongsToColMeta.Nullable,
 			}
 			// prevent inference when we have an explicit config
-			inferedReferencs[belongsTo.Table][ref.PointsFrom.PgName] = false
+			inferedReferencs[belongsTo.Table][ref.PointsFrom.Info.PgName] = false
 
 			info := infoTab[belongsTo.Table]
 			info.AllIncomingReferences = append(info.AllIncomingReferences, ref)
@@ -384,7 +419,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 		meta := infoTab[table.Name]
 
 		for _, ref := range meta.Info.IncomingReferences {
-			if inferedReferencs[table.Name][ref.PointsFrom.PgName] {
+			if inferedReferencs[table.Name][ref.PointsFrom.Info.PgName] {
 				meta.AllIncomingReferences = append(meta.AllIncomingReferences, ref)
 			}
 		}
@@ -403,12 +438,12 @@ func populateOutgoingReferencesMapping(infoTab map[string]*TableMeta) {
 	for _, meta := range infoTab {
 		for i, ref := range meta.AllIncomingReferences {
 
-			slice, inMap := outgoingRefMap[ref.PointsFrom.PgName]
+			slice, inMap := outgoingRefMap[ref.PointsFrom.Info.PgName]
 			if inMap {
 				slice = append(slice, meta.AllIncomingReferences[i])
-				outgoingRefMap[ref.PointsFrom.PgName] = slice
+				outgoingRefMap[ref.PointsFrom.Info.PgName] = slice
 			} else {
-				outgoingRefMap[ref.PointsFrom.PgName] = []RefMeta{meta.AllIncomingReferences[i]}
+				outgoingRefMap[ref.PointsFrom.Info.PgName] = []RefMeta{meta.AllIncomingReferences[i]}
 			}
 		}
 	}
@@ -460,10 +495,6 @@ type PgTableInfo struct {
 	Cols []ColMeta
 	// A list of the postgres names of tables which reference this one
 	IncomingReferences []RefMeta
-	// If true, this table does have an update timestamp field
-	HasUpdateAtField bool
-	// If true, this table does have a create timestamp field
-	HasCreatedAtField bool
 	// The 0-based index of the primary key column
 	PkeyColIdx int
 }
@@ -646,10 +677,10 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 		pointsToIdx = int64(metaColNumToIdx[pointsToIdx])
 		ref.PointsToField = &meta.Cols[pointsToIdx]
 
-		ref.PointsTo = &tr.meta.tableInfo[pgPointsTo].Info
-		ref.PointsFrom = &tr.meta.tableInfo[pgPointsFrom].Info
+		ref.PointsTo = tr.meta.tableInfo[pgPointsTo]
+		ref.PointsFrom = tr.meta.tableInfo[pgPointsFrom]
 
-		fromCols := ref.PointsFrom.Cols
+		fromCols := ref.PointsFrom.Info.Cols
 		fromColsColNumToIdx := columnResolverTable(fromCols)
 
 		pointsFromIdx := pointsFromIdxs[0]
@@ -665,14 +696,14 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 
 		// generate a name to use to refer to the referencing table
 		if ref.OneToOne {
-			ref.GoPointsFromFieldName = ref.PointsFrom.GoName
+			ref.GoPointsFromFieldName = ref.PointsFrom.Info.GoName
 		} else {
-			ref.GoPointsFromFieldName = ref.PointsFrom.PluralGoName
+			ref.GoPointsFromFieldName = ref.PointsFrom.Info.PluralGoName
 		}
-		ref.GoPointsToFieldName = ref.PointsTo.GoName
+		ref.GoPointsToFieldName = ref.PointsTo.Info.GoName
 
-		ref.PgPointsFromFieldName = ref.PointsFrom.PgName
-		ref.PgPointsToFieldName = ref.PointsTo.PgName
+		ref.PgPointsFromFieldName = ref.PointsFrom.Info.PgName
+		ref.PgPointsToFieldName = ref.PointsTo.Info.PgName
 
 		meta.IncomingReferences = append(meta.IncomingReferences, ref)
 	}

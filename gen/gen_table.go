@@ -8,7 +8,6 @@ import (
 
 	"github.com/opendoor-labs/pggen/gen/internal/config"
 	"github.com/opendoor-labs/pggen/gen/internal/meta"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
 // Generate code for all of the tables
@@ -38,54 +37,30 @@ func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error
 	return nil
 }
 
+// This genctx duplicates info already stored in the Meta member, but it is
+// a nice quality of life improvement to have some of the really commonly refered
+// data bubbled up to the top level.
 type tableGenCtx struct {
-	// taken from TableMeta
+	// taken from Meta
 	PgName string
-	// taken from TableMeta
+	// taken from Meta
 	GoName string
-	// taken from TableMeta
+	// taken from Meta
 	PkeyCol *meta.ColMeta
-	// taken from TableMeta
-	PkeyColIdx int
-	// taken from TableMeta
-	Cols []meta.ColMeta
-	// taken from TableMeta
-	IncomingReferences []meta.RefMeta
-	// taken from TableMeta
-	OutgoingReferences []meta.RefMeta
-	// The include spec which represents the transitive closure of
-	// this tables family
-	AllIncludeSpec           string
-	HasCreatedAtField        bool
-	CreatedAtFieldIsNullable bool
-	CreatedAtHasTimezone     bool
-	CreatedAtField           string
-	HasUpdatedAtField        bool
-	UpdatedAtHasTimezone     bool
-	UpdatedAtFieldIsNullable bool
-	UpdatedAtField           string
+	// taken from Meta
+	PkeyColIdx     int
+	AllIncludeSpec string
+	Meta           *meta.TableMeta
 }
 
 func tableGenCtxFromInfo(info *meta.TableMeta) tableGenCtx {
 	return tableGenCtx{
-		PgName:             info.Info.PgName,
-		GoName:             info.Info.GoName,
-		PkeyCol:            info.Info.PkeyCol,
-		PkeyColIdx:         info.Info.PkeyColIdx,
-		Cols:               info.Info.Cols,
-		IncomingReferences: info.AllIncomingReferences,
-		OutgoingReferences: info.AllOutgoingReferences,
-		AllIncludeSpec:     info.AllIncludeSpec.String(),
-
-		HasCreatedAtField:        info.HasCreatedAtField,
-		CreatedAtField:           names.PgToGoName(info.Config.CreatedAtField),
-		CreatedAtFieldIsNullable: info.CreatedAtFieldIsNullable,
-		CreatedAtHasTimezone:     info.CreatedAtHasTimezone,
-
-		HasUpdatedAtField:        info.HasUpdateAtField,
-		UpdatedAtField:           names.PgToGoName(info.Config.UpdatedAtField),
-		UpdatedAtFieldIsNullable: info.UpdatedAtFieldIsNullable,
-		UpdatedAtHasTimezone:     info.UpdatedAtHasTimezone,
+		PgName:         info.Info.PgName,
+		GoName:         info.Info.GoName,
+		PkeyCol:        info.Info.PkeyCol,
+		PkeyColIdx:     info.Info.PkeyColIdx,
+		AllIncludeSpec: info.AllIncludeSpec.String(),
+		Meta:           info,
 	}
 }
 
@@ -112,7 +87,7 @@ func (g *Generator) genTable(
 		return
 	}
 
-	if tableInfo.HasUpdateAtField || tableInfo.HasCreatedAtField {
+	if tableInfo.HasUpdatedAtField || tableInfo.HasCreatedAtField {
 		g.imports[`"time"`] = true
 	}
 
@@ -136,7 +111,7 @@ func (g *Generator) genTable(
 }
 
 var tableTypeFieldSigTmpl *template.Template = template.Must(template.New("table-type-field-sig-tmpl").Parse(`
-{{- range .Cols }}
+{{- range .Meta.Info.Cols }}
 {{- if .Nullable }}
 {{ .GoName }} {{ .TypeInfo.NullName }}
 {{- else }}
@@ -147,7 +122,7 @@ var tableTypeFieldSigTmpl *template.Template = template.Must(template.New("table
 
 var tableTypeTmpl *template.Template = template.Must(template.New("table-type-tmpl").Parse(`
 type {{ .GoName }} struct {
-	{{- range .Cols }}
+	{{- range .Meta.Info.Cols }}
 	{{- if .Nullable }}
 	{{ .GoName }} {{ .TypeInfo.NullName }}
 	{{- else }}
@@ -155,18 +130,18 @@ type {{ .GoName }} struct {
 	{{- end }} ` +
 	"`" + `{{ .Tags }}` + "`" + `
 	{{- end }}
-	{{- range .IncomingReferences }}
+	{{- range .Meta.AllIncomingReferences }}
 	{{- if .OneToOne }}
-	{{ .GoPointsFromFieldName }} *{{ .PointsFrom.GoName }} ` +
+	{{ .GoPointsFromFieldName }} *{{ .PointsFrom.Info.GoName }} ` +
 	"`" + `gorm:"foreignKey:{{ .PointsFromField.GoName }}"` + "`" + `
 	{{- else }}
-	{{ .GoPointsFromFieldName }} []*{{ .PointsFrom.GoName }} ` +
+	{{ .GoPointsFromFieldName }} []*{{ .PointsFrom.Info.GoName }} ` +
 	"`" + `gorm:"foreignKey:{{ .PointsFromField.GoName }}"` + "`" + `
 	{{- end }}
 	{{- end }}
-	{{- range .OutgoingReferences }}
+	{{- range .Meta.AllOutgoingReferences }}
 	{{- /* All outgoing references are 1-1, so we don't check the .OneToOne flag */}}
-	{{ .GoPointsToFieldName }} *{{ .PointsTo.GoName }}
+	{{ .GoPointsToFieldName }} *{{ .PointsTo.Info.GoName }}
 	{{- end}}
 }
 func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
@@ -218,7 +193,7 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 		}
 	}
 
-	{{- range .Cols }}
+	{{- range .Meta.Info.Cols }}
 	{{- if .Nullable }}
 	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "nullableTgts.scan%s" .GoName) }}
 	{{- end }}
@@ -228,7 +203,7 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 }
 
 type nullableScanTgtsFor{{ .GoName }} struct {
-	{{- range .Cols }}
+	{{- range .Meta.Info.Cols }}
 	{{- if .Nullable }}
 	scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
 	{{- end }}
@@ -238,7 +213,7 @@ type nullableScanTgtsFor{{ .GoName }} struct {
 // a table mapping codegen-time col indicies to functions returning a scanner for the
 // field that was at that column index at codegen-time.
 var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{{ .GoName }}) interface{} {
-	{{- range .Cols }}
+	{{- range .Meta.Info.Cols }}
 	func (
 		r *{{ $.GoName }},
 		nullableTgts *nullableScanTgtsFor{{ $.GoName }},
@@ -253,7 +228,7 @@ var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{
 }
 
 var genTimeColIdxTabFor{{ .GoName }} map[string]int = map[string]int{
-	{{- range $i, $col := .Cols }}
+	{{- range $i, $col := .Meta.Info.Cols }}
 	` + "`" + `{{ $col.PgName }}` + "`" + `: {{ $i }},
 	{{- end }}
 }
@@ -316,7 +291,8 @@ func (p *pgClientImpl) list{{ .GoName }}(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
+		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)
+		{{- if .Meta.HasDeletedAtField }} AND \"{{ .Meta.PgDeletedAtField }}\" IS NULL {{ end }}",
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -439,49 +415,49 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 		o(&opt)
 	}
 
-	{{- if (or .HasCreatedAtField .HasUpdatedAtField) }}
+	{{- if (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) }}
 	now := time.Now()
 	{{- end }}
 
-	{{- if .HasCreatedAtField }}
+	{{- if .Meta.HasCreatedAtField }}
 	for i := range values {
-		{{- if .CreatedAtHasTimezone }}
+		{{- if .Meta.CreatedAtHasTimezone }}
 		createdAt := now
 		{{- else }}
 		createdAt := now.UTC()
 		{{- end }}
 
-		{{- if .HasCreatedAtField }}
-		{{- if .CreatedAtFieldIsNullable }}
-		values[i].{{ .CreatedAtField }} = &createdAt
+		{{- if .Meta.HasCreatedAtField }}
+		{{- if .Meta.CreatedAtFieldIsNullable }}
+		values[i].{{ .Meta.GoCreatedAtField }} = &createdAt
 		{{- else }}
-		values[i].{{ .CreatedAtField }} = createdAt
+		values[i].{{ .Meta.GoCreatedAtField }} = createdAt
 		{{- end }}
 		{{- end }}
 	}
 	{{- end }}
 
-	{{- if .HasUpdatedAtField }}
+	{{- if .Meta.HasUpdatedAtField }}
 	for i := range values {
-		{{- if .CreatedAtHasTimezone }}
+		{{- if .Meta.CreatedAtHasTimezone }}
 		updatedAt := now
 		{{- else }}
 		updatedAt := now.UTC()
 		{{- end }}
 
-		{{- if .HasUpdatedAtField }}
-		{{- if .UpdatedAtFieldIsNullable }}
-		values[i].{{ .UpdatedAtField }} = &updatedAt
+		{{- if .Meta.HasUpdatedAtField }}
+		{{- if .Meta.UpdatedAtFieldIsNullable }}
+		values[i].{{ .Meta.GoUpdatedAtField }} = &updatedAt
 		{{- else }}
-		values[i].{{ .UpdatedAtField }} = updatedAt
+		values[i].{{ .Meta.GoUpdatedAtField }} = updatedAt
 		{{- end }}
 		{{- end }}
 	}
 	{{- end }}
 
-	args := make([]interface{}, 0, {{ len .Cols }} * len(values))
+	args := make([]interface{}, 0, {{ len .Meta.Info.Cols }} * len(values))
 	for _, v := range values {
-		{{- range .Cols }}
+		{{- range .Meta.Info.Cols }}
 		{{- if (not .IsPrimary) }}
 		{{- if .Nullable }}
 		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
@@ -529,18 +505,18 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 
 // bit indicies for 'fieldMask' parameters
 const (
-	{{- range $i, $c := .Cols }}
+	{{- range $i, $c := .Meta.Info.Cols }}
 	{{ $.GoName }}{{ $c.GoName }}FieldIndex int = {{ $i }}
 	{{- end }}
-	{{ $.GoName }}MaxFieldIndex int = ({{ len .Cols }} - 1)
+	{{ $.GoName }}MaxFieldIndex int = ({{ len .Meta.Info.Cols }} - 1)
 )
 
 // A field set saying that all fields in {{ .GoName }} should be updated.
 // For use as a 'fieldMask' parameter
-var {{ .GoName }}AllFields pggen.FieldSet = pggen.NewFieldSetFilled({{ len .Cols }})
+var {{ .GoName }}AllFields pggen.FieldSet = pggen.NewFieldSetFilled({{ len .Meta.Info.Cols }})
 
 var fieldsFor{{ .GoName }} []string = []string{
-	{{- range .Cols }}
+	{{- range .Meta.Info.Cols }}
 	` + "`" + `{{ .PgName }}` + "`" + `,
 	{{- end }}
 }
@@ -582,18 +558,18 @@ func (p *pgClientImpl) update{{ .GoName }}(
 		return
 	}
 
-	{{- if .HasUpdatedAtField }}
-	{{- if .UpdatedAtHasTimezone }}
+	{{- if .Meta.HasUpdatedAtField }}
+	{{- if .Meta.UpdatedAtHasTimezone }}
 	now := time.Now()
 	{{- else }}
 	now := time.Now().UTC()
 	{{- end }}
-	{{- if .UpdatedAtFieldIsNullable }}
-	value.{{ .UpdatedAtField }} = &now
+	{{- if .Meta.UpdatedAtFieldIsNullable }}
+	value.{{ .Meta.GoUpdatedAtField }} = &now
 	{{- else }}
-	value.{{ .UpdatedAtField }} = now
+	value.{{ .Meta.GoUpdatedAtField }} = now
 	{{- end }}
-	fieldMask.Set({{ .GoName }}{{ .UpdatedAtField }}FieldIndex, true)
+	fieldMask.Set({{ .GoName }}{{ .Meta.GoUpdatedAtField }}FieldIndex, true)
 	{{- end }}
 
 	updateStmt := genUpdateStmt(
@@ -604,9 +580,9 @@ func (p *pgClientImpl) update{{ .GoName }}(
 		"{{ .PkeyCol.PgName }}",
 	)
 
-	args := make([]interface{}, 0, {{ len .Cols }})
+	args := make([]interface{}, 0, {{ len .Meta.Info.Cols }})
 
-	{{- range .Cols }}
+	{{- range .Meta.Info.Cols }}
 	if fieldMask.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
 		{{- if .Nullable }}
 		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "value.%s" .GoName) }})
@@ -723,38 +699,38 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		constraintNames = []string{` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `}
 	}
 
-	{{ if (or .HasCreatedAtField .HasUpdatedAtField) }}
+	{{ if (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) }}
 	now := time.Now()
 
-	{{- if .HasCreatedAtField }}
-	{{- if .CreatedAtHasTimezone }}
+	{{- if .Meta.HasCreatedAtField }}
+	{{- if .Meta.CreatedAtHasTimezone }}
 	createdAt := now
 	{{- else }}
 	createdAt := now.UTC()
 	{{- end }}
 	for i := range values {
-		{{- if .CreatedAtFieldIsNullable }}
-		values[i].{{ .CreatedAtField }} = &createdAt
+		{{- if .Meta.CreatedAtFieldIsNullable }}
+		values[i].{{ .Meta.GoCreatedAtField }} = &createdAt
 		{{- else }}
-		values[i].{{ .CreatedAtField }} = createdAt
+		values[i].{{ .Meta.GoCreatedAtField }} = createdAt
 		{{- end }}
 	}
 	{{- end}}
 
-	{{- if .HasUpdatedAtField }}
-	{{- if .UpdatedAtHasTimezone }}
+	{{- if .Meta.HasUpdatedAtField }}
+	{{- if .Meta.UpdatedAtHasTimezone }}
 	updatedAt := now
 	{{- else }}
 	updatedAt := now.UTC()
 	{{- end }}
 	for i := range values {
-		{{- if .UpdatedAtFieldIsNullable }}
-		values[i].{{ .UpdatedAtField }} = &updatedAt
+		{{- if .Meta.UpdatedAtFieldIsNullable }}
+		values[i].{{ .Meta.GoUpdatedAtField }} = &updatedAt
 		{{- else }}
-		values[i].{{ .UpdatedAtField }} = updatedAt
+		values[i].{{ .Meta.GoUpdatedAtField }} = updatedAt
 		{{- end }}
 	}
-	fieldMask.Set({{ .GoName }}{{ .UpdatedAtField }}FieldIndex, true)
+	fieldMask.Set({{ .GoName }}{{ .Meta.GoUpdatedAtField }}FieldIndex, true)
 	{{- end }}
 	{{- end }}
 
@@ -778,13 +754,13 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
-		updateCols := make([]string, 0, {{ len .Cols }})
-		updateExprs := make([]string, 0, {{ len .Cols }})
+		updateCols := make([]string, 0, {{ len .Meta.Info.Cols }})
+		updateExprs := make([]string, 0, {{ len .Meta.Info.Cols }})
 		if options.UsePkey {
 			updateCols = append(updateCols, ` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `)
 			updateExprs = append(updateExprs, ` + "`" + `excluded.{{ .PkeyCol.PgName }}` + "`" + `)
 		}
-		{{- range $i, $col := .Cols }}
+		{{- range $i, $col := .Meta.Info.Cols }}
 		{{- if (not (eq $i $.PkeyColIdx)) }}
 		if fieldMask.Test({{ $.GoName }}{{ $col.GoName }}FieldIndex) {
 			updateCols = append(updateCols, ` + "`" + `{{ $col.PgName }}` + "`" + `)
@@ -813,9 +789,9 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 
 	stmt.WriteString(` + "`" + ` RETURNING "{{ .PkeyCol.PgName }}"` + "`" + `)
 
-	args := make([]interface{}, 0, {{ len .Cols }} * len(values))
+	args := make([]interface{}, 0, {{ len .Meta.Info.Cols }} * len(values))
 	for _, v := range values {
-		{{- range $i, $col := .Cols }}
+		{{- range $i, $col := .Meta.Info.Cols }}
 		{{- if (eq $i $.PkeyColIdx) }}
 		if options.UsePkey {
 			{{- if .Nullable }}
@@ -858,14 +834,14 @@ func (p *PGClient) Delete{{ .GoName }}(
 	id {{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.bulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
+	return p.impl.bulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id}, opts...)
 }
 func (tx *TxPGClient) Delete{{ .GoName }}(
 	ctx context.Context,
 	id {{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.bulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id})
+	return tx.impl.bulkDelete{{ .GoName }}(ctx, []{{ .PkeyCol.TypeInfo.Name }}{id}, opts...)
 }
 
 func (p *PGClient) BulkDelete{{ .GoName }}(
@@ -873,14 +849,14 @@ func (p *PGClient) BulkDelete{{ .GoName }}(
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.bulkDelete{{ .GoName }}(ctx, ids)
+	return p.impl.bulkDelete{{ .GoName }}(ctx, ids, opts...)
 }
 func (tx *TxPGClient) BulkDelete{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.bulkDelete{{ .GoName }}(ctx, ids)
+	return tx.impl.bulkDelete{{ .GoName }}(ctx, ids, opts...)
 }
 func (p *pgClientImpl) bulkDelete{{ .GoName }}(
 	ctx context.Context,
@@ -891,11 +867,42 @@ func (p *pgClientImpl) bulkDelete{{ .GoName }}(
 		return nil
 	}
 
+	options := pggen.DeleteOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
+
+	{{- if .Meta.HasDeletedAtField }}
+	{{- if .Meta.DeletedAtHasTimezone }}
+	now := time.Now()
+	{{- else }}
+	now := time.Now().UTC()
+	{{- end }}
+	var (
+		res sql.Result
+		err error
+	)
+	if options.DoHardDelete {
+		res, err = p.db.ExecContext(
+			ctx,
+			"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
+			pq.Array(ids),
+		)
+	} else {
+		res, err = p.db.ExecContext(
+			ctx,
+			"UPDATE \"{{ .PgName }}\" SET \"{{ .Meta.PgDeletedAtField }}\" = $1 WHERE \"{{ .PkeyCol.PgName }}\" = ANY($2)",
+			now,
+			pq.Array(ids),
+		)
+	}
+	{{- else }}
 	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
 		pq.Array(ids),
 	)
+	{{- end }}
 	if err != nil {
 		return err
 	}
@@ -994,13 +1001,13 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 		loadedRecordTab[` + "`" + `{{ .PgName }}` + "`" + `] = idToRecord
 	}
 
-	{{- if (or .IncomingReferences .OutgoingReferences) }}
+	{{- if (or .Meta.AllIncomingReferences .Meta.AllOutgoingReferences) }}
 	var subSpec *include.Spec
 	var inIncludeSet bool
 	{{- end }}
 
-	{{- range .IncomingReferences }}
-	// Fill in the {{ .PointsFrom.PluralGoName }} if it is in includes
+	{{- range .Meta.AllIncomingReferences }}
+	// Fill in the {{ .PointsFrom.Info.PluralGoName }} if it is in includes
 	subSpec, inIncludeSet = includes.Includes[` + "`" + `{{ .PgPointsFromFieldName }}` + "`" + `]
 	if inIncludeSet {
 		err = p.private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(ctx, loadedRecordTab)
@@ -1008,7 +1015,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 			return
 		}
 
-		subRecs := make([]*{{ .PointsFrom.GoName }}, 0, len(recs))
+		subRecs := make([]*{{ .PointsFrom.Info.GoName }}, 0, len(recs))
 		for _, outer := range recs {
 			{{- if .OneToOne }}
 			if outer.{{ .GoPointsFromFieldName }} != nil {
@@ -1026,14 +1033,14 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 			{{- end }}
 		}
 
-		err = p.impl{{ .PointsFrom.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
+		err = p.impl{{ .PointsFrom.Info.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
 			return
 		}
 	}
 	{{- end }}
 
-	{{- range .OutgoingReferences }}
+	{{- range .Meta.AllOutgoingReferences }}
 	subSpec, inIncludeSet = includes.Includes[` + "`" + `{{ .PgPointsToFieldName }}` + "`" + `]
 	if inIncludeSet {
 		err = p.private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}(ctx, loadedRecordTab)
@@ -1041,14 +1048,14 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 			return
 		}
 
-		subRecs := make([]*{{ .PointsTo.GoName }}, 0, len(recs))
+		subRecs := make([]*{{ .PointsTo.Info.GoName }}, 0, len(recs))
 		for _, outer := range recs {
 			if outer.{{ .GoPointsToFieldName }} != nil {
 				subRecs = append(subRecs, outer.{{ .GoPointsToFieldName }})
 			}
 		}
 
-		err = p.impl{{ .PointsTo.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
+		err = p.impl{{ .PointsTo.Info.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
 			return
 		}
@@ -1058,37 +1065,38 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 	return
 }
 
-{{- range .IncomingReferences }}
+{{- range .Meta.AllIncomingReferences }}
 
-// For a given set of {{ $.GoName }}, fill in all the {{ .PointsFrom.GoName }}
+// For a given set of {{ $.GoName }}, fill in all the {{ .PointsFrom.Info.GoName }}
 // connected to them using a single query.
 func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 	ctx context.Context,
 	loadedRecordTab map[string]interface{},
 ) error {
-	parentLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsTo.PgName }}` + "`" + `]
+	parentLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsTo.Info.PgName }}` + "`" + `]
 	if !inMap {
 		return fmt.Errorf("internal pggen error: table not pre-loaded")
 	}
-	parentIDToRecord := parentLoadedTab.(map[{{ .PointsToField.TypeInfo.Name }}]*{{ .PointsTo.GoName }})
+	parentIDToRecord := parentLoadedTab.(map[{{ .PointsToField.TypeInfo.Name }}]*{{ .PointsTo.Info.GoName }})
 	ids := make([]{{ .PointsToField.TypeInfo.Name }}, 0, len(parentIDToRecord))
 	for _, rec := range parentIDToRecord {
 		ids = append(ids, rec.{{ .PointsToField.GoName }})
 	}
 
-	var childIDToRecord map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }}
-	childLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `]
+	var childIDToRecord map[{{ .PointsFrom.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.Info.GoName }}
+	childLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsFrom.Info.PgName }}` + "`" + `]
 	if inMap {
-		childIDToRecord = childLoadedTab.(map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }})
+		childIDToRecord = childLoadedTab.(map[{{ .PointsFrom.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.Info.GoName }})
 	} else {
-		childIDToRecord = map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }}{}
+		childIDToRecord = map[{{ .PointsFrom.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.Info.GoName }}{}
 	}
 
 	rows, err := p.db.QueryContext(
 		ctx,
 		` + "`" +
-	`SELECT * FROM "{{ .PointsFrom.PgName }}"
+	`SELECT * FROM "{{ .PointsFrom.Info.PgName }}"
 		 WHERE "{{ .PointsFromField.PgName }}" = ANY($1)
+		 {{- if .PointsFrom.HasDeletedAtField }} AND "{{ .PointsFrom.PgDeletedAtField }}" IS NULL {{- end }}
 		 ` +
 	"`" + `,
 		pq.Array(ids),
@@ -1101,23 +1109,23 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 	// pull all the child records from the database and associate them with
 	// the correct parent.
 	for rows.Next() {
-		var scannedChildRec {{ .PointsFrom.GoName }}
+		var scannedChildRec {{ .PointsFrom.Info.GoName }}
 		err = scannedChildRec.Scan(ctx, p.client, rows)
 		if err != nil {
 			return err
 		}
 
-		var childRec *{{ .PointsFrom.GoName }}
+		var childRec *{{ .PointsFrom.Info.GoName }}
 
-		preloadedChildRec, alreadyLoaded := childIDToRecord[scannedChildRec.{{ .PointsFrom.PkeyCol.GoName }}]
+		preloadedChildRec, alreadyLoaded := childIDToRecord[scannedChildRec.{{ .PointsFrom.Info.PkeyCol.GoName }}]
 		if alreadyLoaded {
 			childRec = preloadedChildRec
 		} else {
 			childRec = &scannedChildRec
-			{{- if .PointsFrom.PkeyCol.Nullable }}
-			childIDToRecord[*scannedChildRec.{{ .PointsFrom.PkeyCol.GoName }}] = &scannedChildRec
+			{{- if .PointsFrom.Info.PkeyCol.Nullable }}
+			childIDToRecord[*scannedChildRec.{{ .PointsFrom.Info.PkeyCol.GoName }}] = &scannedChildRec
 			{{- else }}
-			childIDToRecord[scannedChildRec.{{ .PointsFrom.PkeyCol.GoName }}] = &scannedChildRec
+			childIDToRecord[scannedChildRec.{{ .PointsFrom.Info.PkeyCol.GoName }}] = &scannedChildRec
 			{{- end }}
 		}
 
@@ -1135,34 +1143,34 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 		{{- end }}
 	}
 
-	loadedRecordTab[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `] = childIDToRecord
+	loadedRecordTab[` + "`" + `{{ .PointsFrom.Info.PgName }}` + "`" + `] = childIDToRecord
 
 	return nil
 }
 
 {{ end }}
-{{ range .OutgoingReferences }}
+{{ range .Meta.AllOutgoingReferences }}
 
-// For a given set of {{ $.GoName }}, fill in all the {{ .PointsTo.GoName }}
+// For a given set of {{ $.GoName }}, fill in all the {{ .PointsTo.Info.GoName }}
 // connected to them using at most one query.
 func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}(
 	ctx context.Context,
 	loadedRecordTab map[string]interface{},
 ) error {
 	// lookup the table of child records
-	childLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsFrom.PgName }}` + "`" + `]
+	childLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsFrom.Info.PgName }}` + "`" + `]
 	if !inMap {
 		return fmt.Errorf("internal pggen error: table not pre-loaded")
 	}
-	childIDToRecord := childLoadedTab.(map[{{ .PointsFrom.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.GoName }})
+	childIDToRecord := childLoadedTab.(map[{{ .PointsFrom.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.Info.GoName }})
 
 	// lookup the table of parent records
-	var parentIDToRecord map[{{ .PointsTo.PkeyCol.TypeInfo.Name }}]*{{ .PointsTo.GoName }}
-	parentLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsTo.PgName }}` + "`" + `]
+	var parentIDToRecord map[{{ .PointsTo.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsTo.Info.GoName }}
+	parentLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsTo.Info.PgName }}` + "`" + `]
 	if inMap {
-		parentIDToRecord = parentLoadedTab.(map[{{ .PointsTo.PkeyCol.TypeInfo.Name }}]*{{ .PointsTo.GoName }})
+		parentIDToRecord = parentLoadedTab.(map[{{ .PointsTo.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsTo.Info.GoName }})
 	} else {
-		parentIDToRecord = map[{{ .PointsTo.PkeyCol.TypeInfo.Name }}]*{{ .PointsTo.GoName }}{}
+		parentIDToRecord = map[{{ .PointsTo.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsTo.Info.GoName }}{}
 	}
 
 	// partition the parents into those records which we have already loaded and those
@@ -1188,7 +1196,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 	}
 
 	// build a table mapping parent ids to lists of children which hold references to them
-	parentIDToChildren := map[{{ .PointsTo.PkeyCol.TypeInfo.Name }}][]*{{ .PointsFrom.GoName }}{}
+	parentIDToChildren := map[{{ .PointsTo.Info.PkeyCol.TypeInfo.Name }}][]*{{ .PointsFrom.Info.GoName }}{}
 	for _, rec := range childIDToRecord {
 		{{- if .PointsFromField.Nullable }}
 		if rec.{{ .PointsFromField.GoName }} == nil {
@@ -1204,7 +1212,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 			childSlice = append(childSlice, rec)
 			parentIDToChildren[parentID] = childSlice
 		} else {
-			parentIDToChildren[parentID] = []*{{ .PointsFrom.GoName }}{rec}
+			parentIDToChildren[parentID] = []*{{ .PointsFrom.Info.GoName }}{rec}
 		}
 	}
 
@@ -1213,8 +1221,10 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 		rows, err := p.db.QueryContext(
 			ctx,
 		` + "`" +
-	`SELECT * FROM "{{ .PointsTo.PgName }}"
-		 WHERE "{{ .PointsToField.PgName }}" = ANY($1)` + "`" + `,
+	`SELECT * FROM "{{ .PointsTo.Info.PgName }}"
+			WHERE "{{ .PointsToField.PgName }}" = ANY($1)
+		 {{- if .PointsTo.HasDeletedAtField }} AND "{{ .PointsTo.PgDeletedAtField }}" IS NULL {{- end -}}
+		 ` + "`" + `,
 			pq.Array(ids),
 		)
 		if err != nil {
@@ -1223,21 +1233,21 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 		defer rows.Close()
 
 		for rows.Next() {
-			var parentRec {{ .PointsTo.GoName }}
+			var parentRec {{ .PointsTo.Info.GoName }}
 			err = parentRec.Scan(ctx, p.client, rows)
 			if err != nil {
 				return fmt.Errorf("scanning parent record: %s", err.Error())
 			}
 
-			childRecs := parentIDToChildren[parentRec.{{ .PointsTo.PkeyCol.GoName }}]
+			childRecs := parentIDToChildren[parentRec.{{ .PointsTo.Info.PkeyCol.GoName }}]
 			for _, childRec := range childRecs {
 				childRec.{{ .GoPointsToFieldName }} = &parentRec
 			}
-			parentIDToRecord[parentRec.{{ .PointsTo.PkeyCol.GoName }}] = &parentRec
+			parentIDToRecord[parentRec.{{ .PointsTo.Info.PkeyCol.GoName }}] = &parentRec
 		}
 	}
 
-	loadedRecordTab[` + "`" + `{{ .PointsTo.PgName }}` + "`" + `] = parentIDToRecord
+	loadedRecordTab[` + "`" + `{{ .PointsTo.Info.PgName }}` + "`" + `] = parentIDToRecord
 
 	return nil
 }
