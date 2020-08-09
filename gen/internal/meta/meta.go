@@ -457,12 +457,12 @@ func (mc *Resolver) queryReturns(query string) ([]ColMeta, error) {
 // (a foreign key relationship)
 type RefMeta struct {
 	// The metadata for the table that holds the foreign key
-	PointsTo *PgTableInfo
+	PointsTo *TableMeta
 	// The names of the fields in the referenced table that are used as keys
 	// (usually the primary keys of that table). Order matters.
 	PointsToField *ColMeta
 	// The metadata for the table is being referred to
-	PointsFrom *PgTableInfo
+	PointsFrom *TableMeta
 	// The names of the fields that are being used to refer to the key fields
 	// for the referenced table. Order matters.
 	PointsFromField *ColMeta

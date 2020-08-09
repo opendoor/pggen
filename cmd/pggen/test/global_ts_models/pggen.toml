@@ -1,6 +1,18 @@
 
+# running go generate for this package should generate the following warnings:
+#
+# WARN: table 'timestamps_global' has no nullable 'deleted_ts' deleted at timestamp
+# WARN: table 'soft_deletables' has no 'created_at' created at timestamp
+# WARN: table 'soft_deletables' has no 'updated_at' updated at timestamp
+#
+# Don't be alarmed if you see them in the output.
+
 created_at_field = "created_at"
 updated_at_field = "updated_at"
+deleted_at_field = "deleted_ts"
 
 [[table]]
     name = "timestamps_global"
+
+[[table]]
+    name = "soft_deletables"

@@ -380,3 +380,16 @@
 
 [[table]]
     name = "drop_cols"
+
+[[table]]
+    name = "soft_deletables"
+    # choose a slightly wacky name to prove we have not baked "deleted_at" in
+    deleted_at_field = "deleted_ts"
+# lets us fetch even soft-deleted records
+[[query]]
+    name = "GetSoftDeletableAnyway"
+    return_type = "soft_deletable"
+    body = "SELECT * FROM soft_deletables WHERE id = $1"
+[[table]]
+    name = "deletable_leafs"
+    deleted_at_field = "deleted_at"

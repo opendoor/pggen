@@ -273,6 +273,15 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: "generating query 'EmptyQueryBody': empty query body",
 	},
+	{
+		toml: `
+[[table]]
+	name = "small_entities"
+	deleted_at_field = "deleted_at"
+		`,
+		exitCode: 0,
+		stderrRE: "WARN: table 'small_entities' has no nullable 'deleted_at' deleted at timestamp",
+	},
 }
 
 func TestCLI(t *testing.T) {

@@ -248,3 +248,129 @@ func TestUpsertUpdateTimestamps(t *testing.T) {
 		t.Fatal("refetched should be later")
 	}
 }
+
+func TestSoftDeleteCRUD(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	id, err := txClient.InsertSoftDeletable(ctx, &models.SoftDeletable{
+		Value: "Some Ping", // if Charolotte was a programmer
+	})
+	chkErr(t, err)
+
+	// should be fine to fetch it now
+	_, err = txClient.GetSoftDeletable(ctx, id)
+	chkErr(t, err)
+
+	err = txClient.DeleteSoftDeletable(ctx, id)
+	chkErr(t, err)
+
+	_, err = txClient.GetSoftDeletable(ctx, id)
+	if err == nil || !pggen.IsNotFoundError(err) {
+		t.Fatal("expected the record not to be found (get)")
+	}
+
+	_, err = txClient.ListSoftDeletable(ctx, []int64{id})
+	if err == nil || !pggen.IsNotFoundError(err) {
+		t.Fatal("expected the record not to be found (list)")
+	}
+
+	sneakyFetched, err := txClient.GetSoftDeletableAnyway(ctx, id)
+	chkErr(t, err)
+	if len(sneakyFetched) != 1 || sneakyFetched[0].Value != "Some Ping" || sneakyFetched[0].DeletedTs == nil {
+		t.Fatalf("expected the record to still be there and have the right data: %v\n", sneakyFetched)
+	}
+
+	err = txClient.DeleteSoftDeletable(ctx, id, pggen.DeleteDoHardDelete)
+	chkErr(t, err)
+
+	sneakyFetched, err = txClient.GetSoftDeletableAnyway(ctx, id)
+	chkErr(t, err)
+	if len(sneakyFetched) != 0 {
+		t.Fatal("expected the data to be proper gone at this point")
+	}
+}
+
+func TestSoftDeleteIncludes(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	//
+	// setup some data
+	//
+
+	rootID, err := txClient.InsertSoftDeletable(ctx, &models.SoftDeletable{
+		Value: "root",
+	})
+	chkErr(t, err)
+
+	leaf1ID, err := txClient.InsertDeletableLeaf(ctx, &models.DeletableLeaf{
+		Value:           "leaf-1",
+		SoftDeletableId: rootID,
+	})
+	chkErr(t, err)
+
+	leaf2ID, err := txClient.InsertDeletableLeaf(ctx, &models.DeletableLeaf{
+		Value:           "leaf-2",
+		SoftDeletableId: rootID,
+	})
+	chkErr(t, err)
+
+	//
+	// soft delete part of the tree and then fill it in via includes
+	//
+
+	err = txClient.DeleteDeletableLeaf(ctx, leaf2ID)
+	chkErr(t, err)
+
+	root, err := txClient.GetSoftDeletable(ctx, rootID)
+	chkErr(t, err)
+
+	err = txClient.SoftDeletableFillIncludes(ctx, root, models.SoftDeletableAllIncludes)
+	chkErr(t, err)
+
+	if len(root.DeletableLeafs) != 1 {
+		t.Fatalf("expected one child, got: %v\n", root.DeletableLeafs)
+	}
+
+	err = txClient.DeleteSoftDeletable(ctx, rootID)
+	chkErr(t, err)
+
+	leaf1, err := txClient.GetDeletableLeaf(ctx, leaf1ID)
+	chkErr(t, err)
+
+	err = txClient.DeletableLeafFillIncludes(ctx, leaf1, models.DeletableLeafAllIncludes)
+	chkErr(t, err)
+
+	if leaf1.SoftDeletable != nil {
+		t.Fatal("parent should be deleted")
+	}
+}
+
+func TestGlobalDeletedAt(t *testing.T) {
+	dbClient := global_ts_models.NewPGClient(pgClient.Handle().(*sql.DB))
+	txClient, err := dbClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	id, err := txClient.InsertSoftDeletable(ctx, &global_ts_models.SoftDeletable{
+		Value: "Some Ping", // if Charolotte was a programmer
+	})
+	chkErr(t, err)
+
+	err = txClient.DeleteSoftDeletable(ctx, id)
+	chkErr(t, err)
+
+	_, err = txClient.GetSoftDeletable(ctx, id)
+	if err == nil || !pggen.IsNotFoundError(err) {
+		t.Fatal("expected the record not to be found (get)")
+	}
+}
