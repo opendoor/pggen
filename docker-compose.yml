@@ -13,6 +13,19 @@ services:
     depends_on:
       - "postgres12"
 
+  msgv:
+    build:
+      context: .
+      dockerfile: Dockerfile.msgv
+    environment:
+      DB_HOST: "postgres12"
+    links:
+      - "postgres12"
+    depends_on:
+      - "postgres12"
+    volumes:
+      - ".:/pggen"
+
   test12:
     build: .
     environment:

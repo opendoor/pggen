@@ -27,8 +27,8 @@ func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error
 	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen"`] = true
 
-	for _, table := range tables {
-		err := g.genTable(into, &table)
+	for i := range tables {
+		err := g.genTable(into, &tables[i])
 		if err != nil {
 			return err
 		}

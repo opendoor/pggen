@@ -48,7 +48,7 @@ func DirOf(path string) (string, error) {
 }
 
 func RandomName(base string) string {
-	return fmt.Sprintf("%s_%d", base, rand.Int63())
+	return fmt.Sprintf("%s_%d", base, rand.Int63()) // nolint: gosec
 }
 
 // nullOutArgs takes a string containing an SQL query and replaces

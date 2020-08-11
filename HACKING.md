@@ -96,3 +96,32 @@ index dd7804d..e3a446f 100644
 
 Even without formatting the generated code is pretty readable, so this trick doesn't
 usually result in less debuggable generated code.
+
+## A word about CI
+
+`pggen` runs a number of different CI checks in some docker containers orchestrated by
+`.circleci/docker-compose.yml`. Using docker adds some inefficiency and slows down the
+CI checks a bit, but hopefully this is made up for by the fact that the `docker-compose.yml`
+file in the repo root makes debugging CI jobs easier. We maintain two different compose files
+so that we can share the source between the host and the container during local development.
+
+# Philosophy
+
+Certain aspects of the style in which `pggen` is developed are intentionally divergent
+from common practices in other places. A few of these are called out here with some
+explanation as to why things are the way they are.
+
+## Testing
+
+`pggen` uses the built in go unit test framework. This is good because tests are code, not English,
+and trying to make them look like English tens to encourage tests that fail to explore the state
+space programatically. `pggen` will never use a test framework like ginkgo. A flexible assertions
+framework like gomega may be considered, but it is likely better to leverage libraries like
+`google/go-cmp` and pattern matching DSLs like regular expressions. Using a randomized testing
+framework in the spirit of quickcheck or a fuzz tester would definitely be considered.
+
+Pggen has no external components that cannot be easily controlled, so `pggen` tests do not
+and will never use mocks. Mocking should be a last resort when testing with the real thing is
+impractical. This avoidance of mocks has the great side benefit of preventing the codebase
+from sprouting superfluous interfaces.
+

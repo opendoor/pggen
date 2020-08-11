@@ -5,14 +5,14 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     working_directory: /go/test_dir
     steps:
       - checkout
       - setup_remote_docker:
           version: 18.05.0-ce
       - run:
-          name: Build Docker Image
+          name: Build Docker Images
           command: |
             docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
             docker build -t pggen_source .
@@ -23,7 +23,7 @@ jobs:
 
   test12:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     working_directory: /go/test_dir
     steps:
       - checkout
@@ -44,7 +44,7 @@ jobs:
             docker-compose --file .circleci/docker-compose.yml run test12
   test11:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     working_directory: /go/test_dir
     steps:
       - checkout
@@ -61,7 +61,7 @@ jobs:
             docker-compose --file .circleci/docker-compose.yml run test11
   test10:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     working_directory: /go/test_dir
     steps:
       - checkout
@@ -78,7 +78,7 @@ jobs:
             docker-compose --file .circleci/docker-compose.yml run test10
   test9_6:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     working_directory: /go/test_dir
     steps:
       - checkout
@@ -95,7 +95,7 @@ jobs:
             docker-compose --file .circleci/docker-compose.yml run test9_6
   test9_5:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     working_directory: /go/test_dir
     steps:
       - checkout
@@ -111,6 +111,25 @@ jobs:
           command: |
             docker-compose --file .circleci/docker-compose.yml run test9_5
 
+  # check the minimum supported go version
+  msgv:
+    docker:
+      - image: circleci/golang:1.11
+    working_directory: /go/test_dir
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 18.05.0-ce
+      - run:
+          name: Build Docker Image
+          command: |
+            docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD
+            docker build -t pggen_source_msgv -f Dockerfile.msgv .
+      - run:
+          name: Run Tests
+          command: |
+            docker-compose --file .circleci/docker-compose.yml run msgv
+
 workflows:
   version: 2
   pr:
@@ -121,3 +140,4 @@ workflows:
       - "test10"
       - "test9_6"
       - "test9_5"
+      - "msgv"
