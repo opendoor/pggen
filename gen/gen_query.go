@@ -24,8 +24,8 @@ func (g *Generator) genQueries(
 	g.imports[`"context"`] = true
 	g.imports[`"fmt"`] = true
 
-	for _, query := range queries {
-		err := g.genQuery(into, &query, nil)
+	for i, query := range queries {
+		err := g.genQuery(into, &queries[i], nil)
 		if err != nil {
 			return fmt.Errorf("generating query '%s': %s", query.Name, err.Error())
 		}

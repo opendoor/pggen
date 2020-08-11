@@ -312,8 +312,8 @@ func TestCLI(t *testing.T) {
 	err = cmd.Run()
 	chkErr(t, err)
 
-	for i, test := range cliCases {
-		err = runCLITest(i, exe, testDir, &test)
+	for i := range cliCases {
+		err = runCLITest(i, exe, testDir, &cliCases[i])
 		if err != nil {
 			t.Fatalf("While running cli test case %d:\n%s\n", i, err)
 		}
@@ -333,7 +333,7 @@ func runCLITest(
 	}
 
 	tomlFile := path.Join(caseDir, "test.toml")
-	err = ioutil.WriteFile(tomlFile, []byte(test.toml), 0755)
+	err = ioutil.WriteFile(tomlFile, []byte(test.toml), 0600)
 	if err != nil {
 		return err
 	}
@@ -431,11 +431,12 @@ func runCLITest(
 			return err
 		}
 
-		if ee.ExitCode() != test.exitCode {
+		// can't use ee.ExitCode() because it is from go 1.12 and our msgv is 1.11
+		if ee.String() != fmt.Sprintf("exit status %d", test.exitCode) {
 			return fmt.Errorf(
-				"expected exit code %d, got %d (cmd err = %s)",
+				"expected exit code %d, got %s (cmd err = %s)",
 				test.exitCode,
-				ee.ExitCode(),
+				ee.String(),
 				err.Error(),
 			)
 		}

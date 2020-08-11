@@ -32,8 +32,8 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 
 	// poplulate queries
 	genCtx.Queries = make([]meta.QueryMeta, 0, len(conf.Queries))
-	for _, qc := range conf.Queries {
-		meta, err := g.metaResolver.QueryMeta(&qc, true /* inferArgTypes */)
+	for i := range conf.Queries {
+		meta, err := g.metaResolver.QueryMeta(&conf.Queries[i], true /* inferArgTypes */)
 		if err != nil {
 			return err
 		}
@@ -59,8 +59,8 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 
 	// populate the statement gen ctx
 	genCtx.Stmts = make([]meta.StmtMeta, 0, len(conf.Stmts))
-	for _, sc := range conf.Stmts {
-		meta, err := g.metaResolver.StmtMeta(&sc)
+	for i := range conf.Stmts {
+		meta, err := g.metaResolver.StmtMeta(&conf.Stmts[i])
 		if err != nil {
 			return err
 		}

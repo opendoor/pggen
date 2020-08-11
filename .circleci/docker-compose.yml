@@ -11,6 +11,16 @@ services:
     depends_on:
       - "postgres12"
 
+  # check the minimum supported go version
+  msgv:
+    image: pggen_source_msgv
+    environment:
+      DB_HOST: "postgres12"
+    links:
+      - "postgres12"
+    depends_on:
+      - "postgres12"
+
   test12:
     image: pggen_source
     environment:

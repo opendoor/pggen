@@ -418,3 +418,15 @@ writing model structs which match up with the database table definitions.
 been mentioned in this document, but the most complete source of documentation
 on is the comments in [`gen/internal/config/config.go`](gen/internal/config/config.go).
 An example file can be found at [`cmd/pggen/test/models/pggen.toml`](cmd/pggen/test/models/pggen.toml).
+
+# Stability
+
+So long as `pggen` is an Opendoor internal project `pggen` may make breaking changes at any time
+provided that the `pggen` maintainers update all callsites within our internal codebase to use
+the new API. When/if `pggen` is publicly released, it will follow semver.
+
+The minimum supported go language version of pggen is 1.11. `pggen` will not consider an msgv bump
+breaking for the purposes of semver, but it will only bump the msgv for a good reason (such as that
+language version reaching end of life or a very significant language feature). The msgv version will
+never accidentally change, and if a previously supported go version breaks without some indication
+that it was intentional, you should file a bug report.

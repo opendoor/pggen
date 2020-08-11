@@ -18,8 +18,8 @@ func (g *Generator) genStmts(into io.Writer, stmts []config.StmtConfig) error {
 	g.imports[`"database/sql"`] = true
 	g.imports[`"context"`] = true
 
-	for _, stmt := range stmts {
-		err := g.genStmt(into, &stmt)
+	for i := range stmts {
+		err := g.genStmt(into, &stmts[i])
 		if err != nil {
 			return err
 		}

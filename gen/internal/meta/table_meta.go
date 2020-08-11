@@ -280,8 +280,8 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 		return nil
 	}
 
-	for _, ref := range meta.AllIncomingReferences {
-		err := ensureIncomingReferencedSpec(&ref)
+	for i := range meta.AllIncomingReferences {
+		err := ensureIncomingReferencedSpec(&meta.AllIncomingReferences[i])
 		if err != nil {
 			return err
 		}
@@ -305,8 +305,8 @@ func ensureSpec(tables map[string]*TableMeta, meta *TableMeta) error {
 		return nil
 	}
 
-	for _, ref := range meta.AllOutgoingReferences {
-		err := ensureOutgoingReferencedSpec(&ref)
+	for i := range meta.AllOutgoingReferences {
+		err := ensureOutgoingReferencedSpec(&meta.AllOutgoingReferences[i])
 		if err != nil {
 			return err
 		}
