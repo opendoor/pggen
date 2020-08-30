@@ -1,7 +1,8 @@
-# Example: include_spec
+# Example: timestamps
 
-This example shows how to use include specs to tell pggen how to fill in
-records which are associated with one another via foreign keys.
+This example shows how to make use of the automatic timestamp features that
+pggen provides. You can ask pggen to automatically take care of keeping track
+created at, updated at, and soft delete timestamps.
 
 ## Running
 
