@@ -9,6 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
+	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
 )
 
@@ -16,7 +17,7 @@ import (
 // database access methods for this package are attached to it.
 type PGClient struct {
 	impl       pgClientImpl
-	topLevelDB *sql.DB
+	topLevelDB pggen.DBConn
 
 	// These column indexes are used at run time to enable us to 'SELECT *' against
 	// a table that has the same columns in a different order from the ones that we
@@ -28,7 +29,13 @@ type PGClient struct {
 	colIdxTabForChild       []int
 }
 
-func NewPGClient(conn *sql.DB) *PGClient {
+// NewPGClient creates a new PGClient out of a '*sql.DB' or a
+// custom wrapper around a db connection.
+//
+// If you provide your own wrapper around a '*sql.DB' for logging or
+// custom tracing, you MUST forward all calls to an underlying '*sql.DB'
+// member of your wrapper.
+func NewPGClient(conn pggen.DBConn) *PGClient {
 	client := PGClient{
 		topLevelDB: conn,
 	}
@@ -86,20 +93,23 @@ type pgClientImpl struct {
 func (p *PGClient) GetGrandparent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Grandparent, error) {
-	return p.impl.GetGrandparent(ctx, id)
+	return p.impl.getGrandparent(ctx, id)
 }
 func (tx *TxPGClient) GetGrandparent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Grandparent, error) {
-	return tx.impl.GetGrandparent(ctx, id)
+	return tx.impl.getGrandparent(ctx, id)
 }
-func (p *pgClientImpl) GetGrandparent(
+func (p *pgClientImpl) getGrandparent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Grandparent, error) {
-	values, err := p.ListGrandparent(ctx, []int64{id})
+	values, err := p.listGrandparent(ctx, []int64{id}, true /* isGet */)
 	if err != nil {
 		return nil, err
 	}
@@ -112,18 +122,22 @@ func (p *pgClientImpl) GetGrandparent(
 func (p *PGClient) ListGrandparent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
-	return p.impl.ListGrandparent(ctx, ids)
+	return p.impl.listGrandparent(ctx, ids, false /* isGet */)
 }
 func (tx *TxPGClient) ListGrandparent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
-	return tx.impl.ListGrandparent(ctx, ids)
+	return tx.impl.listGrandparent(ctx, ids, false /* isGet */)
 }
-func (p *pgClientImpl) ListGrandparent(
+func (p *pgClientImpl) listGrandparent(
 	ctx context.Context,
 	ids []int64,
+	isGet bool,
+	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
 	if len(ids) == 0 {
 		return []Grandparent{}, nil
@@ -162,11 +176,19 @@ func (p *pgClientImpl) ListGrandparent(
 	}
 
 	if len(ret) != len(ids) {
-		return nil, fmt.Errorf(
-			"ListGrandparent: asked for %d records, found %d",
-			len(ids),
-			len(ret),
-		)
+		if isGet {
+			return nil, &unstable.NotFoundError{
+				Msg: "GetGrandparent: record not found",
+			}
+		} else {
+			return nil, &unstable.NotFoundError{
+				Msg: fmt.Sprintf(
+					"ListGrandparent: asked for %d records, found %d",
+					len(ids),
+					len(ret),
+				),
+			}
+		}
 	}
 
 	return ret, nil
@@ -179,7 +201,7 @@ func (p *PGClient) InsertGrandparent(
 	value *Grandparent,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return p.impl.InsertGrandparent(ctx, value, opts...)
+	return p.impl.insertGrandparent(ctx, value, opts...)
 }
 
 // Insert a Grandparent into the database. Returns the primary
@@ -189,18 +211,18 @@ func (tx *TxPGClient) InsertGrandparent(
 	value *Grandparent,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return tx.impl.InsertGrandparent(ctx, value, opts...)
+	return tx.impl.insertGrandparent(ctx, value, opts...)
 }
 
 // Insert a Grandparent into the database. Returns the primary
 // key of the inserted row.
-func (p *pgClientImpl) InsertGrandparent(
+func (p *pgClientImpl) insertGrandparent(
 	ctx context.Context,
 	value *Grandparent,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
 	var ids []int64
-	ids, err = p.BulkInsertGrandparent(ctx, []Grandparent{*value}, opts...)
+	ids, err = p.bulkInsertGrandparent(ctx, []Grandparent{*value}, opts...)
 	if err != nil {
 		return
 	}
@@ -221,7 +243,7 @@ func (p *PGClient) BulkInsertGrandparent(
 	values []Grandparent,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return p.impl.BulkInsertGrandparent(ctx, values, opts...)
+	return p.impl.bulkInsertGrandparent(ctx, values, opts...)
 }
 
 // Insert a list of Grandparent. Returns a list of the primary keys of
@@ -231,12 +253,12 @@ func (tx *TxPGClient) BulkInsertGrandparent(
 	values []Grandparent,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return tx.impl.BulkInsertGrandparent(ctx, values, opts...)
+	return tx.impl.bulkInsertGrandparent(ctx, values, opts...)
 }
 
 // Insert a list of Grandparent. Returns a list of the primary keys of
 // the inserted rows.
-func (p *pgClientImpl) BulkInsertGrandparent(
+func (p *pgClientImpl) bulkInsertGrandparent(
 	ctx context.Context,
 	values []Grandparent,
 	opts ...pggen.InsertOpt,
@@ -313,8 +335,9 @@ func (p *PGClient) UpdateGrandparent(
 	ctx context.Context,
 	value *Grandparent,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.UpdateGrandparent(ctx, value, fieldMask)
+	return p.impl.updateGrandparent(ctx, value, fieldMask)
 }
 
 // Update a Grandparent. 'value' must at the least have
@@ -326,13 +349,15 @@ func (tx *TxPGClient) UpdateGrandparent(
 	ctx context.Context,
 	value *Grandparent,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.UpdateGrandparent(ctx, value, fieldMask)
+	return tx.impl.updateGrandparent(ctx, value, fieldMask)
 }
-func (p *pgClientImpl) UpdateGrandparent(
+func (p *pgClientImpl) updateGrandparent(
 	ctx context.Context,
 	value *Grandparent,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(GrandparentIdFieldIndex) {
 		err = fmt.Errorf("primary key required for updates to 'grandparents'")
@@ -371,7 +396,7 @@ func (p *pgClientImpl) UpdateGrandparent(
 	return id, nil
 }
 
-// Updsert a Grandparent value. If the given value conflicts with
+// Upsert a Grandparent value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -380,9 +405,10 @@ func (p *PGClient) UpsertGrandparent(
 	value *Grandparent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = p.impl.BulkUpsertGrandparent(ctx, []Grandparent{*value}, constraintNames, fieldMask)
+	val, err = p.impl.bulkUpsertGrandparent(ctx, []Grandparent{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -394,7 +420,7 @@ func (p *PGClient) UpsertGrandparent(
 	return value.Id, nil
 }
 
-// Updsert a Grandparent value. If the given value conflicts with
+// Upsert a Grandparent value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -403,9 +429,10 @@ func (tx *TxPGClient) UpsertGrandparent(
 	value *Grandparent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = tx.impl.BulkUpsertGrandparent(ctx, []Grandparent{*value}, constraintNames, fieldMask)
+	val, err = tx.impl.bulkUpsertGrandparent(ctx, []Grandparent{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -417,7 +444,7 @@ func (tx *TxPGClient) UpsertGrandparent(
 	return value.Id, nil
 }
 
-// Updsert a set of Grandparent values. If any of the given values conflict with
+// Upsert a set of Grandparent values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -426,11 +453,12 @@ func (p *PGClient) BulkUpsertGrandparent(
 	values []Grandparent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return p.impl.BulkUpsertGrandparent(ctx, values, constraintNames, fieldMask)
+	return p.impl.bulkUpsertGrandparent(ctx, values, constraintNames, fieldMask, opts...)
 }
 
-// Updsert a set of Grandparent values. If any of the given values conflict with
+// Upsert a set of Grandparent values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -439,17 +467,24 @@ func (tx *TxPGClient) BulkUpsertGrandparent(
 	values []Grandparent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return tx.impl.BulkUpsertGrandparent(ctx, values, constraintNames, fieldMask)
+	return tx.impl.bulkUpsertGrandparent(ctx, values, constraintNames, fieldMask, opts...)
 }
-func (p *pgClientImpl) BulkUpsertGrandparent(
+func (p *pgClientImpl) bulkUpsertGrandparent(
 	ctx context.Context,
 	values []Grandparent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) ([]int64, error) {
 	if len(values) == 0 {
 		return []int64{}, nil
+	}
+
+	options := pggen.UpsertOptions{}
+	for _, opt := range opts {
+		opt(&options)
 	}
 
 	if constraintNames == nil || len(constraintNames) == 0 {
@@ -463,17 +498,22 @@ func (p *pgClientImpl) BulkUpsertGrandparent(
 		fieldsForGrandparent,
 		len(values),
 		`id`,
-		fieldMask.Test(GrandparentIdFieldIndex),
+		options.UsePkey,
 	)
 
-	if fieldMask.CountSetBits() > 0 {
+	setBits := fieldMask.CountSetBits()
+	hasConflictAction := setBits > 1 ||
+		(setBits == 1 && fieldMask.Test(GrandparentIdFieldIndex) && options.UsePkey) ||
+		(setBits == 1 && !fieldMask.Test(GrandparentIdFieldIndex))
+
+	if hasConflictAction {
 		stmt.WriteString("ON CONFLICT (")
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
 		updateCols := make([]string, 0, 3)
 		updateExprs := make([]string, 0, 3)
-		if fieldMask.Test(GrandparentIdFieldIndex) {
+		if options.UsePkey {
 			updateCols = append(updateCols, `id`)
 			updateExprs = append(updateExprs, `excluded.id`)
 		}
@@ -508,7 +548,7 @@ func (p *pgClientImpl) BulkUpsertGrandparent(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if fieldMask.Test(GrandparentIdFieldIndex) {
+		if options.UsePkey {
 			args = append(args, v.Id)
 		}
 		args = append(args, v.Name)
@@ -537,36 +577,45 @@ func (p *pgClientImpl) BulkUpsertGrandparent(
 func (p *PGClient) DeleteGrandparent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteGrandparent(ctx, []int64{id})
+	return p.impl.bulkDeleteGrandparent(ctx, []int64{id}, opts...)
 }
 func (tx *TxPGClient) DeleteGrandparent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteGrandparent(ctx, []int64{id})
+	return tx.impl.bulkDeleteGrandparent(ctx, []int64{id}, opts...)
 }
 
 func (p *PGClient) BulkDeleteGrandparent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteGrandparent(ctx, ids)
+	return p.impl.bulkDeleteGrandparent(ctx, ids, opts...)
 }
 func (tx *TxPGClient) BulkDeleteGrandparent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteGrandparent(ctx, ids)
+	return tx.impl.bulkDeleteGrandparent(ctx, ids, opts...)
 }
-func (p *pgClientImpl) BulkDeleteGrandparent(
+func (p *pgClientImpl) bulkDeleteGrandparent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
+	options := pggen.DeleteOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
 	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"grandparents\" WHERE \"id\" = ANY($1)",
@@ -600,35 +649,40 @@ func (p *PGClient) GrandparentFillIncludes(
 	ctx context.Context,
 	rec *Grandparent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.GrandparentBulkFillIncludes(ctx, []*Grandparent{rec}, includes)
+	return p.impl.privateGrandparentBulkFillIncludes(ctx, []*Grandparent{rec}, includes)
 }
 func (tx *TxPGClient) GrandparentFillIncludes(
 	ctx context.Context,
 	rec *Grandparent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.GrandparentBulkFillIncludes(ctx, []*Grandparent{rec}, includes)
+	return tx.impl.privateGrandparentBulkFillIncludes(ctx, []*Grandparent{rec}, includes)
 }
 
 func (p *PGClient) GrandparentBulkFillIncludes(
 	ctx context.Context,
 	recs []*Grandparent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.GrandparentBulkFillIncludes(ctx, recs, includes)
+	return p.impl.privateGrandparentBulkFillIncludes(ctx, recs, includes)
 }
 func (tx *TxPGClient) GrandparentBulkFillIncludes(
 	ctx context.Context,
 	recs []*Grandparent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.GrandparentBulkFillIncludes(ctx, recs, includes)
+	return tx.impl.privateGrandparentBulkFillIncludes(ctx, recs, includes)
 }
-func (p *pgClientImpl) GrandparentBulkFillIncludes(
+func (p *pgClientImpl) privateGrandparentBulkFillIncludes(
 	ctx context.Context,
 	recs []*Grandparent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
 	loadedRecordTab := map[string]interface{}{}
 
@@ -834,7 +888,7 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 		rows, err := p.db.QueryContext(
 			ctx,
 			`SELECT * FROM "children"
-		 WHERE "id" = ANY($1)`,
+			WHERE "id" = ANY($1)`,
 			pq.Array(ids),
 		)
 		if err != nil {
@@ -865,20 +919,23 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 func (p *PGClient) GetParent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Parent, error) {
-	return p.impl.GetParent(ctx, id)
+	return p.impl.getParent(ctx, id)
 }
 func (tx *TxPGClient) GetParent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Parent, error) {
-	return tx.impl.GetParent(ctx, id)
+	return tx.impl.getParent(ctx, id)
 }
-func (p *pgClientImpl) GetParent(
+func (p *pgClientImpl) getParent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Parent, error) {
-	values, err := p.ListParent(ctx, []int64{id})
+	values, err := p.listParent(ctx, []int64{id}, true /* isGet */)
 	if err != nil {
 		return nil, err
 	}
@@ -891,18 +948,22 @@ func (p *pgClientImpl) GetParent(
 func (p *PGClient) ListParent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
-	return p.impl.ListParent(ctx, ids)
+	return p.impl.listParent(ctx, ids, false /* isGet */)
 }
 func (tx *TxPGClient) ListParent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
-	return tx.impl.ListParent(ctx, ids)
+	return tx.impl.listParent(ctx, ids, false /* isGet */)
 }
-func (p *pgClientImpl) ListParent(
+func (p *pgClientImpl) listParent(
 	ctx context.Context,
 	ids []int64,
+	isGet bool,
+	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
 	if len(ids) == 0 {
 		return []Parent{}, nil
@@ -941,11 +1002,19 @@ func (p *pgClientImpl) ListParent(
 	}
 
 	if len(ret) != len(ids) {
-		return nil, fmt.Errorf(
-			"ListParent: asked for %d records, found %d",
-			len(ids),
-			len(ret),
-		)
+		if isGet {
+			return nil, &unstable.NotFoundError{
+				Msg: "GetParent: record not found",
+			}
+		} else {
+			return nil, &unstable.NotFoundError{
+				Msg: fmt.Sprintf(
+					"ListParent: asked for %d records, found %d",
+					len(ids),
+					len(ret),
+				),
+			}
+		}
 	}
 
 	return ret, nil
@@ -958,7 +1027,7 @@ func (p *PGClient) InsertParent(
 	value *Parent,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return p.impl.InsertParent(ctx, value, opts...)
+	return p.impl.insertParent(ctx, value, opts...)
 }
 
 // Insert a Parent into the database. Returns the primary
@@ -968,18 +1037,18 @@ func (tx *TxPGClient) InsertParent(
 	value *Parent,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return tx.impl.InsertParent(ctx, value, opts...)
+	return tx.impl.insertParent(ctx, value, opts...)
 }
 
 // Insert a Parent into the database. Returns the primary
 // key of the inserted row.
-func (p *pgClientImpl) InsertParent(
+func (p *pgClientImpl) insertParent(
 	ctx context.Context,
 	value *Parent,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
 	var ids []int64
-	ids, err = p.BulkInsertParent(ctx, []Parent{*value}, opts...)
+	ids, err = p.bulkInsertParent(ctx, []Parent{*value}, opts...)
 	if err != nil {
 		return
 	}
@@ -1000,7 +1069,7 @@ func (p *PGClient) BulkInsertParent(
 	values []Parent,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return p.impl.BulkInsertParent(ctx, values, opts...)
+	return p.impl.bulkInsertParent(ctx, values, opts...)
 }
 
 // Insert a list of Parent. Returns a list of the primary keys of
@@ -1010,12 +1079,12 @@ func (tx *TxPGClient) BulkInsertParent(
 	values []Parent,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return tx.impl.BulkInsertParent(ctx, values, opts...)
+	return tx.impl.bulkInsertParent(ctx, values, opts...)
 }
 
 // Insert a list of Parent. Returns a list of the primary keys of
 // the inserted rows.
-func (p *pgClientImpl) BulkInsertParent(
+func (p *pgClientImpl) bulkInsertParent(
 	ctx context.Context,
 	values []Parent,
 	opts ...pggen.InsertOpt,
@@ -1092,8 +1161,9 @@ func (p *PGClient) UpdateParent(
 	ctx context.Context,
 	value *Parent,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.UpdateParent(ctx, value, fieldMask)
+	return p.impl.updateParent(ctx, value, fieldMask)
 }
 
 // Update a Parent. 'value' must at the least have
@@ -1105,13 +1175,15 @@ func (tx *TxPGClient) UpdateParent(
 	ctx context.Context,
 	value *Parent,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.UpdateParent(ctx, value, fieldMask)
+	return tx.impl.updateParent(ctx, value, fieldMask)
 }
-func (p *pgClientImpl) UpdateParent(
+func (p *pgClientImpl) updateParent(
 	ctx context.Context,
 	value *Parent,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(ParentIdFieldIndex) {
 		err = fmt.Errorf("primary key required for updates to 'parents'")
@@ -1150,7 +1222,7 @@ func (p *pgClientImpl) UpdateParent(
 	return id, nil
 }
 
-// Updsert a Parent value. If the given value conflicts with
+// Upsert a Parent value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -1159,9 +1231,10 @@ func (p *PGClient) UpsertParent(
 	value *Parent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = p.impl.BulkUpsertParent(ctx, []Parent{*value}, constraintNames, fieldMask)
+	val, err = p.impl.bulkUpsertParent(ctx, []Parent{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -1173,7 +1246,7 @@ func (p *PGClient) UpsertParent(
 	return value.Id, nil
 }
 
-// Updsert a Parent value. If the given value conflicts with
+// Upsert a Parent value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -1182,9 +1255,10 @@ func (tx *TxPGClient) UpsertParent(
 	value *Parent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = tx.impl.BulkUpsertParent(ctx, []Parent{*value}, constraintNames, fieldMask)
+	val, err = tx.impl.bulkUpsertParent(ctx, []Parent{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -1196,7 +1270,7 @@ func (tx *TxPGClient) UpsertParent(
 	return value.Id, nil
 }
 
-// Updsert a set of Parent values. If any of the given values conflict with
+// Upsert a set of Parent values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -1205,11 +1279,12 @@ func (p *PGClient) BulkUpsertParent(
 	values []Parent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return p.impl.BulkUpsertParent(ctx, values, constraintNames, fieldMask)
+	return p.impl.bulkUpsertParent(ctx, values, constraintNames, fieldMask, opts...)
 }
 
-// Updsert a set of Parent values. If any of the given values conflict with
+// Upsert a set of Parent values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -1218,17 +1293,24 @@ func (tx *TxPGClient) BulkUpsertParent(
 	values []Parent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return tx.impl.BulkUpsertParent(ctx, values, constraintNames, fieldMask)
+	return tx.impl.bulkUpsertParent(ctx, values, constraintNames, fieldMask, opts...)
 }
-func (p *pgClientImpl) BulkUpsertParent(
+func (p *pgClientImpl) bulkUpsertParent(
 	ctx context.Context,
 	values []Parent,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) ([]int64, error) {
 	if len(values) == 0 {
 		return []int64{}, nil
+	}
+
+	options := pggen.UpsertOptions{}
+	for _, opt := range opts {
+		opt(&options)
 	}
 
 	if constraintNames == nil || len(constraintNames) == 0 {
@@ -1242,17 +1324,22 @@ func (p *pgClientImpl) BulkUpsertParent(
 		fieldsForParent,
 		len(values),
 		`id`,
-		fieldMask.Test(ParentIdFieldIndex),
+		options.UsePkey,
 	)
 
-	if fieldMask.CountSetBits() > 0 {
+	setBits := fieldMask.CountSetBits()
+	hasConflictAction := setBits > 1 ||
+		(setBits == 1 && fieldMask.Test(ParentIdFieldIndex) && options.UsePkey) ||
+		(setBits == 1 && !fieldMask.Test(ParentIdFieldIndex))
+
+	if hasConflictAction {
 		stmt.WriteString("ON CONFLICT (")
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
 		updateCols := make([]string, 0, 3)
 		updateExprs := make([]string, 0, 3)
-		if fieldMask.Test(ParentIdFieldIndex) {
+		if options.UsePkey {
 			updateCols = append(updateCols, `id`)
 			updateExprs = append(updateExprs, `excluded.id`)
 		}
@@ -1287,7 +1374,7 @@ func (p *pgClientImpl) BulkUpsertParent(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if fieldMask.Test(ParentIdFieldIndex) {
+		if options.UsePkey {
 			args = append(args, v.Id)
 		}
 		args = append(args, v.GrandparentId)
@@ -1316,36 +1403,45 @@ func (p *pgClientImpl) BulkUpsertParent(
 func (p *PGClient) DeleteParent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteParent(ctx, []int64{id})
+	return p.impl.bulkDeleteParent(ctx, []int64{id}, opts...)
 }
 func (tx *TxPGClient) DeleteParent(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteParent(ctx, []int64{id})
+	return tx.impl.bulkDeleteParent(ctx, []int64{id}, opts...)
 }
 
 func (p *PGClient) BulkDeleteParent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteParent(ctx, ids)
+	return p.impl.bulkDeleteParent(ctx, ids, opts...)
 }
 func (tx *TxPGClient) BulkDeleteParent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteParent(ctx, ids)
+	return tx.impl.bulkDeleteParent(ctx, ids, opts...)
 }
-func (p *pgClientImpl) BulkDeleteParent(
+func (p *pgClientImpl) bulkDeleteParent(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
+	options := pggen.DeleteOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
 	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"parents\" WHERE \"id\" = ANY($1)",
@@ -1379,35 +1475,40 @@ func (p *PGClient) ParentFillIncludes(
 	ctx context.Context,
 	rec *Parent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.ParentBulkFillIncludes(ctx, []*Parent{rec}, includes)
+	return p.impl.privateParentBulkFillIncludes(ctx, []*Parent{rec}, includes)
 }
 func (tx *TxPGClient) ParentFillIncludes(
 	ctx context.Context,
 	rec *Parent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.ParentBulkFillIncludes(ctx, []*Parent{rec}, includes)
+	return tx.impl.privateParentBulkFillIncludes(ctx, []*Parent{rec}, includes)
 }
 
 func (p *PGClient) ParentBulkFillIncludes(
 	ctx context.Context,
 	recs []*Parent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.ParentBulkFillIncludes(ctx, recs, includes)
+	return p.impl.privateParentBulkFillIncludes(ctx, recs, includes)
 }
 func (tx *TxPGClient) ParentBulkFillIncludes(
 	ctx context.Context,
 	recs []*Parent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.ParentBulkFillIncludes(ctx, recs, includes)
+	return tx.impl.privateParentBulkFillIncludes(ctx, recs, includes)
 }
-func (p *pgClientImpl) ParentBulkFillIncludes(
+func (p *pgClientImpl) privateParentBulkFillIncludes(
 	ctx context.Context,
 	recs []*Parent,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
 	loadedRecordTab := map[string]interface{}{}
 
@@ -1607,7 +1708,7 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 		rows, err := p.db.QueryContext(
 			ctx,
 			`SELECT * FROM "grandparents"
-		 WHERE "id" = ANY($1)`,
+			WHERE "id" = ANY($1)`,
 			pq.Array(ids),
 		)
 		if err != nil {
@@ -1638,20 +1739,23 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 func (p *PGClient) GetChild(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Child, error) {
-	return p.impl.GetChild(ctx, id)
+	return p.impl.getChild(ctx, id)
 }
 func (tx *TxPGClient) GetChild(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Child, error) {
-	return tx.impl.GetChild(ctx, id)
+	return tx.impl.getChild(ctx, id)
 }
-func (p *pgClientImpl) GetChild(
+func (p *pgClientImpl) getChild(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Child, error) {
-	values, err := p.ListChild(ctx, []int64{id})
+	values, err := p.listChild(ctx, []int64{id}, true /* isGet */)
 	if err != nil {
 		return nil, err
 	}
@@ -1664,18 +1768,22 @@ func (p *pgClientImpl) GetChild(
 func (p *PGClient) ListChild(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
-	return p.impl.ListChild(ctx, ids)
+	return p.impl.listChild(ctx, ids, false /* isGet */)
 }
 func (tx *TxPGClient) ListChild(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
-	return tx.impl.ListChild(ctx, ids)
+	return tx.impl.listChild(ctx, ids, false /* isGet */)
 }
-func (p *pgClientImpl) ListChild(
+func (p *pgClientImpl) listChild(
 	ctx context.Context,
 	ids []int64,
+	isGet bool,
+	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
 	if len(ids) == 0 {
 		return []Child{}, nil
@@ -1714,11 +1822,19 @@ func (p *pgClientImpl) ListChild(
 	}
 
 	if len(ret) != len(ids) {
-		return nil, fmt.Errorf(
-			"ListChild: asked for %d records, found %d",
-			len(ids),
-			len(ret),
-		)
+		if isGet {
+			return nil, &unstable.NotFoundError{
+				Msg: "GetChild: record not found",
+			}
+		} else {
+			return nil, &unstable.NotFoundError{
+				Msg: fmt.Sprintf(
+					"ListChild: asked for %d records, found %d",
+					len(ids),
+					len(ret),
+				),
+			}
+		}
 	}
 
 	return ret, nil
@@ -1731,7 +1847,7 @@ func (p *PGClient) InsertChild(
 	value *Child,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return p.impl.InsertChild(ctx, value, opts...)
+	return p.impl.insertChild(ctx, value, opts...)
 }
 
 // Insert a Child into the database. Returns the primary
@@ -1741,18 +1857,18 @@ func (tx *TxPGClient) InsertChild(
 	value *Child,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return tx.impl.InsertChild(ctx, value, opts...)
+	return tx.impl.insertChild(ctx, value, opts...)
 }
 
 // Insert a Child into the database. Returns the primary
 // key of the inserted row.
-func (p *pgClientImpl) InsertChild(
+func (p *pgClientImpl) insertChild(
 	ctx context.Context,
 	value *Child,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
 	var ids []int64
-	ids, err = p.BulkInsertChild(ctx, []Child{*value}, opts...)
+	ids, err = p.bulkInsertChild(ctx, []Child{*value}, opts...)
 	if err != nil {
 		return
 	}
@@ -1773,7 +1889,7 @@ func (p *PGClient) BulkInsertChild(
 	values []Child,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return p.impl.BulkInsertChild(ctx, values, opts...)
+	return p.impl.bulkInsertChild(ctx, values, opts...)
 }
 
 // Insert a list of Child. Returns a list of the primary keys of
@@ -1783,12 +1899,12 @@ func (tx *TxPGClient) BulkInsertChild(
 	values []Child,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return tx.impl.BulkInsertChild(ctx, values, opts...)
+	return tx.impl.bulkInsertChild(ctx, values, opts...)
 }
 
 // Insert a list of Child. Returns a list of the primary keys of
 // the inserted rows.
-func (p *pgClientImpl) BulkInsertChild(
+func (p *pgClientImpl) bulkInsertChild(
 	ctx context.Context,
 	values []Child,
 	opts ...pggen.InsertOpt,
@@ -1865,8 +1981,9 @@ func (p *PGClient) UpdateChild(
 	ctx context.Context,
 	value *Child,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.UpdateChild(ctx, value, fieldMask)
+	return p.impl.updateChild(ctx, value, fieldMask)
 }
 
 // Update a Child. 'value' must at the least have
@@ -1878,13 +1995,15 @@ func (tx *TxPGClient) UpdateChild(
 	ctx context.Context,
 	value *Child,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.UpdateChild(ctx, value, fieldMask)
+	return tx.impl.updateChild(ctx, value, fieldMask)
 }
-func (p *pgClientImpl) UpdateChild(
+func (p *pgClientImpl) updateChild(
 	ctx context.Context,
 	value *Child,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(ChildIdFieldIndex) {
 		err = fmt.Errorf("primary key required for updates to 'children'")
@@ -1923,7 +2042,7 @@ func (p *pgClientImpl) UpdateChild(
 	return id, nil
 }
 
-// Updsert a Child value. If the given value conflicts with
+// Upsert a Child value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -1932,9 +2051,10 @@ func (p *PGClient) UpsertChild(
 	value *Child,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = p.impl.BulkUpsertChild(ctx, []Child{*value}, constraintNames, fieldMask)
+	val, err = p.impl.bulkUpsertChild(ctx, []Child{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -1946,7 +2066,7 @@ func (p *PGClient) UpsertChild(
 	return value.Id, nil
 }
 
-// Updsert a Child value. If the given value conflicts with
+// Upsert a Child value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -1955,9 +2075,10 @@ func (tx *TxPGClient) UpsertChild(
 	value *Child,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = tx.impl.BulkUpsertChild(ctx, []Child{*value}, constraintNames, fieldMask)
+	val, err = tx.impl.bulkUpsertChild(ctx, []Child{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -1969,7 +2090,7 @@ func (tx *TxPGClient) UpsertChild(
 	return value.Id, nil
 }
 
-// Updsert a set of Child values. If any of the given values conflict with
+// Upsert a set of Child values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -1978,11 +2099,12 @@ func (p *PGClient) BulkUpsertChild(
 	values []Child,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return p.impl.BulkUpsertChild(ctx, values, constraintNames, fieldMask)
+	return p.impl.bulkUpsertChild(ctx, values, constraintNames, fieldMask, opts...)
 }
 
-// Updsert a set of Child values. If any of the given values conflict with
+// Upsert a set of Child values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -1991,17 +2113,24 @@ func (tx *TxPGClient) BulkUpsertChild(
 	values []Child,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return tx.impl.BulkUpsertChild(ctx, values, constraintNames, fieldMask)
+	return tx.impl.bulkUpsertChild(ctx, values, constraintNames, fieldMask, opts...)
 }
-func (p *pgClientImpl) BulkUpsertChild(
+func (p *pgClientImpl) bulkUpsertChild(
 	ctx context.Context,
 	values []Child,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) ([]int64, error) {
 	if len(values) == 0 {
 		return []int64{}, nil
+	}
+
+	options := pggen.UpsertOptions{}
+	for _, opt := range opts {
+		opt(&options)
 	}
 
 	if constraintNames == nil || len(constraintNames) == 0 {
@@ -2015,17 +2144,22 @@ func (p *pgClientImpl) BulkUpsertChild(
 		fieldsForChild,
 		len(values),
 		`id`,
-		fieldMask.Test(ChildIdFieldIndex),
+		options.UsePkey,
 	)
 
-	if fieldMask.CountSetBits() > 0 {
+	setBits := fieldMask.CountSetBits()
+	hasConflictAction := setBits > 1 ||
+		(setBits == 1 && fieldMask.Test(ChildIdFieldIndex) && options.UsePkey) ||
+		(setBits == 1 && !fieldMask.Test(ChildIdFieldIndex))
+
+	if hasConflictAction {
 		stmt.WriteString("ON CONFLICT (")
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
 		updateCols := make([]string, 0, 3)
 		updateExprs := make([]string, 0, 3)
-		if fieldMask.Test(ChildIdFieldIndex) {
+		if options.UsePkey {
 			updateCols = append(updateCols, `id`)
 			updateExprs = append(updateExprs, `excluded.id`)
 		}
@@ -2060,7 +2194,7 @@ func (p *pgClientImpl) BulkUpsertChild(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if fieldMask.Test(ChildIdFieldIndex) {
+		if options.UsePkey {
 			args = append(args, v.Id)
 		}
 		args = append(args, v.ParentId)
@@ -2089,36 +2223,45 @@ func (p *pgClientImpl) BulkUpsertChild(
 func (p *PGClient) DeleteChild(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteChild(ctx, []int64{id})
+	return p.impl.bulkDeleteChild(ctx, []int64{id}, opts...)
 }
 func (tx *TxPGClient) DeleteChild(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteChild(ctx, []int64{id})
+	return tx.impl.bulkDeleteChild(ctx, []int64{id}, opts...)
 }
 
 func (p *PGClient) BulkDeleteChild(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteChild(ctx, ids)
+	return p.impl.bulkDeleteChild(ctx, ids, opts...)
 }
 func (tx *TxPGClient) BulkDeleteChild(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteChild(ctx, ids)
+	return tx.impl.bulkDeleteChild(ctx, ids, opts...)
 }
-func (p *pgClientImpl) BulkDeleteChild(
+func (p *pgClientImpl) bulkDeleteChild(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
+	options := pggen.DeleteOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
 	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"children\" WHERE \"id\" = ANY($1)",
@@ -2152,35 +2295,40 @@ func (p *PGClient) ChildFillIncludes(
 	ctx context.Context,
 	rec *Child,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.ChildBulkFillIncludes(ctx, []*Child{rec}, includes)
+	return p.impl.privateChildBulkFillIncludes(ctx, []*Child{rec}, includes)
 }
 func (tx *TxPGClient) ChildFillIncludes(
 	ctx context.Context,
 	rec *Child,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.ChildBulkFillIncludes(ctx, []*Child{rec}, includes)
+	return tx.impl.privateChildBulkFillIncludes(ctx, []*Child{rec}, includes)
 }
 
 func (p *PGClient) ChildBulkFillIncludes(
 	ctx context.Context,
 	recs []*Child,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.ChildBulkFillIncludes(ctx, recs, includes)
+	return p.impl.privateChildBulkFillIncludes(ctx, recs, includes)
 }
 func (tx *TxPGClient) ChildBulkFillIncludes(
 	ctx context.Context,
 	recs []*Child,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.ChildBulkFillIncludes(ctx, recs, includes)
+	return tx.impl.privateChildBulkFillIncludes(ctx, recs, includes)
 }
-func (p *pgClientImpl) ChildBulkFillIncludes(
+func (p *pgClientImpl) privateChildBulkFillIncludes(
 	ctx context.Context,
 	recs []*Child,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
 	loadedRecordTab := map[string]interface{}{}
 
@@ -2384,7 +2532,7 @@ func (p *pgClientImpl) privateChildFillParentParent(
 		rows, err := p.db.QueryContext(
 			ctx,
 			`SELECT * FROM "parents"
-		 WHERE "id" = ANY($1)`,
+			WHERE "id" = ANY($1)`,
 			pq.Array(ids),
 		)
 		if err != nil {
@@ -2412,11 +2560,69 @@ func (p *pgClientImpl) privateChildFillParentParent(
 	return nil
 }
 
+type DBQueries interface {
+	//
+	// automatic CRUD methods
+	//
+
+	// Grandparent methods
+	GetGrandparent(ctx context.Context, id int64, opts ...pggen.GetOpt) (*Grandparent, error)
+	ListGrandparent(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]Grandparent, error)
+	InsertGrandparent(ctx context.Context, value *Grandparent, opts ...pggen.InsertOpt) (int64, error)
+	BulkInsertGrandparent(ctx context.Context, values []Grandparent, opts ...pggen.InsertOpt) ([]int64, error)
+	UpdateGrandparent(ctx context.Context, value *Grandparent, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)
+	UpsertGrandparent(ctx context.Context, value *Grandparent, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) (int64, error)
+	BulkUpsertGrandparent(ctx context.Context, values []Grandparent, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) ([]int64, error)
+	DeleteGrandparent(ctx context.Context, id int64, opts ...pggen.DeleteOpt) error
+	BulkDeleteGrandparent(ctx context.Context, ids []int64, opts ...pggen.DeleteOpt) error
+	GrandparentFillIncludes(ctx context.Context, rec *Grandparent, includes *include.Spec, opts ...pggen.IncludeOpt) error
+	GrandparentBulkFillIncludes(ctx context.Context, recs []*Grandparent, includes *include.Spec, opts ...pggen.IncludeOpt) error
+
+	// Parent methods
+	GetParent(ctx context.Context, id int64, opts ...pggen.GetOpt) (*Parent, error)
+	ListParent(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]Parent, error)
+	InsertParent(ctx context.Context, value *Parent, opts ...pggen.InsertOpt) (int64, error)
+	BulkInsertParent(ctx context.Context, values []Parent, opts ...pggen.InsertOpt) ([]int64, error)
+	UpdateParent(ctx context.Context, value *Parent, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)
+	UpsertParent(ctx context.Context, value *Parent, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) (int64, error)
+	BulkUpsertParent(ctx context.Context, values []Parent, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) ([]int64, error)
+	DeleteParent(ctx context.Context, id int64, opts ...pggen.DeleteOpt) error
+	BulkDeleteParent(ctx context.Context, ids []int64, opts ...pggen.DeleteOpt) error
+	ParentFillIncludes(ctx context.Context, rec *Parent, includes *include.Spec, opts ...pggen.IncludeOpt) error
+	ParentBulkFillIncludes(ctx context.Context, recs []*Parent, includes *include.Spec, opts ...pggen.IncludeOpt) error
+
+	// Child methods
+	GetChild(ctx context.Context, id int64, opts ...pggen.GetOpt) (*Child, error)
+	ListChild(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]Child, error)
+	InsertChild(ctx context.Context, value *Child, opts ...pggen.InsertOpt) (int64, error)
+	BulkInsertChild(ctx context.Context, values []Child, opts ...pggen.InsertOpt) ([]int64, error)
+	UpdateChild(ctx context.Context, value *Child, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)
+	UpsertChild(ctx context.Context, value *Child, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) (int64, error)
+	BulkUpsertChild(ctx context.Context, values []Child, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) ([]int64, error)
+	DeleteChild(ctx context.Context, id int64, opts ...pggen.DeleteOpt) error
+	BulkDeleteChild(ctx context.Context, ids []int64, opts ...pggen.DeleteOpt) error
+	ChildFillIncludes(ctx context.Context, rec *Child, includes *include.Spec, opts ...pggen.IncludeOpt) error
+	ChildBulkFillIncludes(ctx context.Context, recs []*Child, includes *include.Spec, opts ...pggen.IncludeOpt) error
+
+	//
+	// query methods
+	//
+
+	//
+	// stored function methods
+	//
+
+	//
+	// stmt methods
+	//
+
+}
+
 type Grandparent struct {
-	Id                 int64  `gorm:"column:id" gorm:"is_primary" `
-	Name               string `gorm:"column:name" `
-	FavoriteGrandkidId *int64 `gorm:"column:favorite_grandkid_id" `
-	Parents            []*Parent
+	Id                 int64     `gorm:"column:id;is_primary"`
+	Name               string    `gorm:"column:name"`
+	FavoriteGrandkidId *int64    `gorm:"column:favorite_grandkid_id"`
+	Parents            []*Parent `gorm:"foreignKey:GrandparentId"`
 	FavoriteGrandkid   *Child
 }
 
@@ -2446,7 +2652,27 @@ func (r *Grandparent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) 
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
-		return err
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabForGrandparent) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForGrandparent,
+				`drop_cols`,
+				&client.colIdxTabForGrandparent,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
 	}
 	r.FavoriteGrandkidId = convertNullInt64(nullableTgts.scanFavoriteGrandkidId)
 
@@ -2487,10 +2713,10 @@ var genTimeColIdxTabForGrandparent map[string]int = map[string]int{
 }
 
 type Parent struct {
-	Id            int64  `gorm:"column:id" gorm:"is_primary" `
-	GrandparentId int64  `gorm:"column:grandparent_id" `
-	Name          string `gorm:"column:name" `
-	Children      []*Child
+	Id            int64    `gorm:"column:id;is_primary"`
+	GrandparentId int64    `gorm:"column:grandparent_id"`
+	Name          string   `gorm:"column:name"`
+	Children      []*Child `gorm:"foreignKey:ParentId"`
 	Grandparent   *Grandparent
 }
 
@@ -2520,7 +2746,27 @@ func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
-		return err
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabForParent) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForParent,
+				`drop_cols`,
+				&client.colIdxTabForParent,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
 	}
 
 	return nil
@@ -2559,10 +2805,10 @@ var genTimeColIdxTabForParent map[string]int = map[string]int{
 }
 
 type Child struct {
-	Id                  int64  `gorm:"column:id" gorm:"is_primary" `
-	ParentId            int64  `gorm:"column:parent_id" `
-	Name                string `gorm:"column:name" `
-	DarlingGrandparents []*Grandparent
+	Id                  int64          `gorm:"column:id;is_primary"`
+	ParentId            int64          `gorm:"column:parent_id"`
+	Name                string         `gorm:"column:name"`
+	DarlingGrandparents []*Grandparent `gorm:"foreignKey:FavoriteGrandkidId"`
 	Parent              *Parent
 }
 
@@ -2592,7 +2838,27 @@ func (r *Child) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error 
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
-		return err
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabForChild) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForChild,
+				`drop_cols`,
+				&client.colIdxTabForChild,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
 	}
 
 	return nil

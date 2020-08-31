@@ -1,0 +1,28 @@
+# This tells pggen to automatically look for a column called `created_at`
+# on all the tables in the database and set the timestamp to `time.Now()`
+# within the Insert routine generated for each table.
+#
+# This is a global setting, but you can also exercise more granular control
+# by just setting created_at_field on each individual table that you want
+# to provide automatic timestamp support.
+created_at_field = "created_at"
+
+# This setting is just like created_at_field except that the timestamp is
+# updated by the generated Update and Upsert methods as well.
+updated_at_field = "updated_at"
+
+# This setting makes the generated Delete method just set a deleted at timestamp
+# if it is present instead of actually blowing away the data. The Get, List, and FillIncludes
+# routines will then respect this timestamp and no longer include the record in results.
+# You can use the `pggen.DeleteDoHardDelete` functional option to override the behavior
+# and actually perform a delete.
+deleted_at_field = "deleted_at"
+
+[[table]]
+    name = "users"
+
+# get a user even if the soft-delete timestamp has been set
+[[query]]
+    name = "GetUserAnyway"
+    return_type = "User"
+    body = "SELECT * FROM users WHERE id = $1"

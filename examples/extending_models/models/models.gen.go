@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
+	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
 )
 
@@ -17,7 +18,7 @@ import (
 // database access methods for this package are attached to it.
 type PGClient struct {
 	impl       pgClientImpl
-	topLevelDB *sql.DB
+	topLevelDB pggen.DBConn
 
 	// These column indexes are used at run time to enable us to 'SELECT *' against
 	// a table that has the same columns in a different order from the ones that we
@@ -27,7 +28,13 @@ type PGClient struct {
 	colIdxTabForDog []int
 }
 
-func NewPGClient(conn *sql.DB) *PGClient {
+// NewPGClient creates a new PGClient out of a '*sql.DB' or a
+// custom wrapper around a db connection.
+//
+// If you provide your own wrapper around a '*sql.DB' for logging or
+// custom tracing, you MUST forward all calls to an underlying '*sql.DB'
+// member of your wrapper.
+func NewPGClient(conn pggen.DBConn) *PGClient {
 	client := PGClient{
 		topLevelDB: conn,
 	}
@@ -85,20 +92,23 @@ type pgClientImpl struct {
 func (p *PGClient) GetDog(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Dog, error) {
-	return p.impl.GetDog(ctx, id)
+	return p.impl.getDog(ctx, id)
 }
 func (tx *TxPGClient) GetDog(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Dog, error) {
-	return tx.impl.GetDog(ctx, id)
+	return tx.impl.getDog(ctx, id)
 }
-func (p *pgClientImpl) GetDog(
+func (p *pgClientImpl) getDog(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.GetOpt,
 ) (*Dog, error) {
-	values, err := p.ListDog(ctx, []int64{id})
+	values, err := p.listDog(ctx, []int64{id}, true /* isGet */)
 	if err != nil {
 		return nil, err
 	}
@@ -111,18 +121,22 @@ func (p *pgClientImpl) GetDog(
 func (p *PGClient) ListDog(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
-	return p.impl.ListDog(ctx, ids)
+	return p.impl.listDog(ctx, ids, false /* isGet */)
 }
 func (tx *TxPGClient) ListDog(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
-	return tx.impl.ListDog(ctx, ids)
+	return tx.impl.listDog(ctx, ids, false /* isGet */)
 }
-func (p *pgClientImpl) ListDog(
+func (p *pgClientImpl) listDog(
 	ctx context.Context,
 	ids []int64,
+	isGet bool,
+	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
 	if len(ids) == 0 {
 		return []Dog{}, nil
@@ -161,11 +175,19 @@ func (p *pgClientImpl) ListDog(
 	}
 
 	if len(ret) != len(ids) {
-		return nil, fmt.Errorf(
-			"ListDog: asked for %d records, found %d",
-			len(ids),
-			len(ret),
-		)
+		if isGet {
+			return nil, &unstable.NotFoundError{
+				Msg: "GetDog: record not found",
+			}
+		} else {
+			return nil, &unstable.NotFoundError{
+				Msg: fmt.Sprintf(
+					"ListDog: asked for %d records, found %d",
+					len(ids),
+					len(ret),
+				),
+			}
+		}
 	}
 
 	return ret, nil
@@ -178,7 +200,7 @@ func (p *PGClient) InsertDog(
 	value *Dog,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return p.impl.InsertDog(ctx, value, opts...)
+	return p.impl.insertDog(ctx, value, opts...)
 }
 
 // Insert a Dog into the database. Returns the primary
@@ -188,18 +210,18 @@ func (tx *TxPGClient) InsertDog(
 	value *Dog,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return tx.impl.InsertDog(ctx, value, opts...)
+	return tx.impl.insertDog(ctx, value, opts...)
 }
 
 // Insert a Dog into the database. Returns the primary
 // key of the inserted row.
-func (p *pgClientImpl) InsertDog(
+func (p *pgClientImpl) insertDog(
 	ctx context.Context,
 	value *Dog,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
 	var ids []int64
-	ids, err = p.BulkInsertDog(ctx, []Dog{*value}, opts...)
+	ids, err = p.bulkInsertDog(ctx, []Dog{*value}, opts...)
 	if err != nil {
 		return
 	}
@@ -220,7 +242,7 @@ func (p *PGClient) BulkInsertDog(
 	values []Dog,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return p.impl.BulkInsertDog(ctx, values, opts...)
+	return p.impl.bulkInsertDog(ctx, values, opts...)
 }
 
 // Insert a list of Dog. Returns a list of the primary keys of
@@ -230,12 +252,12 @@ func (tx *TxPGClient) BulkInsertDog(
 	values []Dog,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return tx.impl.BulkInsertDog(ctx, values, opts...)
+	return tx.impl.bulkInsertDog(ctx, values, opts...)
 }
 
 // Insert a list of Dog. Returns a list of the primary keys of
 // the inserted rows.
-func (p *pgClientImpl) BulkInsertDog(
+func (p *pgClientImpl) bulkInsertDog(
 	ctx context.Context,
 	values []Dog,
 	opts ...pggen.InsertOpt,
@@ -315,8 +337,9 @@ func (p *PGClient) UpdateDog(
 	ctx context.Context,
 	value *Dog,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.UpdateDog(ctx, value, fieldMask)
+	return p.impl.updateDog(ctx, value, fieldMask)
 }
 
 // Update a Dog. 'value' must at the least have
@@ -328,13 +351,15 @@ func (tx *TxPGClient) UpdateDog(
 	ctx context.Context,
 	value *Dog,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.UpdateDog(ctx, value, fieldMask)
+	return tx.impl.updateDog(ctx, value, fieldMask)
 }
-func (p *pgClientImpl) UpdateDog(
+func (p *pgClientImpl) updateDog(
 	ctx context.Context,
 	value *Dog,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(DogIdFieldIndex) {
 		err = fmt.Errorf("primary key required for updates to 'dogs'")
@@ -376,7 +401,7 @@ func (p *pgClientImpl) UpdateDog(
 	return id, nil
 }
 
-// Updsert a Dog value. If the given value conflicts with
+// Upsert a Dog value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -385,9 +410,10 @@ func (p *PGClient) UpsertDog(
 	value *Dog,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = p.impl.BulkUpsertDog(ctx, []Dog{*value}, constraintNames, fieldMask)
+	val, err = p.impl.bulkUpsertDog(ctx, []Dog{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -399,7 +425,7 @@ func (p *PGClient) UpsertDog(
 	return value.Id, nil
 }
 
-// Updsert a Dog value. If the given value conflicts with
+// Upsert a Dog value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
@@ -408,9 +434,10 @@ func (tx *TxPGClient) UpsertDog(
 	value *Dog,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = tx.impl.BulkUpsertDog(ctx, []Dog{*value}, constraintNames, fieldMask)
+	val, err = tx.impl.bulkUpsertDog(ctx, []Dog{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -422,7 +449,7 @@ func (tx *TxPGClient) UpsertDog(
 	return value.Id, nil
 }
 
-// Updsert a set of Dog values. If any of the given values conflict with
+// Upsert a set of Dog values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -431,11 +458,12 @@ func (p *PGClient) BulkUpsertDog(
 	values []Dog,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return p.impl.BulkUpsertDog(ctx, values, constraintNames, fieldMask)
+	return p.impl.bulkUpsertDog(ctx, values, constraintNames, fieldMask, opts...)
 }
 
-// Updsert a set of Dog values. If any of the given values conflict with
+// Upsert a set of Dog values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
@@ -444,17 +472,24 @@ func (tx *TxPGClient) BulkUpsertDog(
 	values []Dog,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return tx.impl.BulkUpsertDog(ctx, values, constraintNames, fieldMask)
+	return tx.impl.bulkUpsertDog(ctx, values, constraintNames, fieldMask, opts...)
 }
-func (p *pgClientImpl) BulkUpsertDog(
+func (p *pgClientImpl) bulkUpsertDog(
 	ctx context.Context,
 	values []Dog,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
 ) ([]int64, error) {
 	if len(values) == 0 {
 		return []int64{}, nil
+	}
+
+	options := pggen.UpsertOptions{}
+	for _, opt := range opts {
+		opt(&options)
 	}
 
 	if constraintNames == nil || len(constraintNames) == 0 {
@@ -468,17 +503,22 @@ func (p *pgClientImpl) BulkUpsertDog(
 		fieldsForDog,
 		len(values),
 		`id`,
-		fieldMask.Test(DogIdFieldIndex),
+		options.UsePkey,
 	)
 
-	if fieldMask.CountSetBits() > 0 {
+	setBits := fieldMask.CountSetBits()
+	hasConflictAction := setBits > 1 ||
+		(setBits == 1 && fieldMask.Test(DogIdFieldIndex) && options.UsePkey) ||
+		(setBits == 1 && !fieldMask.Test(DogIdFieldIndex))
+
+	if hasConflictAction {
 		stmt.WriteString("ON CONFLICT (")
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
 		updateCols := make([]string, 0, 4)
 		updateExprs := make([]string, 0, 4)
-		if fieldMask.Test(DogIdFieldIndex) {
+		if options.UsePkey {
 			updateCols = append(updateCols, `id`)
 			updateExprs = append(updateExprs, `excluded.id`)
 		}
@@ -517,7 +557,7 @@ func (p *pgClientImpl) BulkUpsertDog(
 
 	args := make([]interface{}, 0, 4*len(values))
 	for _, v := range values {
-		if fieldMask.Test(DogIdFieldIndex) {
+		if options.UsePkey {
 			args = append(args, v.Id)
 		}
 		args = append(args, v.Breed)
@@ -547,36 +587,45 @@ func (p *pgClientImpl) BulkUpsertDog(
 func (p *PGClient) DeleteDog(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteDog(ctx, []int64{id})
+	return p.impl.bulkDeleteDog(ctx, []int64{id}, opts...)
 }
 func (tx *TxPGClient) DeleteDog(
 	ctx context.Context,
 	id int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteDog(ctx, []int64{id})
+	return tx.impl.bulkDeleteDog(ctx, []int64{id}, opts...)
 }
 
 func (p *PGClient) BulkDeleteDog(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.BulkDeleteDog(ctx, ids)
+	return p.impl.bulkDeleteDog(ctx, ids, opts...)
 }
 func (tx *TxPGClient) BulkDeleteDog(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.BulkDeleteDog(ctx, ids)
+	return tx.impl.bulkDeleteDog(ctx, ids, opts...)
 }
-func (p *pgClientImpl) BulkDeleteDog(
+func (p *pgClientImpl) bulkDeleteDog(
 	ctx context.Context,
 	ids []int64,
+	opts ...pggen.DeleteOpt,
 ) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
+	options := pggen.DeleteOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
 	res, err := p.db.ExecContext(
 		ctx,
 		"DELETE FROM \"dogs\" WHERE \"id\" = ANY($1)",
@@ -610,35 +659,40 @@ func (p *PGClient) DogFillIncludes(
 	ctx context.Context,
 	rec *Dog,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.DogBulkFillIncludes(ctx, []*Dog{rec}, includes)
+	return p.impl.privateDogBulkFillIncludes(ctx, []*Dog{rec}, includes)
 }
 func (tx *TxPGClient) DogFillIncludes(
 	ctx context.Context,
 	rec *Dog,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.DogBulkFillIncludes(ctx, []*Dog{rec}, includes)
+	return tx.impl.privateDogBulkFillIncludes(ctx, []*Dog{rec}, includes)
 }
 
 func (p *PGClient) DogBulkFillIncludes(
 	ctx context.Context,
 	recs []*Dog,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.DogBulkFillIncludes(ctx, recs, includes)
+	return p.impl.privateDogBulkFillIncludes(ctx, recs, includes)
 }
 func (tx *TxPGClient) DogBulkFillIncludes(
 	ctx context.Context,
 	recs []*Dog,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.DogBulkFillIncludes(ctx, recs, includes)
+	return tx.impl.privateDogBulkFillIncludes(ctx, recs, includes)
 }
-func (p *pgClientImpl) DogBulkFillIncludes(
+func (p *pgClientImpl) privateDogBulkFillIncludes(
 	ctx context.Context,
 	recs []*Dog,
 	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
 ) error {
 	loadedRecordTab := map[string]interface{}{}
 
@@ -651,7 +705,7 @@ func (p *pgClientImpl) implDogBulkFillIncludes(
 	includes *include.Spec,
 	loadedRecordTab map[string]interface{},
 ) (err error) {
-	if includes.TableName != "dogs" {
+	if includes.TableName != `dogs` {
 		return fmt.Errorf(
 			"expected includes for 'dogs', got '%s'",
 			includes.TableName,
@@ -676,6 +730,38 @@ func (p *pgClientImpl) implDogBulkFillIncludes(
 	}
 
 	return
+}
+
+type DBQueries interface {
+	//
+	// automatic CRUD methods
+	//
+
+	// Dog methods
+	GetDog(ctx context.Context, id int64, opts ...pggen.GetOpt) (*Dog, error)
+	ListDog(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]Dog, error)
+	InsertDog(ctx context.Context, value *Dog, opts ...pggen.InsertOpt) (int64, error)
+	BulkInsertDog(ctx context.Context, values []Dog, opts ...pggen.InsertOpt) ([]int64, error)
+	UpdateDog(ctx context.Context, value *Dog, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)
+	UpsertDog(ctx context.Context, value *Dog, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) (int64, error)
+	BulkUpsertDog(ctx context.Context, values []Dog, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) ([]int64, error)
+	DeleteDog(ctx context.Context, id int64, opts ...pggen.DeleteOpt) error
+	BulkDeleteDog(ctx context.Context, ids []int64, opts ...pggen.DeleteOpt) error
+	DogFillIncludes(ctx context.Context, rec *Dog, includes *include.Spec, opts ...pggen.IncludeOpt) error
+	DogBulkFillIncludes(ctx context.Context, recs []*Dog, includes *include.Spec, opts ...pggen.IncludeOpt) error
+
+	//
+	// query methods
+	//
+
+	//
+	// stored function methods
+	//
+
+	//
+	// stmt methods
+	//
+
 }
 
 type SizeCategory int
@@ -779,7 +865,7 @@ func convertNullSizeCategory(v NullSizeCategory) *SizeCategory {
 }
 
 type Dog struct {
-	Id            int64        `gorm:"column:id" gorm:"is_primary"`
+	Id            int64        `gorm:"column:id;is_primary"`
 	Breed         string       `gorm:"column:breed"`
 	Size          SizeCategory `gorm:"column:size"`
 	AgeInDogYears int64        `gorm:"column:age_in_dog_years"`
@@ -811,7 +897,27 @@ func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
-		return err
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabForDog) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForDog,
+				`drop_cols`,
+				&client.colIdxTabForDog,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
 	}
 
 	return nil
