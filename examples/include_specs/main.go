@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	_ "github.com/lib/pq"
 	"github.com/opendoor-labs/pggen/examples/include_specs/models"
@@ -14,7 +15,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	conn, err := sql.Open("postgres", "postgres://localhost/pggen_example?sslmode=disable")
+	conn, err := sql.Open("postgres", os.Getenv("DB_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}

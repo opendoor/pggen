@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/opendoor-labs/pggen/gen/internal/utils"
 )
@@ -68,7 +69,16 @@ but another has a return type with fields
 }
 
 func (t *set) gen(into io.Writer) error {
+	decls := make([]typeDecl, len(t.set))
 	for _, decl := range t.set {
+		decls = append(decls, decl)
+	}
+
+	sort.Slice(decls, func(i, j int) bool {
+		return decls[i].sig < decls[j].sig
+	})
+
+	for _, decl := range decls {
 		err := utils.WriteCompletely(into, []byte(decl.body))
 		if err != nil {
 			return err

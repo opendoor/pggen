@@ -764,6 +764,104 @@ type DBQueries interface {
 
 }
 
+type Dog struct {
+	Id            int64        `gorm:"column:id;is_primary"`
+	Breed         string       `gorm:"column:breed"`
+	Size          SizeCategory `gorm:"column:size"`
+	AgeInDogYears int64        `gorm:"column:age_in_dog_years"`
+}
+
+func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	if client.colIdxTabForDog == nil {
+		err := client.fillColPosTab(
+			ctx,
+			genTimeColIdxTabForDog,
+			`dogs`,
+			&client.colIdxTabForDog,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	var nullableTgts nullableScanTgtsForDog
+
+	scanTgts := make([]interface{}, len(client.colIdxTabForDog))
+	for runIdx, genIdx := range client.colIdxTabForDog {
+		if genIdx == -1 {
+			scanTgts[runIdx] = &pggenSinkScanner{}
+		} else {
+			scanTgts[runIdx] = scannerTabForDog[genIdx](r, &nullableTgts)
+		}
+	}
+
+	err := rs.Scan(scanTgts...)
+	if err != nil {
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabForDog) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForDog,
+				`drop_cols`,
+				&client.colIdxTabForDog,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type nullableScanTgtsForDog struct {
+}
+
+// a table mapping codegen-time col indicies to functions returning a scanner for the
+// field that was at that column index at codegen-time.
+var scannerTabForDog = [...]func(*Dog, *nullableScanTgtsForDog) interface{}{
+	func(
+		r *Dog,
+		nullableTgts *nullableScanTgtsForDog,
+	) interface{} {
+		return &(r.Id)
+	},
+	func(
+		r *Dog,
+		nullableTgts *nullableScanTgtsForDog,
+	) interface{} {
+		return &(r.Breed)
+	},
+	func(
+		r *Dog,
+		nullableTgts *nullableScanTgtsForDog,
+	) interface{} {
+		return &ScanIntoSizeCategory{value: &r.Size}
+	},
+	func(
+		r *Dog,
+		nullableTgts *nullableScanTgtsForDog,
+	) interface{} {
+		return &(r.AgeInDogYears)
+	},
+}
+
+var genTimeColIdxTabForDog map[string]int = map[string]int{
+	`id`:               0,
+	`breed`:            1,
+	`size`:             2,
+	`age_in_dog_years`: 3,
+}
+
 type SizeCategory int
 
 const (
@@ -862,102 +960,4 @@ func convertNullSizeCategory(v NullSizeCategory) *SizeCategory {
 		return &ret
 	}
 	return nil
-}
-
-type Dog struct {
-	Id            int64        `gorm:"column:id;is_primary"`
-	Breed         string       `gorm:"column:breed"`
-	Size          SizeCategory `gorm:"column:size"`
-	AgeInDogYears int64        `gorm:"column:age_in_dog_years"`
-}
-
-func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
-	if client.colIdxTabForDog == nil {
-		err := client.fillColPosTab(
-			ctx,
-			genTimeColIdxTabForDog,
-			`dogs`,
-			&client.colIdxTabForDog,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	var nullableTgts nullableScanTgtsForDog
-
-	scanTgts := make([]interface{}, len(client.colIdxTabForDog))
-	for runIdx, genIdx := range client.colIdxTabForDog {
-		if genIdx == -1 {
-			scanTgts[runIdx] = &pggenSinkScanner{}
-		} else {
-			scanTgts[runIdx] = scannerTabForDog[genIdx](r, &nullableTgts)
-		}
-	}
-
-	err := rs.Scan(scanTgts...)
-	if err != nil {
-		// The database schema may have been changed out from under us, let's
-		// check to see if we just need to update our column index tables and retry.
-		colNames, colsErr := rs.Columns()
-		if colsErr != nil {
-			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
-		}
-		if len(client.colIdxTabForDog) != len(colNames) {
-			err = client.fillColPosTab(
-				ctx,
-				genTimeColIdxTabForDog,
-				`drop_cols`,
-				&client.colIdxTabForDog,
-			)
-			if err != nil {
-				return err
-			}
-
-			return r.Scan(ctx, client, rs)
-		} else {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type nullableScanTgtsForDog struct {
-}
-
-// a table mapping codegen-time col indicies to functions returning a scanner for the
-// field that was at that column index at codegen-time.
-var scannerTabForDog = [...]func(*Dog, *nullableScanTgtsForDog) interface{}{
-	func(
-		r *Dog,
-		nullableTgts *nullableScanTgtsForDog,
-	) interface{} {
-		return &(r.Id)
-	},
-	func(
-		r *Dog,
-		nullableTgts *nullableScanTgtsForDog,
-	) interface{} {
-		return &(r.Breed)
-	},
-	func(
-		r *Dog,
-		nullableTgts *nullableScanTgtsForDog,
-	) interface{} {
-		return &ScanIntoSizeCategory{value: &r.Size}
-	},
-	func(
-		r *Dog,
-		nullableTgts *nullableScanTgtsForDog,
-	) interface{} {
-		return &(r.AgeInDogYears)
-	},
-}
-
-var genTimeColIdxTabForDog map[string]int = map[string]int{
-	`id`:               0,
-	`breed`:            1,
-	`size`:             2,
-	`age_in_dog_years`: 3,
 }

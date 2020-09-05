@@ -23,14 +23,16 @@ do
 done
 
 # If the database already exists, don't bring the script down.
-createdb -h "${DB_HOST}" -W test -U postgres -w -e pggen_test || /bin/true
+createdb -h "${DB_HOST}" -W test -U postgres -w -e pggen_test 2>/dev/null || /bin/true
+
+go generate ./...
 
 psql "$DB_URL" < cmd/pggen/test/db.sql
-
-go generate ./cmd/pggen/test/...
 
 if [[ -n "${LINT+x}" ]] ; then
     golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
 else
-    go test ./...
+    # We have to serialize the tests because the example tests will re-write the database
+    # schema dynamically. We could fix this by creating a dedicated database for the example tests.
+    go test -p 1 ./...
 fi
