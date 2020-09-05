@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
+	ensureSchema "github.com/opendoor-labs/pggen/tools/ensure-schema/lib"
 )
 
 var (
@@ -20,6 +21,11 @@ var (
 )
 
 func init() {
+	err := ensureSchema.PopulateDB("./db.sql")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	dbURL = os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatalf("no DB_URL in the environment")

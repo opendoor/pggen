@@ -12,18 +12,21 @@ up to date with the most recent master version of pggen.
 First, `cd` into the example directory, then set up the database
 
 ```bash
-> createdb pggen_example
-> psql pggen_example < db.sql
+> createdb pggen_development
+> psql pggen_development < db.sql
 ```
 
-edit the `models/generate.go` file so that the generate line starts with `//go:generate` instead of
-`// go:generate`, then generate the code
+Make sure that `$DB_URL` is `postgres://localhost/pggen_development?sslmode=disable` either
+by explicitly setting it in the environment with
 
 ```bash
-> go generate ./...
+export DB_URL=postgres://localhost/pggen_development?sslmode=disable
 ```
 
-run the program
+or by installing `direnv` and doing `direnv allow` at the repo root (this will `source` the
+`.envrc` file).
+
+Finally, run the program
 
 ```bash
 > go run ./main.go

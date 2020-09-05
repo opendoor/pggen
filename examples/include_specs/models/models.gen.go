@@ -2618,6 +2618,98 @@ type DBQueries interface {
 
 }
 
+type Parent struct {
+	Id            int64    `gorm:"column:id;is_primary"`
+	GrandparentId int64    `gorm:"column:grandparent_id"`
+	Name          string   `gorm:"column:name"`
+	Children      []*Child `gorm:"foreignKey:ParentId"`
+	Grandparent   *Grandparent
+}
+
+func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	if client.colIdxTabForParent == nil {
+		err := client.fillColPosTab(
+			ctx,
+			genTimeColIdxTabForParent,
+			`parents`,
+			&client.colIdxTabForParent,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	var nullableTgts nullableScanTgtsForParent
+
+	scanTgts := make([]interface{}, len(client.colIdxTabForParent))
+	for runIdx, genIdx := range client.colIdxTabForParent {
+		if genIdx == -1 {
+			scanTgts[runIdx] = &pggenSinkScanner{}
+		} else {
+			scanTgts[runIdx] = scannerTabForParent[genIdx](r, &nullableTgts)
+		}
+	}
+
+	err := rs.Scan(scanTgts...)
+	if err != nil {
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		if len(client.colIdxTabForParent) != len(colNames) {
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForParent,
+				`drop_cols`,
+				&client.colIdxTabForParent,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type nullableScanTgtsForParent struct {
+}
+
+// a table mapping codegen-time col indicies to functions returning a scanner for the
+// field that was at that column index at codegen-time.
+var scannerTabForParent = [...]func(*Parent, *nullableScanTgtsForParent) interface{}{
+	func(
+		r *Parent,
+		nullableTgts *nullableScanTgtsForParent,
+	) interface{} {
+		return &(r.Id)
+	},
+	func(
+		r *Parent,
+		nullableTgts *nullableScanTgtsForParent,
+	) interface{} {
+		return &(r.GrandparentId)
+	},
+	func(
+		r *Parent,
+		nullableTgts *nullableScanTgtsForParent,
+	) interface{} {
+		return &(r.Name)
+	},
+}
+
+var genTimeColIdxTabForParent map[string]int = map[string]int{
+	`id`:             0,
+	`grandparent_id`: 1,
+	`name`:           2,
+}
+
 type Grandparent struct {
 	Id                 int64     `gorm:"column:id;is_primary"`
 	Name               string    `gorm:"column:name"`
@@ -2710,98 +2802,6 @@ var genTimeColIdxTabForGrandparent map[string]int = map[string]int{
 	`id`:                   0,
 	`name`:                 1,
 	`favorite_grandkid_id`: 2,
-}
-
-type Parent struct {
-	Id            int64    `gorm:"column:id;is_primary"`
-	GrandparentId int64    `gorm:"column:grandparent_id"`
-	Name          string   `gorm:"column:name"`
-	Children      []*Child `gorm:"foreignKey:ParentId"`
-	Grandparent   *Grandparent
-}
-
-func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
-	if client.colIdxTabForParent == nil {
-		err := client.fillColPosTab(
-			ctx,
-			genTimeColIdxTabForParent,
-			`parents`,
-			&client.colIdxTabForParent,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	var nullableTgts nullableScanTgtsForParent
-
-	scanTgts := make([]interface{}, len(client.colIdxTabForParent))
-	for runIdx, genIdx := range client.colIdxTabForParent {
-		if genIdx == -1 {
-			scanTgts[runIdx] = &pggenSinkScanner{}
-		} else {
-			scanTgts[runIdx] = scannerTabForParent[genIdx](r, &nullableTgts)
-		}
-	}
-
-	err := rs.Scan(scanTgts...)
-	if err != nil {
-		// The database schema may have been changed out from under us, let's
-		// check to see if we just need to update our column index tables and retry.
-		colNames, colsErr := rs.Columns()
-		if colsErr != nil {
-			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
-		}
-		if len(client.colIdxTabForParent) != len(colNames) {
-			err = client.fillColPosTab(
-				ctx,
-				genTimeColIdxTabForParent,
-				`drop_cols`,
-				&client.colIdxTabForParent,
-			)
-			if err != nil {
-				return err
-			}
-
-			return r.Scan(ctx, client, rs)
-		} else {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type nullableScanTgtsForParent struct {
-}
-
-// a table mapping codegen-time col indicies to functions returning a scanner for the
-// field that was at that column index at codegen-time.
-var scannerTabForParent = [...]func(*Parent, *nullableScanTgtsForParent) interface{}{
-	func(
-		r *Parent,
-		nullableTgts *nullableScanTgtsForParent,
-	) interface{} {
-		return &(r.Id)
-	},
-	func(
-		r *Parent,
-		nullableTgts *nullableScanTgtsForParent,
-	) interface{} {
-		return &(r.GrandparentId)
-	},
-	func(
-		r *Parent,
-		nullableTgts *nullableScanTgtsForParent,
-	) interface{} {
-		return &(r.Name)
-	},
-}
-
-var genTimeColIdxTabForParent map[string]int = map[string]int{
-	`id`:             0,
-	`grandparent_id`: 1,
-	`name`:           2,
 }
 
 type Child struct {

@@ -68,6 +68,15 @@ This will both prevent the cli tests from removing their scratch dir and
 compile the binary under test in a debugger friendly format so that you can
 immediately point your delve at it.
 
+## Example Tests
+
+A great way to both document pggen and provide more end-to-end test coverage is to add a
+new example to the `examples` directory. Examples must follow a very specific format in order
+to be run by the test suite. This format is specified in the module comment at the top of
+`examples/examples_test.go`. If you are working on developing just a specific example, it is
+worth knowing about the `PGGEN_TEST_EXAMPLE` environment variable, which can be used to focus
+on one or more examples rather than running the whole suite every time.
+
 ## Errors in the Generated Code
 
 When modifying the output of the codegenerator, you are likely to introduce compile

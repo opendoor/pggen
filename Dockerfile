@@ -18,4 +18,4 @@ RUN go mod download
 # into the image itself.
 COPY . ./
 
-CMD bash ./scripts/test.bash
+CMD bash ./tools/test.bash
