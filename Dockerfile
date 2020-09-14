@@ -7,6 +7,8 @@ RUN apk add --no-cache postgresql-client git musl-dev gcc bash curl
 
 # install golangci-lint
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.30.0
+# install counterfeiter
+RUN go get github.com/maxbrunsfeld/counterfeiter
 
 WORKDIR /pggen
 
