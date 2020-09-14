@@ -24,7 +24,7 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
-	colIdxTabForFoo []int
+	colIdxTabForUser []int
 }
 
 // NewPGClient creates a new PGClient out of a '*sql.DB' or a
@@ -88,62 +88,62 @@ type pgClientImpl struct {
 	client *PGClient
 }
 
-func (p *PGClient) GetFoo(
+func (p *PGClient) GetUser(
 	ctx context.Context,
 	id int64,
 	opts ...pggen.GetOpt,
-) (*Foo, error) {
-	return p.impl.getFoo(ctx, id)
+) (*User, error) {
+	return p.impl.getUser(ctx, id)
 }
-func (tx *TxPGClient) GetFoo(
+func (tx *TxPGClient) GetUser(
 	ctx context.Context,
 	id int64,
 	opts ...pggen.GetOpt,
-) (*Foo, error) {
-	return tx.impl.getFoo(ctx, id)
+) (*User, error) {
+	return tx.impl.getUser(ctx, id)
 }
-func (p *pgClientImpl) getFoo(
+func (p *pgClientImpl) getUser(
 	ctx context.Context,
 	id int64,
 	opts ...pggen.GetOpt,
-) (*Foo, error) {
-	values, err := p.listFoo(ctx, []int64{id}, true /* isGet */)
+) (*User, error) {
+	values, err := p.listUser(ctx, []int64{id}, true /* isGet */)
 	if err != nil {
 		return nil, err
 	}
 
-	// ListFoo always returns the same number of records as were
+	// ListUser always returns the same number of records as were
 	// requested, so this is safe.
 	return &values[0], err
 }
 
-func (p *PGClient) ListFoo(
+func (p *PGClient) ListUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
-) (ret []Foo, err error) {
-	return p.impl.listFoo(ctx, ids, false /* isGet */)
+) (ret []User, err error) {
+	return p.impl.listUser(ctx, ids, false /* isGet */)
 }
-func (tx *TxPGClient) ListFoo(
+func (tx *TxPGClient) ListUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
-) (ret []Foo, err error) {
-	return tx.impl.listFoo(ctx, ids, false /* isGet */)
+) (ret []User, err error) {
+	return tx.impl.listUser(ctx, ids, false /* isGet */)
 }
-func (p *pgClientImpl) listFoo(
+func (p *pgClientImpl) listUser(
 	ctx context.Context,
 	ids []int64,
 	isGet bool,
 	opts ...pggen.ListOpt,
-) (ret []Foo, err error) {
+) (ret []User, err error) {
 	if len(ids) == 0 {
-		return []Foo{}, nil
+		return []User{}, nil
 	}
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"foos\" WHERE \"id\" = ANY($1)",
+		"SELECT * FROM \"users\" WHERE \"id\" = ANY($1)",
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -163,9 +163,9 @@ func (p *pgClientImpl) listFoo(
 		}
 	}()
 
-	ret = make([]Foo, 0, len(ids))
+	ret = make([]User, 0, len(ids))
 	for rows.Next() {
-		var value Foo
+		var value User
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
 			return nil, err
@@ -176,12 +176,12 @@ func (p *pgClientImpl) listFoo(
 	if len(ret) != len(ids) {
 		if isGet {
 			return nil, &unstable.NotFoundError{
-				Msg: "GetFoo: record not found",
+				Msg: "GetUser: record not found",
 			}
 		} else {
 			return nil, &unstable.NotFoundError{
 				Msg: fmt.Sprintf(
-					"ListFoo: asked for %d records, found %d",
+					"ListUser: asked for %d records, found %d",
 					len(ids),
 					len(ret),
 				),
@@ -192,41 +192,41 @@ func (p *pgClientImpl) listFoo(
 	return ret, nil
 }
 
-// Insert a Foo into the database. Returns the primary
+// Insert a User into the database. Returns the primary
 // key of the inserted row.
-func (p *PGClient) InsertFoo(
+func (p *PGClient) InsertUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return p.impl.insertFoo(ctx, value, opts...)
+	return p.impl.insertUser(ctx, value, opts...)
 }
 
-// Insert a Foo into the database. Returns the primary
+// Insert a User into the database. Returns the primary
 // key of the inserted row.
-func (tx *TxPGClient) InsertFoo(
+func (tx *TxPGClient) InsertUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
-	return tx.impl.insertFoo(ctx, value, opts...)
+	return tx.impl.insertUser(ctx, value, opts...)
 }
 
-// Insert a Foo into the database. Returns the primary
+// Insert a User into the database. Returns the primary
 // key of the inserted row.
-func (p *pgClientImpl) insertFoo(
+func (p *pgClientImpl) insertUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	opts ...pggen.InsertOpt,
 ) (ret int64, err error) {
 	var ids []int64
-	ids, err = p.bulkInsertFoo(ctx, []Foo{*value}, opts...)
+	ids, err = p.bulkInsertUser(ctx, []User{*value}, opts...)
 	if err != nil {
 		return
 	}
 
 	if len(ids) != 1 {
-		err = fmt.Errorf("inserting a Foo: %d ids (expected 1)", len(ids))
+		err = fmt.Errorf("inserting a User: %d ids (expected 1)", len(ids))
 		return
 	}
 
@@ -234,31 +234,31 @@ func (p *pgClientImpl) insertFoo(
 	return
 }
 
-// Insert a list of Foo. Returns a list of the primary keys of
+// Insert a list of User. Returns a list of the primary keys of
 // the inserted rows.
-func (p *PGClient) BulkInsertFoo(
+func (p *PGClient) BulkInsertUser(
 	ctx context.Context,
-	values []Foo,
+	values []User,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return p.impl.bulkInsertFoo(ctx, values, opts...)
+	return p.impl.bulkInsertUser(ctx, values, opts...)
 }
 
-// Insert a list of Foo. Returns a list of the primary keys of
+// Insert a list of User. Returns a list of the primary keys of
 // the inserted rows.
-func (tx *TxPGClient) BulkInsertFoo(
+func (tx *TxPGClient) BulkInsertUser(
 	ctx context.Context,
-	values []Foo,
+	values []User,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
-	return tx.impl.bulkInsertFoo(ctx, values, opts...)
+	return tx.impl.bulkInsertUser(ctx, values, opts...)
 }
 
-// Insert a list of Foo. Returns a list of the primary keys of
+// Insert a list of User. Returns a list of the primary keys of
 // the inserted rows.
-func (p *pgClientImpl) bulkInsertFoo(
+func (p *pgClientImpl) bulkInsertUser(
 	ctx context.Context,
-	values []Foo,
+	values []User,
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
 	if len(values) == 0 {
@@ -270,17 +270,18 @@ func (p *pgClientImpl) bulkInsertFoo(
 		o(&opt)
 	}
 
-	args := make([]interface{}, 0, 2*len(values))
+	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
 		if opt.UsePkey {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Value)
+		args = append(args, v.Email)
+		args = append(args, v.Nickname)
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"foos",
-		fieldsForFoo,
+		"users",
+		fieldsForUser,
 		len(values),
 		"id",
 		opt.UsePkey,
@@ -307,72 +308,77 @@ func (p *pgClientImpl) bulkInsertFoo(
 
 // bit indicies for 'fieldMask' parameters
 const (
-	FooIdFieldIndex    int = 0
-	FooValueFieldIndex int = 1
-	FooMaxFieldIndex   int = (2 - 1)
+	UserIdFieldIndex       int = 0
+	UserEmailFieldIndex    int = 1
+	UserNicknameFieldIndex int = 2
+	UserMaxFieldIndex      int = (3 - 1)
 )
 
-// A field set saying that all fields in Foo should be updated.
+// A field set saying that all fields in User should be updated.
 // For use as a 'fieldMask' parameter
-var FooAllFields pggen.FieldSet = pggen.NewFieldSetFilled(2)
+var UserAllFields pggen.FieldSet = pggen.NewFieldSetFilled(3)
 
-var fieldsForFoo []string = []string{
+var fieldsForUser []string = []string{
 	`id`,
-	`value`,
+	`email`,
+	`nickname`,
 }
 
-// Update a Foo. 'value' must at the least have
+// Update a User. 'value' must at the least have
 // a primary key set. The 'fieldMask' field set indicates which fields
 // should be updated in the database.
 //
 // Returns the primary key of the updated row.
-func (p *PGClient) UpdateFoo(
+func (p *PGClient) UpdateUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateFoo(ctx, value, fieldMask)
+	return p.impl.updateUser(ctx, value, fieldMask)
 }
 
-// Update a Foo. 'value' must at the least have
+// Update a User. 'value' must at the least have
 // a primary key set. The 'fieldMask' field set indicates which fields
 // should be updated in the database.
 //
 // Returns the primary key of the updated row.
-func (tx *TxPGClient) UpdateFoo(
+func (tx *TxPGClient) UpdateUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateFoo(ctx, value, fieldMask)
+	return tx.impl.updateUser(ctx, value, fieldMask)
 }
-func (p *pgClientImpl) updateFoo(
+func (p *pgClientImpl) updateUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	if !fieldMask.Test(FooIdFieldIndex) {
-		err = fmt.Errorf("primary key required for updates to 'foos'")
+	if !fieldMask.Test(UserIdFieldIndex) {
+		err = fmt.Errorf("primary key required for updates to 'users'")
 		return
 	}
 
 	updateStmt := genUpdateStmt(
-		"foos",
+		"users",
 		"id",
-		fieldsForFoo,
+		fieldsForUser,
 		fieldMask,
 		"id",
 	)
 
-	args := make([]interface{}, 0, 2)
-	if fieldMask.Test(FooIdFieldIndex) {
+	args := make([]interface{}, 0, 3)
+	if fieldMask.Test(UserIdFieldIndex) {
 		args = append(args, value.Id)
 	}
-	if fieldMask.Test(FooValueFieldIndex) {
-		args = append(args, value.Value)
+	if fieldMask.Test(UserEmailFieldIndex) {
+		args = append(args, value.Email)
+	}
+	if fieldMask.Test(UserNicknameFieldIndex) {
+		args = append(args, value.Nickname)
 	}
 
 	// add the primary key arg for the WHERE condition
@@ -388,19 +394,19 @@ func (p *pgClientImpl) updateFoo(
 	return id, nil
 }
 
-// Upsert a Foo value. If the given value conflicts with
+// Upsert a User value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
-func (p *PGClient) UpsertFoo(
+func (p *PGClient) UpsertUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = p.impl.bulkUpsertFoo(ctx, []Foo{*value}, constraintNames, fieldMask, opts...)
+	val, err = p.impl.bulkUpsertUser(ctx, []User{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -412,19 +418,19 @@ func (p *PGClient) UpsertFoo(
 	return value.Id, nil
 }
 
-// Upsert a Foo value. If the given value conflicts with
+// Upsert a User value. If the given value conflicts with
 // an existing row in the database, use the provided value to update that row
 // rather than inserting it. Only the fields specified by 'fieldMask' are
 // actually updated. All other fields are left as-is.
-func (tx *TxPGClient) UpsertFoo(
+func (tx *TxPGClient) UpsertUser(
 	ctx context.Context,
-	value *Foo,
+	value *User,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpsertOpt,
 ) (ret int64, err error) {
 	var val []int64
-	val, err = tx.impl.bulkUpsertFoo(ctx, []Foo{*value}, constraintNames, fieldMask, opts...)
+	val, err = tx.impl.bulkUpsertUser(ctx, []User{*value}, constraintNames, fieldMask, opts...)
 	if err != nil {
 		return
 	}
@@ -436,36 +442,36 @@ func (tx *TxPGClient) UpsertFoo(
 	return value.Id, nil
 }
 
-// Upsert a set of Foo values. If any of the given values conflict with
+// Upsert a set of User values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
-func (p *PGClient) BulkUpsertFoo(
+func (p *PGClient) BulkUpsertUser(
 	ctx context.Context,
-	values []Foo,
+	values []User,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return p.impl.bulkUpsertFoo(ctx, values, constraintNames, fieldMask, opts...)
+	return p.impl.bulkUpsertUser(ctx, values, constraintNames, fieldMask, opts...)
 }
 
-// Upsert a set of Foo values. If any of the given values conflict with
+// Upsert a set of User values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
 // 'fieldMask' are actually updated. All other fields are left as-is.
-func (tx *TxPGClient) BulkUpsertFoo(
+func (tx *TxPGClient) BulkUpsertUser(
 	ctx context.Context,
-	values []Foo,
+	values []User,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
-	return tx.impl.bulkUpsertFoo(ctx, values, constraintNames, fieldMask, opts...)
+	return tx.impl.bulkUpsertUser(ctx, values, constraintNames, fieldMask, opts...)
 }
-func (p *pgClientImpl) bulkUpsertFoo(
+func (p *pgClientImpl) bulkUpsertUser(
 	ctx context.Context,
-	values []Foo,
+	values []User,
 	constraintNames []string,
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpsertOpt,
@@ -486,8 +492,8 @@ func (p *pgClientImpl) bulkUpsertFoo(
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
-		`foos`,
-		fieldsForFoo,
+		`users`,
+		fieldsForUser,
 		len(values),
 		`id`,
 		options.UsePkey,
@@ -495,23 +501,27 @@ func (p *pgClientImpl) bulkUpsertFoo(
 
 	setBits := fieldMask.CountSetBits()
 	hasConflictAction := setBits > 1 ||
-		(setBits == 1 && fieldMask.Test(FooIdFieldIndex) && options.UsePkey) ||
-		(setBits == 1 && !fieldMask.Test(FooIdFieldIndex))
+		(setBits == 1 && fieldMask.Test(UserIdFieldIndex) && options.UsePkey) ||
+		(setBits == 1 && !fieldMask.Test(UserIdFieldIndex))
 
 	if hasConflictAction {
 		stmt.WriteString("ON CONFLICT (")
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
-		updateCols := make([]string, 0, 2)
-		updateExprs := make([]string, 0, 2)
+		updateCols := make([]string, 0, 3)
+		updateExprs := make([]string, 0, 3)
 		if options.UsePkey {
 			updateCols = append(updateCols, `id`)
 			updateExprs = append(updateExprs, `excluded.id`)
 		}
-		if fieldMask.Test(FooValueFieldIndex) {
-			updateCols = append(updateCols, `value`)
-			updateExprs = append(updateExprs, `excluded.value`)
+		if fieldMask.Test(UserEmailFieldIndex) {
+			updateCols = append(updateCols, `email`)
+			updateExprs = append(updateExprs, `excluded.email`)
+		}
+		if fieldMask.Test(UserNicknameFieldIndex) {
+			updateCols = append(updateCols, `nickname`)
+			updateExprs = append(updateExprs, `excluded.nickname`)
 		}
 		if len(updateCols) > 1 {
 			stmt.WriteRune('(')
@@ -534,12 +544,13 @@ func (p *pgClientImpl) bulkUpsertFoo(
 
 	stmt.WriteString(` RETURNING "id"`)
 
-	args := make([]interface{}, 0, 2*len(values))
+	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
 		if options.UsePkey {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Value)
+		args = append(args, v.Email)
+		args = append(args, v.Nickname)
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
@@ -561,36 +572,36 @@ func (p *pgClientImpl) bulkUpsertFoo(
 	return ids, nil
 }
 
-func (p *PGClient) DeleteFoo(
+func (p *PGClient) DeleteUser(
 	ctx context.Context,
 	id int64,
 	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.bulkDeleteFoo(ctx, []int64{id}, opts...)
+	return p.impl.bulkDeleteUser(ctx, []int64{id}, opts...)
 }
-func (tx *TxPGClient) DeleteFoo(
+func (tx *TxPGClient) DeleteUser(
 	ctx context.Context,
 	id int64,
 	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.bulkDeleteFoo(ctx, []int64{id}, opts...)
+	return tx.impl.bulkDeleteUser(ctx, []int64{id}, opts...)
 }
 
-func (p *PGClient) BulkDeleteFoo(
+func (p *PGClient) BulkDeleteUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.DeleteOpt,
 ) error {
-	return p.impl.bulkDeleteFoo(ctx, ids, opts...)
+	return p.impl.bulkDeleteUser(ctx, ids, opts...)
 }
-func (tx *TxPGClient) BulkDeleteFoo(
+func (tx *TxPGClient) BulkDeleteUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.DeleteOpt,
 ) error {
-	return tx.impl.bulkDeleteFoo(ctx, ids, opts...)
+	return tx.impl.bulkDeleteUser(ctx, ids, opts...)
 }
-func (p *pgClientImpl) bulkDeleteFoo(
+func (p *pgClientImpl) bulkDeleteUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.DeleteOpt,
@@ -605,7 +616,7 @@ func (p *pgClientImpl) bulkDeleteFoo(
 	}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"foos\" WHERE \"id\" = ANY($1)",
+		"DELETE FROM \"users\" WHERE \"id\" = ANY($1)",
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -619,7 +630,7 @@ func (p *pgClientImpl) bulkDeleteFoo(
 
 	if nrows != int64(len(ids)) {
 		return fmt.Errorf(
-			"BulkDeleteFoo: %d rows deleted, expected %d",
+			"BulkDeleteUser: %d rows deleted, expected %d",
 			nrows,
 			len(ids),
 		)
@@ -628,70 +639,70 @@ func (p *pgClientImpl) bulkDeleteFoo(
 	return err
 }
 
-var FooAllIncludes *include.Spec = include.Must(include.Parse(
-	`foos`,
+var UserAllIncludes *include.Spec = include.Must(include.Parse(
+	`users`,
 ))
 
-func (p *PGClient) FooFillIncludes(
+func (p *PGClient) UserFillIncludes(
 	ctx context.Context,
-	rec *Foo,
+	rec *User,
 	includes *include.Spec,
 	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.privateFooBulkFillIncludes(ctx, []*Foo{rec}, includes)
+	return p.impl.privateUserBulkFillIncludes(ctx, []*User{rec}, includes)
 }
-func (tx *TxPGClient) FooFillIncludes(
+func (tx *TxPGClient) UserFillIncludes(
 	ctx context.Context,
-	rec *Foo,
+	rec *User,
 	includes *include.Spec,
 	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.privateFooBulkFillIncludes(ctx, []*Foo{rec}, includes)
+	return tx.impl.privateUserBulkFillIncludes(ctx, []*User{rec}, includes)
 }
 
-func (p *PGClient) FooBulkFillIncludes(
+func (p *PGClient) UserBulkFillIncludes(
 	ctx context.Context,
-	recs []*Foo,
+	recs []*User,
 	includes *include.Spec,
 	opts ...pggen.IncludeOpt,
 ) error {
-	return p.impl.privateFooBulkFillIncludes(ctx, recs, includes)
+	return p.impl.privateUserBulkFillIncludes(ctx, recs, includes)
 }
-func (tx *TxPGClient) FooBulkFillIncludes(
+func (tx *TxPGClient) UserBulkFillIncludes(
 	ctx context.Context,
-	recs []*Foo,
+	recs []*User,
 	includes *include.Spec,
 	opts ...pggen.IncludeOpt,
 ) error {
-	return tx.impl.privateFooBulkFillIncludes(ctx, recs, includes)
+	return tx.impl.privateUserBulkFillIncludes(ctx, recs, includes)
 }
-func (p *pgClientImpl) privateFooBulkFillIncludes(
+func (p *pgClientImpl) privateUserBulkFillIncludes(
 	ctx context.Context,
-	recs []*Foo,
+	recs []*User,
 	includes *include.Spec,
 	opts ...pggen.IncludeOpt,
 ) error {
 	loadedRecordTab := map[string]interface{}{}
 
-	return p.implFooBulkFillIncludes(ctx, recs, includes, loadedRecordTab)
+	return p.implUserBulkFillIncludes(ctx, recs, includes, loadedRecordTab)
 }
 
-func (p *pgClientImpl) implFooBulkFillIncludes(
+func (p *pgClientImpl) implUserBulkFillIncludes(
 	ctx context.Context,
-	recs []*Foo,
+	recs []*User,
 	includes *include.Spec,
 	loadedRecordTab map[string]interface{},
 ) (err error) {
-	if includes.TableName != `foos` {
+	if includes.TableName != `users` {
 		return fmt.Errorf(
-			"expected includes for 'foos', got '%s'",
+			"expected includes for 'users', got '%s'",
 			includes.TableName,
 		)
 	}
 
-	loadedTab, inMap := loadedRecordTab[`foos`]
+	loadedTab, inMap := loadedRecordTab[`users`]
 	if inMap {
-		idToRecord := loadedTab.(map[int64]*Foo)
+		idToRecord := loadedTab.(map[int64]*User)
 		for _, r := range recs {
 			_, alreadyLoaded := idToRecord[r.Id]
 			if !alreadyLoaded {
@@ -699,44 +710,50 @@ func (p *pgClientImpl) implFooBulkFillIncludes(
 			}
 		}
 	} else {
-		idToRecord := make(map[int64]*Foo, len(recs))
+		idToRecord := make(map[int64]*User, len(recs))
 		for _, r := range recs {
 			idToRecord[r.Id] = r
 		}
-		loadedRecordTab[`foos`] = idToRecord
+		loadedRecordTab[`users`] = idToRecord
 	}
 
 	return
 }
 
-func (p *PGClient) GetFooValues(
+func (p *PGClient) GetUserByEmailOrNickname(
 	ctx context.Context,
-	arg1 []int64,
-) (ret []*string, err error) {
-	return p.impl.GetFooValues(
+	email string,
+	nickname string,
+) (ret []User, err error) {
+	return p.impl.GetUserByEmailOrNickname(
 		ctx,
-		arg1,
+		email,
+		nickname,
 	)
 }
-func (tx *TxPGClient) GetFooValues(
+func (tx *TxPGClient) GetUserByEmailOrNickname(
 	ctx context.Context,
-	arg1 []int64,
-) (ret []*string, err error) {
-	return tx.impl.GetFooValues(
+	email string,
+	nickname string,
+) (ret []User, err error) {
+	return tx.impl.GetUserByEmailOrNickname(
 		ctx,
-		arg1,
+		email,
+		nickname,
 	)
 }
-func (p *pgClientImpl) GetFooValues(
+func (p *pgClientImpl) GetUserByEmailOrNickname(
 	ctx context.Context,
-	arg1 []int64,
-) (ret []*string, err error) {
-	ret = []*string{}
+	email string,
+	nickname string,
+) (ret []User, err error) {
+	ret = []User{}
 
 	var rows *sql.Rows
-	rows, err = p.GetFooValuesQuery(
+	rows, err = p.GetUserByEmailOrNicknameQuery(
 		ctx,
-		arg1,
+		email,
+		nickname,
 	)
 	if err != nil {
 		return nil, err
@@ -756,45 +773,75 @@ func (p *pgClientImpl) GetFooValues(
 	}()
 
 	for rows.Next() {
-		var row *string
-		var scanTgt sql.NullString
-		err = rows.Scan(&(scanTgt))
-		if err != nil {
-			return nil, err
-		}
-		row = convertNullString(scanTgt)
+		var row User
+		err = row.Scan(ctx, p.client, rows)
 		ret = append(ret, row)
 	}
 
 	return
 }
 
-func (p *PGClient) GetFooValuesQuery(
+func (p *PGClient) GetUserByEmailOrNicknameQuery(
 	ctx context.Context,
-	arg1 []int64,
+	email string,
+	nickname string,
 ) (*sql.Rows, error) {
-	return p.impl.GetFooValuesQuery(
+	return p.impl.GetUserByEmailOrNicknameQuery(
 		ctx,
-		arg1,
+		email,
+		nickname,
 	)
 }
-func (tx *TxPGClient) GetFooValuesQuery(
+func (tx *TxPGClient) GetUserByEmailOrNicknameQuery(
 	ctx context.Context,
-	arg1 []int64,
+	email string,
+	nickname string,
 ) (*sql.Rows, error) {
-	return tx.impl.GetFooValuesQuery(
+	return tx.impl.GetUserByEmailOrNicknameQuery(
 		ctx,
-		arg1,
+		email,
+		nickname,
 	)
 }
-func (p *pgClientImpl) GetFooValuesQuery(
+func (p *pgClientImpl) GetUserByEmailOrNicknameQuery(
 	ctx context.Context,
-	arg1 []int64,
+	email string,
+	nickname string,
 ) (*sql.Rows, error) {
 	return p.db.QueryContext(
 		ctx,
-		`SELECT value FROM foos WHERE id = ANY($1)`,
-		pq.Array(arg1),
+		`SELECT * FROM users WHERE email = $1 OR nickname = $2`,
+		email,
+		nickname,
+	)
+}
+
+func (p *PGClient) DeleteUsersByNickname(
+	ctx context.Context,
+	nickname string,
+) (sql.Result, error) {
+	return p.impl.DeleteUsersByNickname(
+		ctx,
+		nickname,
+	)
+}
+func (tx *TxPGClient) DeleteUsersByNickname(
+	ctx context.Context,
+	nickname string,
+) (sql.Result, error) {
+	return tx.impl.DeleteUsersByNickname(
+		ctx,
+		nickname,
+	)
+}
+func (p *pgClientImpl) DeleteUsersByNickname(
+	ctx context.Context,
+	nickname string,
+) (sql.Result, error) {
+	return p.db.ExecContext(
+		ctx,
+		`DELETE FROM users WHERE nickname = $1`,
+		nickname,
 	)
 }
 
@@ -803,31 +850,33 @@ type DBQueries interface {
 	// automatic CRUD methods
 	//
 
-	// Foo methods
-	GetFoo(ctx context.Context, id int64, opts ...pggen.GetOpt) (*Foo, error)
-	ListFoo(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]Foo, error)
-	InsertFoo(ctx context.Context, value *Foo, opts ...pggen.InsertOpt) (int64, error)
-	BulkInsertFoo(ctx context.Context, values []Foo, opts ...pggen.InsertOpt) ([]int64, error)
-	UpdateFoo(ctx context.Context, value *Foo, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)
-	UpsertFoo(ctx context.Context, value *Foo, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) (int64, error)
-	BulkUpsertFoo(ctx context.Context, values []Foo, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) ([]int64, error)
-	DeleteFoo(ctx context.Context, id int64, opts ...pggen.DeleteOpt) error
-	BulkDeleteFoo(ctx context.Context, ids []int64, opts ...pggen.DeleteOpt) error
-	FooFillIncludes(ctx context.Context, rec *Foo, includes *include.Spec, opts ...pggen.IncludeOpt) error
-	FooBulkFillIncludes(ctx context.Context, recs []*Foo, includes *include.Spec, opts ...pggen.IncludeOpt) error
+	// User methods
+	GetUser(ctx context.Context, id int64, opts ...pggen.GetOpt) (*User, error)
+	ListUser(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]User, error)
+	InsertUser(ctx context.Context, value *User, opts ...pggen.InsertOpt) (int64, error)
+	BulkInsertUser(ctx context.Context, values []User, opts ...pggen.InsertOpt) ([]int64, error)
+	UpdateUser(ctx context.Context, value *User, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)
+	UpsertUser(ctx context.Context, value *User, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) (int64, error)
+	BulkUpsertUser(ctx context.Context, values []User, constraintNames []string, fieldMask pggen.FieldSet, opts ...pggen.UpsertOpt) ([]int64, error)
+	DeleteUser(ctx context.Context, id int64, opts ...pggen.DeleteOpt) error
+	BulkDeleteUser(ctx context.Context, ids []int64, opts ...pggen.DeleteOpt) error
+	UserFillIncludes(ctx context.Context, rec *User, includes *include.Spec, opts ...pggen.IncludeOpt) error
+	UserBulkFillIncludes(ctx context.Context, recs []*User, includes *include.Spec, opts ...pggen.IncludeOpt) error
 
 	//
 	// query methods
 	//
 
-	// GetFooValues query
-	GetFooValues(
+	// GetUserByEmailOrNickname query
+	GetUserByEmailOrNickname(
 		ctx context.Context,
-		arg1 []int64,
-	) ([]*string, error)
-	GetFooValuesQuery(
+		email string,
+		nickname string,
+	) ([]User, error)
+	GetUserByEmailOrNicknameQuery(
 		ctx context.Context,
-		arg1 []int64,
+		email string,
+		nickname string,
 	) (*sql.Rows, error)
 
 	//
@@ -838,34 +887,40 @@ type DBQueries interface {
 	// stmt methods
 	//
 
+	// DeleteUsersByNickname stmt
+	DeleteUsersByNickname(
+		ctx context.Context,
+		nickname string,
+	) (sql.Result, error)
 }
 
-type Foo struct {
-	Id    int64   `gorm:"column:id;is_primary"`
-	Value *string `gorm:"column:value"`
+type User struct {
+	Id       int64  `gorm:"column:id;is_primary"`
+	Email    string `gorm:"column:email"`
+	Nickname string `gorm:"column:nickname"`
 }
 
-func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
-	if client.colIdxTabForFoo == nil {
+func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	if client.colIdxTabForUser == nil {
 		err := client.fillColPosTab(
 			ctx,
-			genTimeColIdxTabForFoo,
-			`foos`,
-			&client.colIdxTabForFoo,
+			genTimeColIdxTabForUser,
+			`users`,
+			&client.colIdxTabForUser,
 		)
 		if err != nil {
 			return err
 		}
 	}
 
-	var nullableTgts nullableScanTgtsForFoo
+	var nullableTgts nullableScanTgtsForUser
 
-	scanTgts := make([]interface{}, len(client.colIdxTabForFoo))
-	for runIdx, genIdx := range client.colIdxTabForFoo {
+	scanTgts := make([]interface{}, len(client.colIdxTabForUser))
+	for runIdx, genIdx := range client.colIdxTabForUser {
 		if genIdx == -1 {
 			scanTgts[runIdx] = &pggenSinkScanner{}
 		} else {
-			scanTgts[runIdx] = scannerTabForFoo[genIdx](r, &nullableTgts)
+			scanTgts[runIdx] = scannerTabForUser[genIdx](r, &nullableTgts)
 		}
 	}
 
@@ -877,12 +932,12 @@ func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
-		if len(client.colIdxTabForFoo) != len(colNames) {
+		if len(client.colIdxTabForUser) != len(colNames) {
 			err = client.fillColPosTab(
 				ctx,
-				genTimeColIdxTabForFoo,
+				genTimeColIdxTabForUser,
 				`drop_cols`,
-				&client.colIdxTabForFoo,
+				&client.colIdxTabForUser,
 			)
 			if err != nil {
 				return err
@@ -893,33 +948,38 @@ func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 			return err
 		}
 	}
-	r.Value = convertNullString(nullableTgts.scanValue)
 
 	return nil
 }
 
-type nullableScanTgtsForFoo struct {
-	scanValue sql.NullString
+type nullableScanTgtsForUser struct {
 }
 
 // a table mapping codegen-time col indicies to functions returning a scanner for the
 // field that was at that column index at codegen-time.
-var scannerTabForFoo = [...]func(*Foo, *nullableScanTgtsForFoo) interface{}{
+var scannerTabForUser = [...]func(*User, *nullableScanTgtsForUser) interface{}{
 	func(
-		r *Foo,
-		nullableTgts *nullableScanTgtsForFoo,
+		r *User,
+		nullableTgts *nullableScanTgtsForUser,
 	) interface{} {
 		return &(r.Id)
 	},
 	func(
-		r *Foo,
-		nullableTgts *nullableScanTgtsForFoo,
+		r *User,
+		nullableTgts *nullableScanTgtsForUser,
 	) interface{} {
-		return &(nullableTgts.scanValue)
+		return &(r.Email)
+	},
+	func(
+		r *User,
+		nullableTgts *nullableScanTgtsForUser,
+	) interface{} {
+		return &(r.Nickname)
 	},
 }
 
-var genTimeColIdxTabForFoo map[string]int = map[string]int{
-	`id`:    0,
-	`value`: 1,
+var genTimeColIdxTabForUser map[string]int = map[string]int{
+	`id`:       0,
+	`email`:    1,
+	`nickname`: 2,
 }

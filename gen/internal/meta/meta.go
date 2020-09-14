@@ -91,7 +91,7 @@ func (mc *Resolver) QueryMeta(
 
 	if inferArgTypes {
 		var args []Arg
-		args, err = mc.argsOfStmt(config.Body)
+		args, err = mc.argsOfStmt(config.Body, config.ArgNames)
 		if err != nil {
 			err = fmt.Errorf("getting query argument types: %s", err.Error())
 			return
@@ -158,7 +158,7 @@ func (mc *Resolver) StmtMeta(
 ) (ret StmtMeta, err error) {
 	ret.ConfigData = *config
 
-	args, err := mc.argsOfStmt(config.Body)
+	args, err := mc.argsOfStmt(config.Body, config.ArgNames)
 	if err != nil {
 		err = fmt.Errorf("getting statement argument types: %s", err.Error())
 		return
@@ -170,7 +170,7 @@ func (mc *Resolver) StmtMeta(
 
 // argsOfStmt infers the types of all the placeholders in the `body` statement
 // and uses that to generate a list of argument metadata
-func (mc *Resolver) argsOfStmt(body string) ([]Arg, error) {
+func (mc *Resolver) argsOfStmt(body string, argNamesSpec string) ([]Arg, error) {
 	// Connections require a context, so we'll use a dummy
 	ctx := context.Background()
 
@@ -211,9 +211,14 @@ func (mc *Resolver) argsOfStmt(body string) ([]Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := make([]Arg, len(types.pgTypes))[:0]
+
+	argNames, err := argNamesToSlice(argNamesSpec, len(types.pgTypes))
+	if err != nil {
+		return nil, err
+	}
+	args := make([]Arg, 0, len(types.pgTypes))
 	for i, t := range types.pgTypes {
-		name := fmt.Sprintf("arg%d", i)
+		name := argNames[i]
 		typeInfo, err := mc.typeResolver.TypeInfoOf(t)
 		if err != nil {
 			return nil, err
