@@ -49,11 +49,11 @@ func (dbConnWrapper *DBConnWrapper) PrepareContext(ctx context.Context, query st
 }
 
 func (dbConnWrapper *DBConnWrapper) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return dbConnWrapper.dbConn.QueryContext(ctx, query, args)
+	return dbConnWrapper.dbConn.QueryContext(ctx, query, args...)
 }
 
 func (dbConnWrapper *DBConnWrapper) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	return dbConnWrapper.dbConn.QueryRowContext(ctx, query, args)
+	return dbConnWrapper.dbConn.QueryRowContext(ctx, query, args...)
 }
 
 func (dbConnWrapper *DBConnWrapper) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
