@@ -1,3 +1,6 @@
+// The middleware package is used in pggen to add middleware to be executed
+// surrounding the DB calls execution. The intent is to have the ability to add cutom
+// logging, metrics, tracing, side effects ...
 package middleware
 
 import (
@@ -17,12 +20,14 @@ type DBConnWrapper struct {
 	execMiddleware ExecMiddleware
 }
 
+// NewDBConnWrapper wraps the DBConn in struct to which middlewares can be added
 func NewDBConnWrapper(dbConn pggen.DBConn) *DBConnWrapper {
 	return &DBConnWrapper{
 		dbConn: dbConn,
 	}
 }
 
+// WithExecMiddleware adds the ExecMiddleware to the DBConnWrapper
 func (dbConnWrapper *DBConnWrapper) WithExecMiddleware(execMiddleware ExecMiddleware) *DBConnWrapper {
 	dbConnWrapper.execMiddleware = execMiddleware
 	return dbConnWrapper
