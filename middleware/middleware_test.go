@@ -31,7 +31,7 @@ func TestExecMiddleware(t *testing.T) {
 				t.Fatalf("args does not match, expected: %v, got: %v", expectedArgs, args)
 			}
 			beforeExecDone = true
-			result, err := execFunc(ctx, query, args)
+			result, err := execFunc(ctx, query, args...)
 			if err != nil {
 				t.Fatalf("exec function returned an error: %v", err)
 			}
