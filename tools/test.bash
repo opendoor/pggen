@@ -28,6 +28,7 @@ createdb -h "${DB_HOST}" -W test -U postgres -w -e pggen_test 2>/dev/null || /bi
 go generate ./...
 
 psql "$DB_URL" < cmd/pggen/test/db.sql
+go generate ./testing/mocks/...
 
 if [[ -n "${LINT+x}" ]] ; then
     golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
