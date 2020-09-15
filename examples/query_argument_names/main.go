@@ -55,6 +55,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	//
+	// Run a query and statement with custom argument names
+	//
+
 	todd, err := pgClient.GetUserByEmailOrNickname(ctx, "todd@sillycorp.io" /* whoops wrong domain */, "Todd")
 	if err != nil {
 		log.Fatal(err)
