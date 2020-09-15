@@ -1,0 +1,11 @@
+QueryContext query: INSERT INTO "foos" ("value") VALUES ($1)
+ RETURNING "id"
+QueryContext query: INSERT INTO "foos" ("value") VALUES ($1)
+ RETURNING "id"
+QueryContext query: INSERT INTO "foos" ("value") VALUES ($1)
+ RETURNING "id"
+QueryRowContext query: UPDATE "foos" SET ("id","value") = ($1, $2) WHERE "id" = $3 RETURNING "id"
+ExecContext query: DELETE FROM "foos" WHERE "id" = ANY($1)
+QueryContext query: SELECT value FROM foos WHERE id = ANY($1)
+bax
+lish
