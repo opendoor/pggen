@@ -21,6 +21,7 @@ type QueryMiddleware func(QueryFunc) QueryFunc
 type QueryRowFunc func(ctx context.Context, query string, args ...interface{}) *sql.Row
 type QueryRowMiddleware func(QueryRowFunc) QueryRowFunc
 
+// DBConnWrapper is a wrapper around DBConn that also contain the middlewares to apply when doing the DB calls
 type DBConnWrapper struct {
 	dbConn             pggen.DBConn
 	execMiddleware     ExecMiddleware
