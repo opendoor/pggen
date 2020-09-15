@@ -95,7 +95,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	foos, err := pgClient.ListFoo(ctx, []int64{foo1ID, foo2ID, foo3ID})
+	foos, err := pgClient.ListFoo(ctx, []int64{foo1ID, foo2ID})
 	if err != nil {
 		log.Fatal(err)
 	}
