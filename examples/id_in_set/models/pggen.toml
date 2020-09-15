@@ -6,7 +6,7 @@
     # You might be used to writing something like `SELECT value FROM foos WHERE id in ?`
     # when using other database frameworks. We can't do this with `pggen` because pggen uses
     # postgres's argument syntax directly rather than putting a layer of abstraction over
-    # it. Under the hood, other frameworks are usually expansing an array parameter into
+    # it. Under the hood, other frameworks are usually expanding an array parameter into
     # a bunch of seperate individual parameters. This is unfortunate, because postgres supports
     # using array parameters directly.
     body = '''
