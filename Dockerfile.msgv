@@ -9,9 +9,6 @@ FROM golang:1.11-alpine
 # and gcc are needed for cgo support.
 RUN apk add --no-cache postgresql-client git musl-dev gcc bash
 
-# install counterfeiter
-RUN go get github.com/maxbrunsfeld/counterfeiter
-
 WORKDIR /pggen
 
 COPY go.sum .
