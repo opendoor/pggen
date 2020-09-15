@@ -71,7 +71,7 @@ func main() {
 	}
 	_, err = pgClient.GetUser(ctx, mikeID)
 	if err == nil {
-		log.Fatal("mike is unexpected still in the db")
+		log.Fatal("mike is unexpectedly still in the db")
 	}
 	if pggen.IsNotFoundError(err) {
 		fmt.Printf("mike not found\n")
