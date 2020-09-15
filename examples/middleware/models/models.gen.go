@@ -709,95 +709,6 @@ func (p *pgClientImpl) implFooBulkFillIncludes(
 	return
 }
 
-func (p *PGClient) GetFooValues(
-	ctx context.Context,
-	arg0 []int64,
-) (ret []*string, err error) {
-	return p.impl.GetFooValues(
-		ctx,
-		arg0,
-	)
-}
-func (tx *TxPGClient) GetFooValues(
-	ctx context.Context,
-	arg0 []int64,
-) (ret []*string, err error) {
-	return tx.impl.GetFooValues(
-		ctx,
-		arg0,
-	)
-}
-func (p *pgClientImpl) GetFooValues(
-	ctx context.Context,
-	arg0 []int64,
-) (ret []*string, err error) {
-	ret = []*string{}
-
-	var rows *sql.Rows
-	rows, err = p.GetFooValuesQuery(
-		ctx,
-		arg0,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err == nil {
-			err = rows.Close()
-			if err != nil {
-				ret = nil
-			}
-		} else {
-			rowErr := rows.Close()
-			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
-			}
-		}
-	}()
-
-	for rows.Next() {
-		var row *string
-		var scanTgt sql.NullString
-		err = rows.Scan(&(scanTgt))
-		if err != nil {
-			return nil, err
-		}
-		row = convertNullString(scanTgt)
-		ret = append(ret, row)
-	}
-
-	return
-}
-
-func (p *PGClient) GetFooValuesQuery(
-	ctx context.Context,
-	arg0 []int64,
-) (*sql.Rows, error) {
-	return p.impl.GetFooValuesQuery(
-		ctx,
-		arg0,
-	)
-}
-func (tx *TxPGClient) GetFooValuesQuery(
-	ctx context.Context,
-	arg0 []int64,
-) (*sql.Rows, error) {
-	return tx.impl.GetFooValuesQuery(
-		ctx,
-		arg0,
-	)
-}
-func (p *pgClientImpl) GetFooValuesQuery(
-	ctx context.Context,
-	arg0 []int64,
-) (*sql.Rows, error) {
-	return p.db.QueryContext(
-		ctx,
-		`SELECT value FROM foos WHERE id = ANY($1)`,
-		pq.Array(arg0),
-	)
-}
-
 type DBQueries interface {
 	//
 	// automatic CRUD methods
@@ -819,16 +730,6 @@ type DBQueries interface {
 	//
 	// query methods
 	//
-
-	// GetFooValues query
-	GetFooValues(
-		ctx context.Context,
-		arg0 []int64,
-	) ([]*string, error)
-	GetFooValuesQuery(
-		ctx context.Context,
-		arg0 []int64,
-	) (*sql.Rows, error)
 
 	//
 	// stored function methods

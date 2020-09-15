@@ -53,6 +53,7 @@ func main() {
 	pgClient := models.NewPGClient(wrappedConn)
 
 	bar := "bar"
+	// InsertFoo will be intercepted by the QueryMiddleware
 	foo1ID, err := pgClient.InsertFoo(ctx, &models.Foo{
 		Value: &bar,
 	})
@@ -61,6 +62,7 @@ func main() {
 	}
 
 	bax := "bax"
+	// InsertFoo will be intercepted by the QueryMiddleware
 	foo2ID, err := pgClient.InsertFoo(ctx, &models.Foo{
 		Value: &bax,
 	})
@@ -69,6 +71,7 @@ func main() {
 	}
 
 	baz := "baz"
+	// InsertFoo will be intercepted by the QueryMiddleware
 	foo3ID, err := pgClient.InsertFoo(ctx, &models.Foo{
 		Value: &baz,
 	})
@@ -77,6 +80,7 @@ func main() {
 	}
 
 	lish := "lish"
+	// UpdateFoo will be intercepted by the QueryRowMiddleware
 	_, err = pgClient.UpdateFoo(ctx, &models.Foo{
 		Id:    foo1ID,
 		Value: &lish,
@@ -85,22 +89,23 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// DeleteFoo will be intercepted by the ExecMiddleware
 	err = pgClient.DeleteFoo(ctx, foo3ID)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	values, err := pgClient.GetFooValues(ctx, []int64{foo1ID, foo2ID, foo3ID})
+	foos, err := pgClient.ListFoo(ctx, []int64{foo1ID, foo2ID, foo3ID})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// ensure stable output
-	sort.Slice(values, func(i, j int) bool {
-		return *values[i] < *values[j]
+	sort.Slice(foos, func(i, j int) bool {
+		return *foos[i].Value < *foos[j].Value
 	})
 
-	for _, v := range values {
-		fmt.Printf("%s\n", *v)
+	for _, foo := range foos {
+		fmt.Printf("%s\n", *foo.Value)
 	}
 }
