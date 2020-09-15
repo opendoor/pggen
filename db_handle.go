@@ -22,7 +22,7 @@ type DBHandle interface {
 // DBConn is an interface which contains the methods from `sql.DB` that pggen
 // uses. Making the generated `NewPGClient` functions take a `DBConn` rather
 // than a `*sql.DB` allows users to wrap the database connection with their own object
-// that performs custom logging.
+// that performs custom logging, tracing ...
 type DBConn interface {
 	DBHandle
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)

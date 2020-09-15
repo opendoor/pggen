@@ -1,0 +1,17 @@
+QueryContext query: INSERT INTO "foos" ("value") VALUES ($1)
+ RETURNING "id"
+QueryContext query: INSERT INTO "foos" ("value") VALUES ($1)
+ RETURNING "id"
+QueryContext query: INSERT INTO "foos" ("value") VALUES ($1)
+ RETURNING "id"
+QueryRowContext query: UPDATE "foos" SET ("id","value") = ($1, $2) WHERE "id" = $3 RETURNING "id"
+ExecContext query: DELETE FROM "foos" WHERE "id" = ANY($1)
+QueryContext query: SELECT * FROM "foos" WHERE "id" = ANY($1)
+QueryContext query: 
+		SELECT a.attname
+		FROM pg_attribute a
+		JOIN pg_class c ON (c.oid = a.attrelid)
+		WHERE a.attisdropped = false AND c.relname = $1 AND a.attnum > 0
+	
+bax
+lish
