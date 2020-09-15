@@ -67,6 +67,12 @@ type QueryConfig struct {
 	// return different types are given the same name to use for their
 	// return type, it is an error.
 	ReturnType string `toml:"return_type"`
+	// A mapping of argument numbers to names to generate for them.
+	// This configuration option allows you to give useful names to the
+	// query arguments in the genrated code (normaly pggen will just make up
+	// names like `arg0`, `arg1` and so on). An example mapping is
+	// `"1:foo 2:bar 3:baz"`.
+	ArgNames string `toml:"arg_names"`
 }
 
 // Statements are like queries but they are executed for side effects
@@ -79,6 +85,12 @@ type StmtConfig struct {
 	Name string `toml:"name"`
 	// The actual text of this statement.
 	Body string `toml:"body"`
+	// A mapping of argument numbers to names to generate for them.
+	// This configuration option allows you to give useful names to the
+	// query arguments in the genrated code (normaly pggen will just make up
+	// names like `arg0`, `arg1` and so on). An example mapping is
+	// `"1:foo 2:bar 3:baz"`.
+	ArgNames string `toml:"arg_names"`
 }
 
 type TableConfig struct {

@@ -1,0 +1,19 @@
+[[table]]
+    name = "users"
+
+[[query]]
+    name = "GetUserByEmailOrNickname"
+    return_type = "User"
+    # This config key is the key to getting custom names for queries.
+    # The arg_names spec is a list of space seperated pairs of colon seperated
+    # arg_number:arg_name pairs. Order does not matter. It is an error to provide
+    # a pair that does not appear in the body. Arg numbers without a corrisponding
+    # name will get defaulted to `argN`.
+    arg_names = "2:nickname 1:email"
+    body = "SELECT * FROM users WHERE email = $1 OR nickname = $2"
+
+# for when you want to delete everyone who has the audacity to go by "iceman"
+[[statement]]
+    name = "DeleteUsersByNickname"
+    arg_names = "1:nickname"
+    body = "DELETE FROM users WHERE nickname = $1"

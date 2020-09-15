@@ -61,3 +61,10 @@ pggen provides. You can ask pggen to automatically take care of keeping track
 created at and updated at timestamps. Soft deletes are often implemented with
 a timestamp rather than just a boolean flag, so pggen supports them using
 similar machinery, which is also demonstrated in this example.
+
+### [Example: query argument names](query_argument_names)
+
+This example shows how to provide useful names for query arguments. You can also
+provide useful names for query arguments by defining a stored function and telling
+pggen to generate shims for it, but you may prefer to avoid the ceremony usually involved
+in managing objects in a database.

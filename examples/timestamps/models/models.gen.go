@@ -782,32 +782,32 @@ func (p *pgClientImpl) implUserBulkFillIncludes(
 
 func (p *PGClient) GetUserAnyway(
 	ctx context.Context,
-	arg0 int64,
+	arg1 int64,
 ) (ret []User, err error) {
 	return p.impl.GetUserAnyway(
 		ctx,
-		arg0,
+		arg1,
 	)
 }
 func (tx *TxPGClient) GetUserAnyway(
 	ctx context.Context,
-	arg0 int64,
+	arg1 int64,
 ) (ret []User, err error) {
 	return tx.impl.GetUserAnyway(
 		ctx,
-		arg0,
+		arg1,
 	)
 }
 func (p *pgClientImpl) GetUserAnyway(
 	ctx context.Context,
-	arg0 int64,
+	arg1 int64,
 ) (ret []User, err error) {
 	ret = []User{}
 
 	var rows *sql.Rows
 	rows, err = p.GetUserAnywayQuery(
 		ctx,
-		arg0,
+		arg1,
 	)
 	if err != nil {
 		return nil, err
@@ -837,30 +837,30 @@ func (p *pgClientImpl) GetUserAnyway(
 
 func (p *PGClient) GetUserAnywayQuery(
 	ctx context.Context,
-	arg0 int64,
+	arg1 int64,
 ) (*sql.Rows, error) {
 	return p.impl.GetUserAnywayQuery(
 		ctx,
-		arg0,
+		arg1,
 	)
 }
 func (tx *TxPGClient) GetUserAnywayQuery(
 	ctx context.Context,
-	arg0 int64,
+	arg1 int64,
 ) (*sql.Rows, error) {
 	return tx.impl.GetUserAnywayQuery(
 		ctx,
-		arg0,
+		arg1,
 	)
 }
 func (p *pgClientImpl) GetUserAnywayQuery(
 	ctx context.Context,
-	arg0 int64,
+	arg1 int64,
 ) (*sql.Rows, error) {
 	return p.db.QueryContext(
 		ctx,
 		`SELECT * FROM users WHERE id = $1`,
-		arg0,
+		arg1,
 	)
 }
 
@@ -889,11 +889,11 @@ type DBQueries interface {
 	// GetUserAnyway query
 	GetUserAnyway(
 		ctx context.Context,
-		arg0 int64,
+		arg1 int64,
 	) ([]User, error)
 	GetUserAnywayQuery(
 		ctx context.Context,
-		arg0 int64,
+		arg1 int64,
 	) (*sql.Rows, error)
 
 	//
