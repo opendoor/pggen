@@ -709,43 +709,47 @@ func (p *pgClientImpl) implFooBulkFillIncludes(
 	return
 }
 
-func (p *PGClient) GetFooValues(
+func (p *PGClient) MyGetFooValue(
 	ctx context.Context,
-	arg1 []int64,
-) (ret []*string, err error) {
-	return p.impl.GetFooValues(
+	arg1 int64,
+) (ret *string, err error) {
+	return p.impl.MyGetFooValue(
 		ctx,
 		arg1,
 	)
 }
-func (tx *TxPGClient) GetFooValues(
+func (p *TxPGClient) MyGetFooValue(
 	ctx context.Context,
-	arg1 []int64,
-) (ret []*string, err error) {
-	return tx.impl.GetFooValues(
+	arg1 int64,
+) (ret *string, err error) {
+	return p.impl.MyGetFooValue(
 		ctx,
 		arg1,
 	)
 }
-func (p *pgClientImpl) GetFooValues(
+func (p *pgClientImpl) MyGetFooValue(
 	ctx context.Context,
-	arg1 []int64,
-) (ret []*string, err error) {
-	ret = []*string{}
+	arg1 int64,
+) (ret *string, err error) {
+	var zero *string
 
+	// we still use QueryConfig rather than QueryRowContext so the scan
+	// impl remains consistant. We don't need to split out a seperate Query
+	// method though.
 	var rows *sql.Rows
-	rows, err = p.GetFooValuesQuery(
+	rows, err = p.db.QueryContext(
 		ctx,
+		`SELECT value FROM foos WHERE id = $1`,
 		arg1,
 	)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
-				ret = nil
+				ret = zero
 			}
 		} else {
 			rowErr := rows.Close()
@@ -755,47 +759,17 @@ func (p *pgClientImpl) GetFooValues(
 		}
 	}()
 
-	for rows.Next() {
-		var row *string
-		var scanTgt sql.NullString
-		err = rows.Scan(&(scanTgt))
-		if err != nil {
-			return nil, err
-		}
-		row = convertNullString(scanTgt)
-		ret = append(ret, row)
+	if !rows.Next() {
+		return zero, &unstable.NotFoundError{Msg: "MyGetFooValue: no results"}
 	}
+	var scanTgt sql.NullString
+	err = rows.Scan(&(scanTgt))
+	if err != nil {
+		return zero, err
+	}
+	ret = convertNullString(scanTgt)
 
 	return
-}
-
-func (p *PGClient) GetFooValuesQuery(
-	ctx context.Context,
-	arg1 []int64,
-) (*sql.Rows, error) {
-	return p.impl.GetFooValuesQuery(
-		ctx,
-		arg1,
-	)
-}
-func (tx *TxPGClient) GetFooValuesQuery(
-	ctx context.Context,
-	arg1 []int64,
-) (*sql.Rows, error) {
-	return tx.impl.GetFooValuesQuery(
-		ctx,
-		arg1,
-	)
-}
-func (p *pgClientImpl) GetFooValuesQuery(
-	ctx context.Context,
-	arg1 []int64,
-) (*sql.Rows, error) {
-	return p.db.QueryContext(
-		ctx,
-		`SELECT value FROM foos WHERE id = ANY($1)`,
-		pq.Array(arg1),
-	)
 }
 
 type DBQueries interface {
@@ -820,15 +794,11 @@ type DBQueries interface {
 	// query methods
 	//
 
-	// GetFooValues query
-	GetFooValues(
+	// MyGetFooValue query
+	MyGetFooValue(
 		ctx context.Context,
-		arg1 []int64,
-	) ([]*string, error)
-	GetFooValuesQuery(
-		ctx context.Context,
-		arg1 []int64,
-	) (*sql.Rows, error)
+		arg1 int64,
+	) (*string, error)
 
 	//
 	// stored function methods

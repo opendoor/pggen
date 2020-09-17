@@ -235,6 +235,36 @@
     FROM type_rainbow
     '''
 
+[[query]]
+    name = "SingleResultMultiCol"
+    single_result = true
+    not_null_fields = ["text_field_not_null", "varchar_field_not_null"]
+    body = '''
+    SELECT text_field_not_null, varchar_field_not_null FROM type_rainbow LIMIT 1
+    '''
+
+[[query]]
+    name = "SingleResultSingleCol"
+    single_result = true
+    not_null_fields = ["text_field_not_null"]
+    body = '''
+    SELECT text_field_not_null FROM type_rainbow LIMIT 1
+    '''
+
+[[query]]
+    name = "SingleResultSingleColNullable"
+    single_result = true
+    body = '''
+    SELECT text_field_not_null FROM type_rainbow LIMIT 1
+    '''
+
+[[query]]
+    name = "SingleResultNotFound"
+    single_result = true
+    body = '''
+    SELECT text_field_not_null FROM type_rainbow WHERE text_field_not_null = 'this isnt there' LIMIT 1
+    '''
+
 #
 # Statements
 #

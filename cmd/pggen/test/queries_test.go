@@ -11,6 +11,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
@@ -246,5 +247,39 @@ func TestJSON(t *testing.T) {
 		if !bytes.Equal([]byte(`{"foo": ["bar", 1]}`), v.JsonbFieldNotNull) {
 			t.Fatalf("unexpected jsonb_field_not_null value")
 		}
+	}
+}
+
+func TestSingleReturnMultiCol(t *testing.T) {
+	row, err := pgClient.SingleResultMultiCol(ctx)
+	chkErr(t, err)
+
+	if row.TextFieldNotNull != "foo" {
+		t.Fatal("unexpected value")
+	}
+}
+
+func TestSingleReturnSingleCol(t *testing.T) {
+	res, err := pgClient.SingleResultSingleCol(ctx)
+	chkErr(t, err)
+
+	if res != "foo" {
+		t.Fatal("unexpected value")
+	}
+}
+
+func TestSingleReturnSingleColNullable(t *testing.T) {
+	res, err := pgClient.SingleResultSingleColNullable(ctx)
+	chkErr(t, err)
+
+	if *res != "foo" {
+		t.Fatal("unexpected value")
+	}
+}
+
+func TestSingleReturnNotFound(t *testing.T) {
+	_, err := pgClient.SingleResultNotFound(ctx)
+	if !pggen.IsNotFoundError(err) {
+		t.Fatal("found it unexpectedly")
 	}
 }

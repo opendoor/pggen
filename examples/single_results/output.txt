@@ -1,0 +1,2 @@
+val = bar
+2nd query: not found

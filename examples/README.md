@@ -68,3 +68,15 @@ This example shows how to provide useful names for query arguments. You can also
 provide useful names for query arguments by defining a stored function and telling
 pggen to generate shims for it, but you may prefer to avoid the ceremony usually involved
 in managing objects in a database.
+
+### [Example: middleware](middleware)
+
+This example shows how to inject middleware between the generated `PGClient` and the database
+connection. This allows you to implement things like logging and tracing to see what queries
+are getting run against the database.
+
+### [Example: single results](single_results)
+
+This example shows how to write queries that return just a single row as a result using
+the `single_result` configuration option. This is a small quality of life improvement over
+having to unpack a slice each time you place a query.
