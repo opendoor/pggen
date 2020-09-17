@@ -8,7 +8,6 @@ import (
 
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/middleware"
-	// "github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
 func TestExecMiddleware(t *testing.T) {

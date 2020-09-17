@@ -27,11 +27,6 @@ type BeginTxMiddleware func(BeginTxFunc) BeginTxFunc
 // DBConnWrapper is a wrapper around DBConn that also contain the middlewares to apply when doing the DB calls
 type DBConnWrapper struct {
 	dbConn pggen.DBConn
-	/*
-		execMiddleware     ExecMiddleware
-		queryMiddleware    QueryMiddleware
-		queryRowMiddleware QueryRowMiddleware
-	*/
 
 	execFunc     ExecFunc
 	queryFunc    QueryFunc
