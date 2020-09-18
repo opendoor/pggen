@@ -347,6 +347,12 @@ CREATE TABLE deletable_leafs (
     deleted_at timestamp
 );
 
+-- just a dummy table that we can run SQL on through a layer of middleware
+CREATE TABLE middleware_test_recs (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL
+);
+
 --
 -- Load Data
 --

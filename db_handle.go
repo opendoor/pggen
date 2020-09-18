@@ -11,7 +11,7 @@ import (
 
 // DBHandle is an interface which contains the methods common to
 // *sql.Tx and *sql.DB that pggen uses, allowing for code to be generic over
-// whether or no the user is operating in a transaction.
+// whether or not the user is operating in a transaction.
 type DBHandle interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
