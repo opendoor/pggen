@@ -39,10 +39,10 @@ func NewDBConnWrapper(dbConn pggen.DBConn) *DBConnWrapper {
 	return &DBConnWrapper{
 		dbConn: dbConn,
 
-		execFunc: dbConn.ExecContext,
-		queryFunc: dbConn.QueryContext,
+		execFunc:     dbConn.ExecContext,
+		queryFunc:    dbConn.QueryContext,
 		queryRowFunc: dbConn.QueryRowContext,
-		beginTxFunc: dbConn.BeginTx,
+		beginTxFunc:  dbConn.BeginTx,
 	}
 }
 
