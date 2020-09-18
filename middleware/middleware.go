@@ -38,80 +38,52 @@ type DBConnWrapper struct {
 func NewDBConnWrapper(dbConn pggen.DBConn) *DBConnWrapper {
 	return &DBConnWrapper{
 		dbConn: dbConn,
+
+		execFunc: dbConn.ExecContext,
+		queryFunc: dbConn.QueryContext,
+		queryRowFunc: dbConn.QueryRowContext,
+		beginTxFunc: dbConn.BeginTx,
 	}
 }
 
 // WithExecMiddleware adds the middleware for the ExecContext to the DBConnWrapper
 func (w *DBConnWrapper) WithExecMiddleware(execMiddleware ExecMiddleware) *DBConnWrapper {
-	execFunc := w.dbConn.ExecContext
-	if w.execFunc != nil {
-		execFunc = w.execFunc
-	}
-
-	w.execFunc = execMiddleware(execFunc)
+	w.execFunc = execMiddleware(w.execFunc)
 	return w
 }
 
 // ExecContext apply the middleware if any and execute ExecContext on the wrapped DBConn
 func (w *DBConnWrapper) ExecContext(ctx context.Context, stmt string, args ...interface{}) (sql.Result, error) {
-	if w.execFunc != nil {
-		return w.execFunc(ctx, stmt, args...)
-	}
-	return w.dbConn.ExecContext(ctx, stmt, args...)
+	return w.execFunc(ctx, stmt, args...)
 }
 
 // WithQueryMiddleware adds the middleware for the QueryContext to the DBConnWrapper
 func (w *DBConnWrapper) WithQueryMiddleware(queryMiddleware QueryMiddleware) *DBConnWrapper {
-	queryFunc := w.dbConn.QueryContext
-	if w.queryFunc != nil {
-		queryFunc = w.queryFunc
-	}
-
-	w.queryFunc = queryMiddleware(queryFunc)
+	w.queryFunc = queryMiddleware(w.queryFunc)
 	return w
 }
 
 func (w *DBConnWrapper) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	if w.queryFunc != nil {
-		return w.queryFunc(ctx, query, args...)
-	}
-
-	return w.dbConn.QueryContext(ctx, query, args...)
+	return w.queryFunc(ctx, query, args...)
 }
 
 // WithQueryRowMiddleware adds the middleware for the QueryRowContext to the DBConnWrapper
 func (w *DBConnWrapper) WithQueryRowMiddleware(queryRowMiddleware QueryRowMiddleware) *DBConnWrapper {
-	queryRowFunc := w.dbConn.QueryRowContext
-	if w.queryRowFunc != nil {
-		queryRowFunc = w.queryRowFunc
-	}
-
-	w.queryRowFunc = queryRowMiddleware(queryRowFunc)
+	w.queryRowFunc = queryRowMiddleware(w.queryRowFunc)
 	return w
 }
 
 func (w *DBConnWrapper) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	if w.queryRowFunc != nil {
-		return w.queryRowFunc(ctx, query, args...)
-	}
-	return w.dbConn.QueryRowContext(ctx, query, args...)
+	return w.queryRowFunc(ctx, query, args...)
 }
 
 func (w *DBConnWrapper) WithBeginTxMiddleware(beginTxMiddleware BeginTxMiddleware) *DBConnWrapper {
-	beginTxFunc := w.dbConn.BeginTx
-	if w.beginTxFunc != nil {
-		beginTxFunc = w.beginTxFunc
-	}
-
-	w.beginTxFunc = beginTxMiddleware(beginTxFunc)
+	w.beginTxFunc = beginTxMiddleware(w.beginTxFunc)
 	return w
 }
 
 func (w *DBConnWrapper) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
-	if w.beginTxFunc != nil {
-		return w.beginTxFunc(ctx, opts)
-	}
-	return w.dbConn.BeginTx(ctx, opts)
+	return w.beginTxFunc(ctx, opts)
 }
 
 // Unchanged
