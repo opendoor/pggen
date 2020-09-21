@@ -11,6 +11,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE enum_type AS ENUM ('', 'option1', 'option2');
 CREATE TYPE enum_type_with_blank AS ENUM ('', 'blank', 'other');
 
+CREATE TYPE funky_name_enum AS ENUM ('has spaces', '+special@chars*^?/:;%()={}[]~`&''.,><', 'foo', 'foo+');
+
 CREATE TABLE type_rainbow (
     id SERIAL PRIMARY KEY NOT NULL,
 
@@ -351,6 +353,11 @@ CREATE TABLE deletable_leafs (
 CREATE TABLE middleware_test_recs (
     id SERIAL PRIMARY KEY,
     value text NOT NULL
+);
+
+CREATE TABLE funky_enums (
+    id SERIAL PRIMARY KEY,
+    enum_val funky_name_enum NOT NULL
 );
 
 --
