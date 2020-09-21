@@ -36,6 +36,13 @@ to generate code for an object is as simple as adding that object's name
 to the config file and letting `pggen` figure out the rest, but there are
 finer grained knobs if you want more control.
 
+## Configuration
+
+`pggen` is configured with a `toml` file. Some of the configuration options have already
+been mentioned in this document, but the most complete source of documentation
+on configuration is the comments in [`gen/internal/config/config.go`](gen/internal/config/config.go).
+An example file can be found at [`cmd/pggen/test/models/pggen.toml`](cmd/pggen/test/models/pggen.toml).
+
 ## [Examples](./examples)
 
 The [examples directory](./examples) contains usage examples and common patterns.
@@ -411,13 +418,6 @@ MyInsertSmallEntity(ctx context.Context, arg0 int64) (sql.Result, error)
 code which uses `gorm` already and some people may prefer using `gorm` over the routines that
 `pggen` provides. `pggen` can still help those people by taking care of the drudge work of
 writing model structs which match up with the database table definitions.
-
-## Configuration
-
-`pggen` is configured with a `toml` file. Some of the configuration options have already
-been mentioned in this document, but the most complete source of documentation
-on is the comments in [`gen/internal/config/config.go`](gen/internal/config/config.go).
-An example file can be found at [`cmd/pggen/test/models/pggen.toml`](cmd/pggen/test/models/pggen.toml).
 
 # Stability
 
