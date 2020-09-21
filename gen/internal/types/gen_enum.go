@@ -2,8 +2,10 @@ package types
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
@@ -46,7 +48,7 @@ func (r *Resolver) maybeEmitEnumType(
 
 		r.registerImport(`"database/sql/driver"`)
 
-		evs := variantsToEnumEnumVars(variants)
+		evs := variantsToEnumVars(variants)
 
 		type enumGenCtx struct {
 			TypeName string
@@ -110,14 +112,37 @@ type enumVar struct {
 	Value  string
 }
 
-func variantsToEnumEnumVars(variants []string) []enumVar {
+func variantsToEnumVars(variants []string) []enumVar {
 	varTab := map[string]bool{}
 	for _, v := range variants {
 		varTab[v] = true
 	}
 
 	var evs []enumVar
-	for _, v := range variants {
+	variantGoNames := enumValuesToGoNames(variants)
+	for i, v := range variants {
+		goName := variantGoNames[i]
+
+		evs = append(evs, enumVar{
+			GoName: goName,
+			PgName: v,
+			Value:  strings.Replace(v, "`", "` + \"`\" + `", -1),
+		})
+	}
+	return evs
+}
+
+// given a set of enum values, generate valid go names that can be used to refer to them
+func enumValuesToGoNames(values []string) []string {
+	// First we iterate the list and perform a best-effort conversion.
+	// We strip out all the special chars and convert all spaces to underscores
+	// then run names.PgToGoName over it.
+	varTab := map[string]bool{}
+	for _, v := range values {
+		varTab[v] = true
+	}
+	goNames := make([]string, 0, len(values))
+	for _, v := range values {
 		name := v
 		if v == "" {
 			// blank enum variants will cause a name clash
@@ -129,13 +154,32 @@ func variantsToEnumEnumVars(variants []string) []enumVar {
 			name = proposed
 		}
 
-		evs = append(evs, enumVar{
-			GoName: names.PgToGoName(name),
-			PgName: name,
-			Value:  v,
-		})
+		var goName strings.Builder
+		for i, r := range name {
+			if unicode.IsSpace(r) {
+				goName.WriteByte('_')
+			} else if unicode.IsLetter(r) || r == '_' || (i > 0 && unicode.IsDigit(r)) {
+				goName.WriteRune(r)
+			}
+		}
+		goNames = append(goNames, names.PgToGoName(goName.String()))
 	}
-	return evs
+
+	// now we look for collisions and fixup any we find
+	seen := map[string]int{}
+	for i := range goNames {
+		name := goNames[i]
+		numSeen, inMap := seen[name]
+		if inMap {
+			goNames[i] = goNames[i] + strconv.Itoa(numSeen)
+		} else {
+			numSeen = 0 // technically not needed because of zero values, but I just want to be explicit
+		}
+
+		seen[name] = numSeen + 1
+	}
+
+	return goNames
 }
 
 // Given the oid of a postgres type, return all the variants that

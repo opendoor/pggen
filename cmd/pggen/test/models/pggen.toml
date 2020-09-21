@@ -423,3 +423,6 @@
 [[table]]
     name = "deletable_leafs"
     deleted_at_field = "deleted_at"
+
+[[table]]
+    name = "funky_enums"
