@@ -983,3 +983,4 @@ var genTimeColIdxTabForUser map[string]int = map[string]int{
 	`email`:    1,
 	`nickname`: 2,
 }
+var _ = unstable.NotFoundError{}

@@ -73,6 +73,13 @@ type QueryConfig struct {
 	// names like `arg0`, `arg1` and so on). An example mapping is
 	// `"1:foo 2:bar 3:baz"`.
 	ArgNames string `toml:"arg_names"`
+	// If true, this query is expected to return just one result row, so
+	// `pggen` will generate code that returns just a single result rather
+	// than a slice that always has just one record you have to unpack.
+	// If `single_result` is true, `pggen` will not generate a *Query method
+	// for this query, as there is no point to supporting streaming mode for
+	// a single-result query.
+	SingleResult bool `toml:"single_result"`
 }
 
 // Statements are like queries but they are executed for side effects

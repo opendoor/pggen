@@ -109,6 +109,20 @@ type DBQueries interface {
 	//
 
 	{{ range .Queries }}
+	{{ if .ConfigData.SingleResult }}
+	// {{ .ConfigData.Name }} query
+	{{ .ConfigData.Name }}(
+		ctx context.Context,
+		{{- range .Args }}
+		{{ .GoName }} {{ .TypeInfo.Name }},
+		{{- end }}
+	{{- if (not .MultiReturn) }}
+	) ({{ .ReturnTypeName }}, error)
+	{{- else }}
+	) (*{{ .ReturnTypeName }}, error)
+	{{- end }}
+
+	{{ else }}
 	// {{ .ConfigData.Name }} query
 	{{ .ConfigData.Name }}(
 		ctx context.Context,
@@ -122,6 +136,7 @@ type DBQueries interface {
 		{{ .GoName }} {{ .TypeInfo.Name }},
 		{{- end }}
 	) (*sql.Rows, error)
+	{{ end }}
 	{{ end }}
 
 	//

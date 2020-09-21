@@ -24,6 +24,14 @@ func (g *Generator) genQueries(
 	g.imports[`"context"`] = true
 	g.imports[`"fmt"`] = true
 
+	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
+	// HACK: not really a type, but the type resolver can be used to ensure that
+	//       exactly one copy of this declaration makes it into the final output.
+	err := g.typeResolver.EmitType("ensure-stable-used", "sig", "var _ = unstable.NotFoundError{}")
+	if err != nil {
+		return fmt.Errorf("internal-error: emitting bogus NotFoundError usage: %s", err)
+	}
+
 	for i, query := range queries {
 		err := g.genQuery(into, &queries[i], nil)
 		if err != nil {
@@ -134,6 +142,113 @@ func (r *{{ .ReturnTypeName }}) Scan(ctx context.Context, client *PGClient, rs *
 `))
 
 var queryShimTmpl = template.Must(template.New("query-shim").Parse(`
+{{ if .ConfigData.SingleResult }}
+func (p *PGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+{{- if (not .MultiReturn) }}
+) (ret {{ .ReturnTypeName }}, err error) {
+{{- else }}
+) (ret *{{ .ReturnTypeName }}, err error) {
+{{- end }}
+	return p.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args }}
+		{{ .GoName }},
+		{{- end }}
+	)
+}
+func (p *TxPGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+{{- if (not .MultiReturn) }}
+) (ret {{ .ReturnTypeName }}, err error) {
+{{- else }}
+) (ret *{{ .ReturnTypeName }}, err error) {
+{{- end }}
+	return p.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args }}
+		{{ .GoName }},
+		{{- end }}
+	)
+}
+func (p *pgClientImpl) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+{{- if (not .MultiReturn) }}
+) (ret {{ .ReturnTypeName }}, err error) {
+{{- else }}
+) (ret *{{ .ReturnTypeName }}, err error) {
+{{- end }}
+	{{- if (not .MultiReturn) }}
+	var zero {{ .ReturnTypeName }}
+	{{- else }}
+	var zero *{{ .ReturnTypeName }}
+	{{- end }}
+
+	// we still use QueryConfig rather than QueryRowContext so the scan
+	// impl remains consistant. We don't need to split out a seperate Query
+	// method though.
+	var rows *sql.Rows
+	rows, err = p.db.QueryContext(
+		ctx,
+		` + "`" +
+	`{{ .ConfigData.Body }}` +
+	"`" + `,
+		{{- range .Args }}
+		{{ call .TypeInfo.SqlArgument .GoName }},
+		{{- end }}
+	)
+	if err != nil {
+		return zero, err
+	}
+	defer func() {
+		if err == nil {
+			err = rows.Close()
+			if err != nil {
+				ret = zero
+			}
+		} else {
+			rowErr := rows.Close()
+			if rowErr != nil {
+				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+			}
+		}
+	}()
+
+	if !rows.Next() {
+		return zero, &unstable.NotFoundError{ Msg: "{{ .ConfigData.Name }}: no results" }
+	}
+
+	{{- if .MultiReturn }}
+	ret = &{{ .ReturnTypeName }}{}
+	err = ret.Scan(ctx, p.client, rows)
+	{{- else }}
+	{{- if (index .ReturnCols 0).Nullable }}
+	var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
+	err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.NullSqlReceiver "scanTgt" }})
+	if err != nil {
+		return zero, err
+	}
+	ret = {{ call (index .ReturnCols 0).TypeInfo.NullConvertFunc "scanTgt" }}
+	{{- else }}
+	err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "ret" }})
+	if err != nil {
+		return zero, err
+	}
+	{{- end }}
+	{{- end }}
+
+	return
+}
+{{- else }}
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
@@ -141,10 +256,10 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
 	return p.impl.{{ .ConfigData.Name }}(
-	ctx,
-	{{- range .Args }}
-	{{ .GoName }},
-	{{- end }}
+		ctx,
+		{{- range .Args }}
+		{{ .GoName }},
+		{{- end }}
 	)
 }
 func (tx *TxPGClient) {{ .ConfigData.Name }}(
@@ -154,10 +269,10 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
 	return tx.impl.{{ .ConfigData.Name }}(
-	ctx,
-	{{- range .Args }}
-	{{ .GoName }},
-	{{- end }}
+		ctx,
+		{{- range .Args }}
+		{{ .GoName }},
+		{{- end }}
 	)
 }
 func (p *pgClientImpl) {{ .ConfigData.Name }}(
@@ -260,4 +375,5 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}Query(
 	)
 }
 
+{{- end }}
 `))
