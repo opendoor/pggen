@@ -265,6 +265,7 @@
     SELECT text_field_not_null FROM type_rainbow WHERE text_field_not_null = 'this isnt there' LIMIT 1
     '''
 
+
 #
 # Statements
 #
@@ -274,6 +275,10 @@
     body = '''
     INSERT INTO small_entities (anint) VALUES ($1)
     '''
+
+[[statement]]
+    name = "EnumInsertStmt"
+    body = "INSERT INTO funky_enums (enum_val) VALUES ($1)"
 
 #
 # Tables
