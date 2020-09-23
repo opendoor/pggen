@@ -80,7 +80,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	`{{ .ConfigData.Body }}` +
 	"`" + `,
 		{{- range .Args }}
-		{{ .GoName }},
+		{{ call .TypeInfo.SqlArgument .GoName }},
 		{{- end }}
 	)
 }
