@@ -11,6 +11,7 @@ import (
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -24,10 +25,16 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
+	rwlockForGrandparent    sync.RWMutex
 	colIdxTabForGrandparent []int
+	rwlockForParent         sync.RWMutex
 	colIdxTabForParent      []int
+	rwlockForChild          sync.RWMutex
 	colIdxTabForChild       []int
 }
+
+// bogus usage so we can compile with no tables configured
+var _ = sync.RWMutex{}
 
 // NewPGClient creates a new PGClient out of a '*sql.DB' or a
 // custom wrapper around a db connection.
@@ -2627,16 +2634,20 @@ type Parent struct {
 }
 
 func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForParent.RLock()
 	if client.colIdxTabForParent == nil {
+		client.rwlockForParent.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabForParent,
-			`parents`,
+			&client.rwlockForParent,
+			rs,
 			&client.colIdxTabForParent,
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockForParent.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsForParent
@@ -2649,6 +2660,7 @@ func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error
 			scanTgts[runIdx] = scannerTabForParent[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockForParent.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -2658,11 +2670,14 @@ func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockForParent.RLock()
 		if len(client.colIdxTabForParent) != len(colNames) {
+			client.rwlockForParent.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabForParent,
-				`drop_cols`,
+				&client.rwlockForParent,
+				rs,
 				&client.colIdxTabForParent,
 			)
 			if err != nil {
@@ -2671,6 +2686,7 @@ func (r *Parent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockForParent.RUnlock()
 			return err
 		}
 	}
@@ -2719,16 +2735,20 @@ type Grandparent struct {
 }
 
 func (r *Grandparent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForGrandparent.RLock()
 	if client.colIdxTabForGrandparent == nil {
+		client.rwlockForGrandparent.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabForGrandparent,
-			`grandparents`,
+			&client.rwlockForGrandparent,
+			rs,
 			&client.colIdxTabForGrandparent,
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockForGrandparent.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsForGrandparent
@@ -2741,6 +2761,7 @@ func (r *Grandparent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) 
 			scanTgts[runIdx] = scannerTabForGrandparent[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockForGrandparent.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -2750,11 +2771,14 @@ func (r *Grandparent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) 
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockForGrandparent.RLock()
 		if len(client.colIdxTabForGrandparent) != len(colNames) {
+			client.rwlockForGrandparent.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabForGrandparent,
-				`drop_cols`,
+				&client.rwlockForGrandparent,
+				rs,
 				&client.colIdxTabForGrandparent,
 			)
 			if err != nil {
@@ -2763,6 +2787,7 @@ func (r *Grandparent) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) 
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockForGrandparent.RUnlock()
 			return err
 		}
 	}
@@ -2813,16 +2838,20 @@ type Child struct {
 }
 
 func (r *Child) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForChild.RLock()
 	if client.colIdxTabForChild == nil {
+		client.rwlockForChild.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabForChild,
-			`children`,
+			&client.rwlockForChild,
+			rs,
 			&client.colIdxTabForChild,
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockForChild.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsForChild
@@ -2835,6 +2864,7 @@ func (r *Child) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error 
 			scanTgts[runIdx] = scannerTabForChild[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockForChild.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -2844,11 +2874,14 @@ func (r *Child) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error 
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockForChild.RLock()
 		if len(client.colIdxTabForChild) != len(colNames) {
+			client.rwlockForChild.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabForChild,
-				`drop_cols`,
+				&client.rwlockForChild,
+				rs,
 				&client.colIdxTabForChild,
 			)
 			if err != nil {
@@ -2857,6 +2890,7 @@ func (r *Child) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error 
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockForChild.RUnlock()
 			return err
 		}
 	}

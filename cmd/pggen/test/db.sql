@@ -360,6 +360,13 @@ CREATE TABLE funky_enums (
     enum_val funky_name_enum NOT NULL
 );
 
+-- for exclusive use by the TestOffsetTableFilling test,
+-- will have columns added and removed during testing
+CREATE TABLE offset_table_fillings (
+    id SERIAL PRIMARY KEY,
+    i1 integer NOT NULL
+);
+
 --
 -- Load Data
 --
