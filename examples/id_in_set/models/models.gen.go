@@ -11,6 +11,7 @@ import (
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -24,8 +25,12 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
+	rwlockForFoo    sync.RWMutex
 	colIdxTabForFoo []int
 }
+
+// bogus usage so we can compile with no tables configured
+var _ = sync.RWMutex{}
 
 // NewPGClient creates a new PGClient out of a '*sql.DB' or a
 // custom wrapper around a db connection.
@@ -846,16 +851,20 @@ type Foo struct {
 }
 
 func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForFoo.RLock()
 	if client.colIdxTabForFoo == nil {
+		client.rwlockForFoo.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabForFoo,
-			`foos`,
+			&client.rwlockForFoo,
+			rs,
 			&client.colIdxTabForFoo,
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockForFoo.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsForFoo
@@ -868,6 +877,7 @@ func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 			scanTgts[runIdx] = scannerTabForFoo[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockForFoo.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -877,11 +887,14 @@ func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockForFoo.RLock()
 		if len(client.colIdxTabForFoo) != len(colNames) {
+			client.rwlockForFoo.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabForFoo,
-				`drop_cols`,
+				&client.rwlockForFoo,
+				rs,
 				&client.colIdxTabForFoo,
 			)
 			if err != nil {
@@ -890,6 +903,7 @@ func (r *Foo) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockForFoo.RUnlock()
 			return err
 		}
 	}

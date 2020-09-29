@@ -11,6 +11,7 @@ import (
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -24,8 +25,12 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
+	rwlockForUser    sync.RWMutex
 	colIdxTabForUser []int
 }
+
+// bogus usage so we can compile with no tables configured
+var _ = sync.RWMutex{}
 
 // NewPGClient creates a new PGClient out of a '*sql.DB' or a
 // custom wrapper around a db connection.
@@ -901,16 +906,20 @@ type User struct {
 }
 
 func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForUser.RLock()
 	if client.colIdxTabForUser == nil {
+		client.rwlockForUser.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabForUser,
-			`users`,
+			&client.rwlockForUser,
+			rs,
 			&client.colIdxTabForUser,
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockForUser.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsForUser
@@ -923,6 +932,7 @@ func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 			scanTgts[runIdx] = scannerTabForUser[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockForUser.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -932,11 +942,14 @@ func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockForUser.RLock()
 		if len(client.colIdxTabForUser) != len(colNames) {
+			client.rwlockForUser.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabForUser,
-				`drop_cols`,
+				&client.rwlockForUser,
+				rs,
 				&client.colIdxTabForUser,
 			)
 			if err != nil {
@@ -945,6 +958,7 @@ func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockForUser.RUnlock()
 			return err
 		}
 	}

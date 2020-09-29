@@ -11,6 +11,7 @@ import (
 func (g *Generator) genPGClient(into io.Writer, tables []config.TableConfig) error {
 	g.imports[`"github.com/opendoor-labs/pggen"`] = true
 	g.imports[`"database/sql"`] = true
+	g.imports[`"sync"`] = true
 
 	type genCtx struct {
 		ModelNames []string
@@ -40,9 +41,13 @@ type PGClient struct {
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
 	{{- range .ModelNames }}
+	rwlockFor{{ . }} sync.RWMutex
 	colIdxTabFor{{ . }} []int
 	{{- end }}
 }
+
+// bogus usage so we can compile with no tables configured
+var _ = sync.RWMutex{}
 
 // NewPGClient creates a new PGClient out of a '*sql.DB' or a
 // custom wrapper around a db connection.

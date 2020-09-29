@@ -22,6 +22,7 @@ func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error
 	g.imports[`"context"`] = true
 	g.imports[`"fmt"`] = true
 	g.imports[`"strings"`] = true
+	g.imports[`"sync"`] = true
 	g.imports[`"github.com/lib/pq"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen/include"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
@@ -145,16 +146,20 @@ type {{ .GoName }} struct {
 	{{- end}}
 }
 func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockFor{{ .GoName }}.RLock()
 	if client.colIdxTabFor{{ .GoName }} == nil {
+		client.rwlockFor{{ .GoName }}.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabFor{{ .GoName }},
-			` + "`" + `{{ .PgName }}` + "`" + `,
+			&client.rwlockFor{{ .GoName }},
+			rs,
 			&client.colIdxTabFor{{ .GoName }},
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockFor{{ .GoName }}.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsFor{{ .GoName }}
@@ -167,6 +172,7 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 			scanTgts[runIdx] = scannerTabFor{{ .GoName }}[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockFor{{ .GoName }}.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -176,11 +182,14 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockFor{{ .GoName }}.RLock()
 		if len(client.colIdxTabFor{{ .GoName }}) != len(colNames) {
+			client.rwlockFor{{ .GoName }}.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabFor{{ .GoName }},
-				` + "`" + `drop_cols` + "`" + `,
+				&client.rwlockFor{{ .GoName }},
+				rs,
 				&client.colIdxTabFor{{ .GoName }},
 			)
 			if err != nil {
@@ -189,6 +198,7 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockFor{{ .GoName }}.RUnlock()
 			return err
 		}
 	}

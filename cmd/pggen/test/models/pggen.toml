@@ -431,3 +431,6 @@
 
 [[table]]
     name = "funky_enums"
+
+[[table]]
+    name = "offset_table_fillings"

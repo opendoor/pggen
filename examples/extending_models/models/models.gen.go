@@ -12,6 +12,7 @@ import (
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -25,8 +26,12 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
+	rwlockForDog    sync.RWMutex
 	colIdxTabForDog []int
 }
+
+// bogus usage so we can compile with no tables configured
+var _ = sync.RWMutex{}
 
 // NewPGClient creates a new PGClient out of a '*sql.DB' or a
 // custom wrapper around a db connection.
@@ -772,16 +777,20 @@ type Dog struct {
 }
 
 func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForDog.RLock()
 	if client.colIdxTabForDog == nil {
+		client.rwlockForDog.RUnlock() // release the lock to allow the write lock to be aquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabForDog,
-			`dogs`,
+			&client.rwlockForDog,
+			rs,
 			&client.colIdxTabForDog,
 		)
 		if err != nil {
 			return err
 		}
+		client.rwlockForDog.RLock() // get the lock back for the rest of the routine
 	}
 
 	var nullableTgts nullableScanTgtsForDog
@@ -794,6 +803,7 @@ func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 			scanTgts[runIdx] = scannerTabForDog[genIdx](r, &nullableTgts)
 		}
 	}
+	client.rwlockForDog.RUnlock() // we are now done referencing the idx tab in the happy path
 
 	err := rs.Scan(scanTgts...)
 	if err != nil {
@@ -803,11 +813,14 @@ func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 		if colsErr != nil {
 			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
 		}
+		client.rwlockForDog.RLock()
 		if len(client.colIdxTabForDog) != len(colNames) {
+			client.rwlockForDog.RUnlock() // release the lock to allow the write lock to be aquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabForDog,
-				`drop_cols`,
+				&client.rwlockForDog,
+				rs,
 				&client.colIdxTabForDog,
 			)
 			if err != nil {
@@ -816,6 +829,7 @@ func (r *Dog) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 
 			return r.Scan(ctx, client, rs)
 		} else {
+			client.rwlockForDog.RUnlock()
 			return err
 		}
 	}

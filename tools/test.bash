@@ -31,8 +31,11 @@ psql "$DB_URL" < cmd/pggen/test/db.sql
 
 if [[ -n "${LINT+x}" ]] ; then
     golangci-lint run -E gofmt -E gosec -E gocyclo -E deadcode
+elif go version | grep '1.11' 2>&1 >/dev/null ; then
+    # for some reason the race detector acts weird with go 1.11
+    go test -p 1 ./...
 else
     # We have to serialize the tests because the example tests will re-write the database
     # schema dynamically. We could fix this by creating a dedicated database for the example tests.
-    go test -p 1 ./...
+    go test -race -p 1 ./...
 fi

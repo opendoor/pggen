@@ -37,6 +37,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	uuid "github.com/satori/go.uuid"
 
@@ -177,18 +178,16 @@ func parenWrap(in string) string {
 func (p *PGClient) fillColPosTab(
 	ctx context.Context,
 	genTimeColIdxTab map[string]int,
-	tableName string,
+	rwlock *sync.RWMutex,
+	rows *sql.Rows,
 	tab *[]int, // out
 ) error {
-	rows, err := p.topLevelDB.QueryContext(ctx, ` + "`" + `
-		SELECT a.attname
-		FROM pg_attribute a
-		JOIN pg_class c ON (c.oid = a.attrelid)
-		WHERE a.attisdropped = false AND c.relname = $1 AND a.attnum > 0
-	` + "`" + `, tableName)
-	if err != nil {
-		return err
-	}
+	// We need to ensure that writes to the slice header are atomic. We want to
+	// aquire the lock sooner rather than later to avoid lots of reader goroutines
+	// queuing up computations to compute the position table and causing lock
+	// contention.
+	rwlock.Lock()
+	defer rwlock.Unlock()
 
 	type idxMapping struct {
 		gen int
@@ -196,15 +195,13 @@ func (p *PGClient) fillColPosTab(
 	}
 	indicies := []idxMapping{}
 
-	for i := 0; rows.Next(); i++ {
-		var colName string
-		err = rows.Scan(&colName)
-		if err != nil {
-			return err
-		}
-
-		genIdx, ok := genTimeColIdxTab[colName]
-		if !ok {
+	cols, err := rows.Columns()
+	if err != nil {
+		return fmt.Errorf("reading column names: %s", err.Error())
+	}
+	for i, colName := range cols {
+		genIdx, inTable := genTimeColIdxTab[colName]
+		if !inTable {
 			genIdx = -1 // this is a new column
 		}
 
@@ -216,6 +213,7 @@ func (p *PGClient) fillColPosTab(
 	for _, mapping := range indicies {
 		posTab[mapping.run] = mapping.gen
 	}
+
 	*tab = posTab
 
 	return nil
