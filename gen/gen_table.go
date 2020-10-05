@@ -206,6 +206,8 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 	{{- range .Meta.Info.Cols }}
 	{{- if .Nullable }}
 	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "nullableTgts.scan%s" .GoName) }}
+	{{- else if (eq .TypeInfo.Name "time.Time") }}
+	r.{{ .GoName }} = {{ printf "nullableTgts.scan%s" .GoName }}.Time
 	{{- end }}
 	{{- end }}
 
@@ -214,7 +216,7 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 
 type nullableScanTgtsFor{{ .GoName }} struct {
 	{{- range .Meta.Info.Cols }}
-	{{- if .Nullable }}
+	{{- if (or .Nullable (eq .TypeInfo.Name "time.Time")) }}
 	scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
 	{{- end }}
 	{{- end }}
@@ -228,7 +230,7 @@ var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{
 		r *{{ $.GoName }},
 		nullableTgts *nullableScanTgtsFor{{ $.GoName }},
 	) interface{} {
-		{{- if .Nullable }}
+		{{- if (or .Nullable (eq .TypeInfo.Name "time.Time")) }}
 		return {{ call .TypeInfo.NullSqlReceiver (printf "nullableTgts.scan%s" .GoName) }}
 		{{- else }}
 		return {{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }}

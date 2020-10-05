@@ -240,9 +240,13 @@ func (s *pggenSinkScanner) Scan(value interface{}) error {
 	return nil
 }
 
-// PggenPolyNullTime is shipped as sql.NullTime in go 1.13, but
-// older versions of go don't have it yet, so we just roll it ourselves
-// for compatibility.
+// We roll our own time Valuer for two reasons:
+//   - sql.NullTime is in go 1.13 which is after our minimum supported
+//     go version.
+//   - jackc/pgx inexplicably returns a 'string' value for postgres 'time'
+//     types rather than a 'time.Time' value as you would expect.
+// NOTE: while this Valuer is meant to handle nulls, it can be used
+// for non-nullable values as well.
 type pggenNullTime struct {
 	Time time.Time
 	Valid bool
@@ -254,11 +258,22 @@ func (n *pggenNullTime) Scan(value interface{}) error {
 	}
 	n.Valid = true
 
-	t, ok := value.(time.Time)
-	if !ok {
+	switch t := value.(type) {
+	case time.Time:
+		n.Time = t
+	case string:
+		// this is a postgres 'time' type and we are using the jackc/pgx driver
+		parsed, err := time.Parse("15:04:05-07", t)
+		if err != nil {
+			parsed, err = time.Parse("15:04:05", t) // might not have a zone
+			if err != nil {
+				return fmt.Errorf("parsing pg time: %s", err.Error())
+			}
+		}
+		n.Time = parsed
+	default:
 		return fmt.Errorf("scanning to NullTime: expected time.Time")
 	}
-	n.Time = t
 	return nil
 }
 func (n pggenNullTime) Value() (driver.Value, error) {

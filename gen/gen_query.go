@@ -113,14 +113,14 @@ type {{ .ReturnTypeName }} struct {
 }
 func (r *{{ .ReturnTypeName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 	{{- range .ReturnCols }}
-	{{- if .Nullable }}
+	{{- if (or .Nullable (eq .TypeInfo.Name "time.Time")) }}
 	var scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
 	{{- end }}
 	{{- end }}
 
 	err := rs.Scan(
 		{{- range .ReturnCols }}
-		{{- if .Nullable }}
+		{{- if (or .Nullable (eq .TypeInfo.Name "time.Time")) }}
 		{{ call .TypeInfo.NullSqlReceiver (printf "scan%s" .GoName) }},
 		{{- else }}
 		{{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }},
@@ -134,6 +134,8 @@ func (r *{{ .ReturnTypeName }}) Scan(ctx context.Context, client *PGClient, rs *
 	{{- range .ReturnCols }}
 	{{- if .Nullable }}
 	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "scan%s" .GoName) }}
+	{{- else if (eq .TypeInfo.Name "time.Time") }}
+	r.{{ .GoName }} = {{ printf "scan%s" .GoName }}.Time
 	{{- end }}
 	{{- end }}
 

@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"math"
 	"reflect"
 	"regexp"
 	"testing"
@@ -96,10 +97,12 @@ func TestSelectTime(t *testing.T) {
 	chkErr(t, err)
 
 	ti := times[0]
-	if ti.TsField.String() != "1999-01-08 04:05:06 +0000 +0000" {
+	timeStr := ti.TsField.String()
+	if !(timeStr == "1999-01-08 04:05:06 +0000 +0000" || timeStr == "1999-01-08 04:05:06 +0000 UTC") {
 		t.Fatalf("0: tsfield (actual = '%s')", ti.TsField.String())
 	}
-	if ti.TsFieldNotNull.String() != "1999-01-08 04:05:06 +0000 +0000" {
+	timeStr = ti.TsFieldNotNull.String()
+	if !(timeStr == "1999-01-08 04:05:06 +0000 +0000" || timeStr == "1999-01-08 04:05:06 +0000 UTC") {
 		t.Fatalf("0: tsfieldnn (actual = '%s'", ti.TsFieldNotNull.String())
 	}
 
@@ -107,7 +110,8 @@ func TestSelectTime(t *testing.T) {
 	if ti.TsField != nil {
 		t.Fatalf("1: tsfield unexpectedly valid")
 	}
-	if ti.TsFieldNotNull.String() != "1999-01-08 04:05:06 +0000 +0000" {
+	timeStr = ti.TsFieldNotNull.String()
+	if !(timeStr == "1999-01-08 04:05:06 +0000 +0000" || timeStr == "1999-01-08 04:05:06 +0000 UTC") {
 		t.Fatalf("1: tsfieldnn (actual = '%s')", ti.TsFieldNotNull.String())
 	}
 	// TODO: there is something weird going on with time marshalling. It
@@ -190,14 +194,14 @@ func TestSelectNumbers(t *testing.T) {
 			t.Fatalf("%d: numeric prec scale mismatch", i)
 		}
 
-		if (i == 0 && !reflect.DeepEqual(n.RealField, &n2d3)) ||
-			!reflect.DeepEqual(n.RealFieldNotNull, &n2d3) {
+		if (i == 0 && math.Abs(*n.RealField-n2d3) > 0.001) ||
+			math.Abs(*n.RealFieldNotNull-n2d3) > 0.001 {
 			t.Fatalf("%d: real mismatch", i)
 		}
 
 		if (i == 0 && !reflect.DeepEqual(n.DoubleField, &n9d3)) ||
 			!reflect.DeepEqual(n.DoubleFieldNotNull, &n9d3) {
-			t.Fatalf("%d: real mismatch", i)
+			t.Fatalf("%d: double mismatch", i)
 		}
 	}
 }

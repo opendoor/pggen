@@ -114,6 +114,22 @@ CI checks a bit, but hopefully this is made up for by the fact that the `docker-
 file in the repo root makes debugging CI jobs easier. We maintain two different compose files
 so that we can share the source between the host and the container during local development.
 
+## Testing Non-Default Drivers
+
+`pggen` supports using both `github.com/lib/pq` and `github.com/jackc/pgx/stdlib` as
+database drivers. For the moment `lib/pq` is recommended because `jackc/pgx` contains
+a [nasty bug](https://github.com/jackc/pgx/issues/841) that prevents our test suite
+from passing fully. Going forward we do want to switch to recommending `jackc/pgx`,
+as it is more actively maintained than `lib/pq`.
+
+The example tests all use the recommended driver (`lib/pq`) for testing to keep the example code
+simple. The main test suite `cmd/pggen/test` is parameterized over the driver though. It
+allows you to you set the driver name via the `DB_DRIVER` environment variable. You can
+either set this variable to `postgres` (to use `lib/pq`) or `pgx` (to use
+`github.com/jackc/pgx/stdlib`).
+
+The `tools/test.bash` script runs the test suite both ways.
+
 # Philosophy
 
 Certain aspects of the style in which `pggen` is developed are intentionally divergent
