@@ -25,8 +25,10 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
-	rwlockForUser    sync.RWMutex
-	colIdxTabForUser []int
+	rwlockForUser                           sync.RWMutex
+	colIdxTabForUser                        []int
+	rwlockForGetUserByEmailOrNicknameRow    sync.RWMutex
+	colIdxTabForGetUserByEmailOrNicknameRow []int
 }
 
 // bogus usage so we can compile with no tables configured

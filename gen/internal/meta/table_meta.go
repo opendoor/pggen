@@ -90,6 +90,22 @@ type TableMeta struct {
 	Info PgTableInfo
 }
 
+// This genctx duplicates info already stored in the Meta member, but it is
+// a nice quality of life improvement to have some of the really commonly refered
+// to data bubbled up to the top level.
+type TableGenCtx struct {
+	// taken from Meta
+	PgName string
+	// taken from Meta
+	GoName string
+	// taken from Meta
+	PkeyCol *ColMeta
+	// taken from Meta
+	PkeyColIdx     int
+	AllIncludeSpec string
+	Meta           *TableMeta
+}
+
 // nullFlags computes the null flags specifying the nullness of this
 // table in the same format used by the `null_flags` config option
 func (info TableMeta) nullFlags() string {

@@ -57,6 +57,8 @@ func (g *Generator) genQuery(
 	// not needed, but it does make the generated code a little nicer
 	config.Body = strings.TrimSpace(config.Body)
 
+	config.ReturnType = names.PgToGoName(config.ReturnType)
+
 	if config.Body == "" {
 		return fmt.Errorf("empty query body")
 	}
@@ -70,78 +72,36 @@ func (g *Generator) genQuery(
 	}
 
 	if meta.MultiReturn {
-		var typeBody strings.Builder
-		err = queryRetTypeTmpl.Execute(&typeBody, meta)
+		genCtx := buildTableGenCtx(&meta)
+		err = g.typeResolver.EmitStructType(meta.ReturnTypeName, &genCtx)
 		if err != nil {
-			return err
-		}
-
-		var typeSig strings.Builder
-		err = queryRetTypeSigTmpl.Execute(&typeSig, meta)
-		if err != nil {
-			return err
-		}
-
-		err = g.typeResolver.EmitType(meta.ReturnTypeName, typeSig.String(), typeBody.String())
-		if err != nil {
-			return err
+			return fmt.Errorf("generating return struct for '%s': %s", config.Name, err.Error())
 		}
 	}
 
 	return queryShimTmpl.Execute(into, meta)
 }
 
-var queryRetTypeSigTmpl *template.Template = template.Must(template.New("query-ret-type-sig").Parse(`
-{{- range .ReturnCols }}
-{{- if .Nullable }}
-{{ .GoName }} {{ .TypeInfo.NullName }}
-{{- else }}
-{{ .GoName }} {{ .TypeInfo.Name }}
-{{- end }}
-{{- end }}
-`))
-
-var queryRetTypeTmpl *template.Template = template.Must(template.New("query-ret-type").Parse(`
-type {{ .ReturnTypeName }} struct {
-	{{- range .ReturnCols }}
-	{{- if .Nullable }}
-	{{ .GoName }} {{ .TypeInfo.NullName }}
-	{{- else }}
-	{{ .GoName }} {{ .TypeInfo.Name }}
-	{{- end }}
-	{{- end }}
-}
-func (r *{{ .ReturnTypeName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
-	{{- range .ReturnCols }}
-	{{- if (or .Nullable (eq .TypeInfo.Name "time.Time")) }}
-	var scan{{ .GoName }} {{ .TypeInfo.ScanNullName }}
-	{{- end }}
-	{{- end }}
-
-	err := rs.Scan(
-		{{- range .ReturnCols }}
-		{{- if (or .Nullable (eq .TypeInfo.Name "time.Time")) }}
-		{{ call .TypeInfo.NullSqlReceiver (printf "scan%s" .GoName) }},
-		{{- else }}
-		{{ call .TypeInfo.SqlReceiver (printf "r.%s" .GoName) }},
-		{{- end }}
-		{{- end }}
-	)
-	if err != nil {
-		return err
+// buildTableGenCtx converts a meta.QueryMeta object into a fake table gen context
+// that is good enough to use to generate a return type and scan method.
+//
+// poison the strings so that mistakes are easier to spot
+func buildTableGenCtx(qm *meta.QueryMeta) meta.TableGenCtx {
+	return meta.TableGenCtx{
+		PgName:         "BOGUS_PGNAME",
+		GoName:         qm.ConfigData.Name + "Row",
+		PkeyColIdx:     -1,
+		AllIncludeSpec: "BOGUS_ALL_INCLUDE_SPEC",
+		Meta: &meta.TableMeta{
+			Info: meta.PgTableInfo{
+				PgName:       "BOGUS_PGNAME-inner",
+				GoName:       qm.ConfigData.Name + "Row",
+				PluralGoName: "BOGUS_PLURAL_GONAME-inner",
+				Cols:         qm.ReturnCols,
+			},
+		},
 	}
-
-	{{- range .ReturnCols }}
-	{{- if .Nullable }}
-	r.{{ .GoName }} = {{ call .TypeInfo.NullConvertFunc (printf "scan%s" .GoName) }}
-	{{- else if (eq .TypeInfo.Name "time.Time") }}
-	r.{{ .GoName }} = {{ printf "scan%s" .GoName }}.Time
-	{{- end }}
-	{{- end }}
-
-	return nil
 }
-`))
 
 var queryShimTmpl = template.Must(template.New("query-shim").Parse(`
 {{ if .ConfigData.SingleResult }}

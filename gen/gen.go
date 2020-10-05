@@ -156,7 +156,7 @@ func (g *Generator) Gen() error {
 
 	var body strings.Builder
 
-	err = g.genPGClient(&body, conf.Tables)
+	err = g.genPGClient(&body, conf)
 	if err != nil {
 		return err
 	}
