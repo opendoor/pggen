@@ -17,7 +17,8 @@ func TestOverriddenGetTimes(t *testing.T) {
 	res, err := overriddenPgClient.GetTimes(ctx)
 	chkErr(t, err)
 
-	if res[0].TsFieldNotNull.String() != "1999-01-08 04:05:06 +0000 +0000" {
+	tsStr := res[0].TsFieldNotNull.String()
+	if !(tsStr == "1999-01-08 04:05:06 +0000 +0000" || tsStr == "1999-01-08 04:05:06 +0000 UTC") {
 		t.Fatalf("bad ts field: '%s'", res[0].TsFieldNotNull.String())
 	}
 

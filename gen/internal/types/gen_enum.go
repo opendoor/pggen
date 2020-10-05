@@ -33,7 +33,7 @@ func (r *Resolver) maybeEmitEnumType(
 				return fmt.Sprintf("&%s", v)
 			},
 			SqlReceiver: func(v string) string {
-				return fmt.Sprintf("&ScanInto%s{value: &%s}", goName, v)
+				return fmt.Sprintf("&%s", v)
 			},
 			SqlArgument:     stringizeWrap,
 			NullSqlArgument: nullStringizeWrap,
@@ -246,27 +246,23 @@ func {{ .TypeName }}FromString(s string) ({{ .TypeName }}, error) {
 	}
 }
 
-type ScanInto{{ .TypeName }} struct {
-	value *{{ .TypeName }}
-}
-func (s *ScanInto{{ .TypeName }}) Scan(value interface{}) error {
+func (s *{{ .TypeName }}) Scan(value interface{}) error {
 	if value == nil {
 		return fmt.Errorf("unexpected NULL {{ .TypeName }}")
 	}
 
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf(
-			"ScanInto{{ .TypeName }}.Scan: expected a []byte",
-		)
+	var err error
+	switch v := value.(type) {
+	case []byte:
+		*s, err = {{ .TypeName }}FromString(string(v))
+	case string:
+		*s, err = {{ .TypeName }}FromString(v)
+	default:
+		return fmt.Errorf("{{ .TypeName }}.Scan: unexpected type")
 	}
-
-	val, err := {{ .TypeName }}FromString(string(buff))
 	if err != nil {
-		return fmt.Errorf("Null{{ .TypeName }}.Scan: %s", err.Error())
+		return fmt.Errorf("{{ .TypeName }}.Scan: %s", err.Error())
 	}
-
-	*s.value = val
 
 	return nil
 }
@@ -281,14 +277,19 @@ func (n *Null{{ .TypeName }}) Scan(value interface{}) error {
 		n.{{ .TypeName }}, n.Valid = {{ .TypeName }}(0), false
 		return nil
 	}
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf(
-			"Null{{ .TypeName }}.Scan: expected a []byte",
-		)
-	}
 
-	val, err := {{ .TypeName }}FromString(string(buff))
+	var (
+		val {{ .TypeName }}
+		err error
+	)
+	switch v := value.(type) {
+	case []byte:
+		val, err = {{ .TypeName }}FromString(string(v))
+	case string:
+		val, err = {{ .TypeName }}FromString(v)
+	default:
+		return fmt.Errorf("Null{{ .TypeName }}.Scan: unexpected type")
+	}
 	if err != nil {
 		return fmt.Errorf("Null{{ .TypeName }}.Scan: %s", err.Error())
 	}

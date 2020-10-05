@@ -976,12 +976,16 @@ func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 			return err
 		}
 	}
+	r.CreatedAt = nullableTgts.scanCreatedAt.Time
+	r.UpdatedAt = nullableTgts.scanUpdatedAt.Time
 	r.DeletedAt = convertNullTime(nullableTgts.scanDeletedAt)
 
 	return nil
 }
 
 type nullableScanTgtsForUser struct {
+	scanCreatedAt pggenNullTime
+	scanUpdatedAt pggenNullTime
 	scanDeletedAt pggenNullTime
 }
 
@@ -1004,13 +1008,13 @@ var scannerTabForUser = [...]func(*User, *nullableScanTgtsForUser) interface{}{
 		r *User,
 		nullableTgts *nullableScanTgtsForUser,
 	) interface{} {
-		return &(r.CreatedAt)
+		return &(nullableTgts.scanCreatedAt)
 	},
 	func(
 		r *User,
 		nullableTgts *nullableScanTgtsForUser,
 	) interface{} {
-		return &(r.UpdatedAt)
+		return &(nullableTgts.scanUpdatedAt)
 	},
 	func(
 		r *User,

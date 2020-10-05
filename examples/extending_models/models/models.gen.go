@@ -859,7 +859,7 @@ var scannerTabForDog = [...]func(*Dog, *nullableScanTgtsForDog) interface{}{
 		r *Dog,
 		nullableTgts *nullableScanTgtsForDog,
 	) interface{} {
-		return &ScanIntoSizeCategory{value: &r.Size}
+		return &r.Size
 	},
 	func(
 		r *Dog,
@@ -907,28 +907,23 @@ func SizeCategoryFromString(s string) (SizeCategory, error) {
 	}
 }
 
-type ScanIntoSizeCategory struct {
-	value *SizeCategory
-}
-
-func (s *ScanIntoSizeCategory) Scan(value interface{}) error {
+func (s *SizeCategory) Scan(value interface{}) error {
 	if value == nil {
 		return fmt.Errorf("unexpected NULL SizeCategory")
 	}
 
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf(
-			"ScanIntoSizeCategory.Scan: expected a []byte",
-		)
+	var err error
+	switch v := value.(type) {
+	case []byte:
+		*s, err = SizeCategoryFromString(string(v))
+	case string:
+		*s, err = SizeCategoryFromString(v)
+	default:
+		return fmt.Errorf("SizeCategory.Scan: unexpected type")
 	}
-
-	val, err := SizeCategoryFromString(string(buff))
 	if err != nil {
-		return fmt.Errorf("NullSizeCategory.Scan: %s", err.Error())
+		return fmt.Errorf("SizeCategory.Scan: %s", err.Error())
 	}
-
-	*s.value = val
 
 	return nil
 }
@@ -944,14 +939,19 @@ func (n *NullSizeCategory) Scan(value interface{}) error {
 		n.SizeCategory, n.Valid = SizeCategory(0), false
 		return nil
 	}
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf(
-			"NullSizeCategory.Scan: expected a []byte",
-		)
-	}
 
-	val, err := SizeCategoryFromString(string(buff))
+	var (
+		val SizeCategory
+		err error
+	)
+	switch v := value.(type) {
+	case []byte:
+		val, err = SizeCategoryFromString(string(v))
+	case string:
+		val, err = SizeCategoryFromString(v)
+	default:
+		return fmt.Errorf("NullSizeCategory.Scan: unexpected type")
+	}
 	if err != nil {
 		return fmt.Errorf("NullSizeCategory.Scan: %s", err.Error())
 	}

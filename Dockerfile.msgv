@@ -2,7 +2,7 @@
 # This docker file is for running tests against the earliest support go
 # version.
 #
-FROM golang:1.11-alpine
+FROM golang:1.13-alpine
 
 # we need postgresql-client so we can set up our database with psql
 # for testing and `go` uses `git` to fetch deps for us. musl-dev

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	_ "github.com/jackc/pgx/v4/stdlib" // load driver
 	"log"
 	"os"
 	"os/exec"
@@ -31,7 +32,12 @@ func init() {
 		log.Fatalf("no DB_URL in the environment")
 	}
 
-	db, err := sql.Open("postgres", dbURL)
+	dbDriver, inEnv := os.LookupEnv("DB_DRIVER")
+	if !inEnv || dbDriver == "" {
+		dbDriver = "postgres" // default to using lib/pq
+	}
+
+	db, err := sql.Open(dbDriver, dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
