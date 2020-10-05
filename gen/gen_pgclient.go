@@ -8,21 +8,27 @@ import (
 	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
-func (g *Generator) genPGClient(into io.Writer, tables []config.TableConfig) error {
+func (g *Generator) genPGClient(into io.Writer, conf *config.DbConfig) error {
 	g.imports[`"github.com/opendoor-labs/pggen"`] = true
 	g.imports[`"database/sql"`] = true
 	g.imports[`"sync"`] = true
 
 	type genCtx struct {
-		ModelNames []string
+		ScanStructNames []string
 	}
 
-	modelNames := make([]string, 0, len(tables))
-	for _, tc := range tables {
-		modelNames = append(modelNames, names.PgTableToGoModel(tc.Name))
+	scanStructNames := make([]string, 0, len(conf.Tables))
+	for _, tc := range conf.Tables {
+		scanStructNames = append(scanStructNames, names.PgTableToGoModel(tc.Name))
+	}
+	for _, qc := range conf.Queries {
+		scanStructNames = append(scanStructNames, names.PgToGoName(qc.Name)+"Row")
+	}
+	for _, sf := range conf.StoredFunctions {
+		scanStructNames = append(scanStructNames, names.PgToGoName(sf.Name)+"Row")
 	}
 
-	gCtx := genCtx{ModelNames: modelNames}
+	gCtx := genCtx{ScanStructNames: scanStructNames}
 
 	return pgClientTmpl.Execute(into, &gCtx)
 }
@@ -40,7 +46,7 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
-	{{- range .ModelNames }}
+	{{- range .ScanStructNames }}
 	rwlockFor{{ . }} sync.RWMutex
 	colIdxTabFor{{ . }} []int
 	{{- end }}
