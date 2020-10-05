@@ -62,7 +62,7 @@ func (g *Generator) genTable(
 
 	tableInfo, ok := g.metaResolver.TableMeta(table.Name)
 	if !ok {
-		return fmt.Errorf("could get schema info about table '%s'", table.Name)
+		return fmt.Errorf("could not get schema info about table '%s'", table.Name)
 	}
 
 	genCtx := tableGenCtxFromInfo(tableInfo)
@@ -140,8 +140,8 @@ func (p *pgClientImpl) list{{ .GoName }}(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)
-		{{- if .Meta.HasDeletedAtField }} AND \"{{ .Meta.PgDeletedAtField }}\" IS NULL {{ end }}",
+		` + "`" + `SELECT * FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)
+		{{- if .Meta.HasDeletedAtField }} AND "{{ .Meta.PgDeletedAtField }}" IS NULL {{ end }}` + "`" + `,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -326,7 +326,7 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"{{ .PgName }}",
+		` + "`" + `{{ .PgName }}` + "`" + `,
 		fieldsFor{{ .GoName }},
 		len(values),
 		"{{ .PkeyCol.PgName }}",
@@ -403,7 +403,7 @@ func (p *pgClientImpl) update{{ .GoName }}(
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	if !fieldMask.Test({{ .GoName }}{{ .PkeyCol.GoName }}FieldIndex) {
-		err = fmt.Errorf("primary key required for updates to '{{ .PgName }}'")
+		err = fmt.Errorf(` + "`" + `primary key required for updates to '{{ .PgName }}'` + "`" + `)
 		return
 	}
 
@@ -422,7 +422,7 @@ func (p *pgClientImpl) update{{ .GoName }}(
 	{{- end }}
 
 	updateStmt := genUpdateStmt(
-		"{{ .PgName }}",
+		` + "`" + `{{ .PgName }}` + "`" + `,
 		"{{ .PkeyCol.PgName }}",
 		fieldsFor{{ .GoName }},
 		fieldMask,
@@ -734,13 +734,13 @@ func (p *pgClientImpl) bulkDelete{{ .GoName }}(
 	if options.DoHardDelete {
 		res, err = p.db.ExecContext(
 			ctx,
-			"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
+			` + "`" + `DELETE FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)` + "`" + `,
 			pq.Array(ids),
 		)
 	} else {
 		res, err = p.db.ExecContext(
 			ctx,
-			"UPDATE \"{{ .PgName }}\" SET \"{{ .Meta.PgDeletedAtField }}\" = $1 WHERE \"{{ .PkeyCol.PgName }}\" = ANY($2)",
+			` + "`" + `UPDATE {{ .PgName }} SET "{{ .Meta.PgDeletedAtField }}" = $1 WHERE "{{ .PkeyCol.PgName }}" = ANY($2)` + "`" + `,
 			now,
 			pq.Array(ids),
 		)
@@ -748,7 +748,7 @@ func (p *pgClientImpl) bulkDelete{{ .GoName }}(
 	{{- else }}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"{{ .PgName }}\" WHERE \"{{ .PkeyCol.PgName }}\" = ANY($1)",
+		` + "`" + `DELETE FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)` + "`" + `,
 		pq.Array(ids),
 	)
 	{{- end }}
@@ -828,7 +828,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 ) (err error) {
 	if includes.TableName != ` + "`" + `{{ .PgName }}` + "`" + ` {
 		return fmt.Errorf(
-			"expected includes for '{{ .PgName }}', got '%s'",
+			` + "`" + `expected includes for '{{ .PgName }}', got '%s'` + "`" + `,
 			includes.TableName,
 		)
 	}
@@ -943,7 +943,7 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 	rows, err := p.db.QueryContext(
 		ctx,
 		` + "`" +
-	`SELECT * FROM "{{ .PointsFrom.Info.PgName }}"
+	`SELECT * FROM {{ .PointsFrom.Info.PgName }}
 		 WHERE "{{ .PointsFromField.PgName }}" = ANY($1)
 		 {{- if .PointsFrom.HasDeletedAtField }} AND "{{ .PointsFrom.PgDeletedAtField }}" IS NULL {{- end }}
 		 ` +
@@ -1070,8 +1070,8 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 		rows, err := p.db.QueryContext(
 			ctx,
 		` + "`" +
-	`SELECT * FROM "{{ .PointsTo.Info.PgName }}"
-			WHERE "{{ .PointsToField.PgName }}" = ANY($1)
+	`SELECT * FROM {{ .PointsTo.Info.PgName }}
+			WHERE {{ .PointsToField.PgName }} = ANY($1)
 		 {{- if .PointsTo.HasDeletedAtField }} AND "{{ .PointsTo.PgDeletedAtField }}" IS NULL {{- end -}}
 		 ` + "`" + `,
 			pq.Array(ids),

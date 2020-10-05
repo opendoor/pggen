@@ -50,6 +50,10 @@ func (r *Resolver) EmitType(name string, sig string, body string) error {
 	return r.types.emitType(name, sig, body)
 }
 
+func (r *Resolver) Probe(name string) bool {
+	return r.types.probe(name)
+}
+
 type Info struct {
 	// The Name of the type
 	Name string
@@ -435,13 +439,15 @@ var defaultPgType2GoType = map[string]*Info{
 
 	"uuid": &uuidGoTypeInfo,
 
-	"smallint": &int64GoTypeInfo,
-	"integer":  &int64GoTypeInfo,
 	"bigint":   &int64GoTypeInfo,
+	"int4":     &int64GoTypeInfo,
+	"int8":     &int64GoTypeInfo,
+	"integer":  &int64GoTypeInfo,
+	"smallint": &int64GoTypeInfo,
 
 	// Without knowing more about the shape of the data we are getting handed back,
 	// we will just use an untyped blob for json. We don't want to use an `interface{}`
-	// because and the user very well might have a struct that they want to deserialize
+	// because the user very well might have a struct that they want to deserialize
 	// stuff into.
 	"json":  &byteArrayGoTypeInfo,
 	"jsonb": &byteArrayGoTypeInfo,

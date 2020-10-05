@@ -152,7 +152,7 @@ func (p *pgClientImpl) listGrandparent(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"grandparents\" WHERE \"id\" = ANY($1)",
+		`SELECT * FROM grandparents WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -289,7 +289,7 @@ func (p *pgClientImpl) bulkInsertGrandparent(
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"grandparents",
+		`grandparents`,
 		fieldsForGrandparent,
 		len(values),
 		"id",
@@ -367,12 +367,12 @@ func (p *pgClientImpl) updateGrandparent(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(GrandparentIdFieldIndex) {
-		err = fmt.Errorf("primary key required for updates to 'grandparents'")
+		err = fmt.Errorf(`primary key required for updates to 'grandparents'`)
 		return
 	}
 
 	updateStmt := genUpdateStmt(
-		"grandparents",
+		`grandparents`,
 		"id",
 		fieldsForGrandparent,
 		fieldMask,
@@ -625,7 +625,7 @@ func (p *pgClientImpl) bulkDeleteGrandparent(
 	}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"grandparents\" WHERE \"id\" = ANY($1)",
+		`DELETE FROM grandparents WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -704,7 +704,7 @@ func (p *pgClientImpl) implGrandparentBulkFillIncludes(
 ) (err error) {
 	if includes.TableName != `grandparents` {
 		return fmt.Errorf(
-			"expected includes for 'grandparents', got '%s'",
+			`expected includes for 'grandparents', got '%s'`,
 			includes.TableName,
 		)
 	}
@@ -796,7 +796,7 @@ func (p *pgClientImpl) privateGrandparentFillParents(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		`SELECT * FROM "parents"
+		`SELECT * FROM parents
 		 WHERE "grandparent_id" = ANY($1)
 		 `,
 		pq.Array(ids),
@@ -894,8 +894,8 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 	if len(ids) > 0 {
 		rows, err := p.db.QueryContext(
 			ctx,
-			`SELECT * FROM "children"
-			WHERE "id" = ANY($1)`,
+			`SELECT * FROM children
+			WHERE id = ANY($1)`,
 			pq.Array(ids),
 		)
 		if err != nil {
@@ -978,7 +978,7 @@ func (p *pgClientImpl) listParent(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"parents\" WHERE \"id\" = ANY($1)",
+		`SELECT * FROM parents WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -1115,7 +1115,7 @@ func (p *pgClientImpl) bulkInsertParent(
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"parents",
+		`parents`,
 		fieldsForParent,
 		len(values),
 		"id",
@@ -1193,12 +1193,12 @@ func (p *pgClientImpl) updateParent(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(ParentIdFieldIndex) {
-		err = fmt.Errorf("primary key required for updates to 'parents'")
+		err = fmt.Errorf(`primary key required for updates to 'parents'`)
 		return
 	}
 
 	updateStmt := genUpdateStmt(
-		"parents",
+		`parents`,
 		"id",
 		fieldsForParent,
 		fieldMask,
@@ -1451,7 +1451,7 @@ func (p *pgClientImpl) bulkDeleteParent(
 	}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"parents\" WHERE \"id\" = ANY($1)",
+		`DELETE FROM parents WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -1530,7 +1530,7 @@ func (p *pgClientImpl) implParentBulkFillIncludes(
 ) (err error) {
 	if includes.TableName != `parents` {
 		return fmt.Errorf(
-			"expected includes for 'parents', got '%s'",
+			`expected includes for 'parents', got '%s'`,
 			includes.TableName,
 		)
 	}
@@ -1622,7 +1622,7 @@ func (p *pgClientImpl) privateParentFillChildren(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		`SELECT * FROM "children"
+		`SELECT * FROM children
 		 WHERE "parent_id" = ANY($1)
 		 `,
 		pq.Array(ids),
@@ -1714,8 +1714,8 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 	if len(ids) > 0 {
 		rows, err := p.db.QueryContext(
 			ctx,
-			`SELECT * FROM "grandparents"
-			WHERE "id" = ANY($1)`,
+			`SELECT * FROM grandparents
+			WHERE id = ANY($1)`,
 			pq.Array(ids),
 		)
 		if err != nil {
@@ -1798,7 +1798,7 @@ func (p *pgClientImpl) listChild(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"children\" WHERE \"id\" = ANY($1)",
+		`SELECT * FROM children WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -1935,7 +1935,7 @@ func (p *pgClientImpl) bulkInsertChild(
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"children",
+		`children`,
 		fieldsForChild,
 		len(values),
 		"id",
@@ -2013,12 +2013,12 @@ func (p *pgClientImpl) updateChild(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(ChildIdFieldIndex) {
-		err = fmt.Errorf("primary key required for updates to 'children'")
+		err = fmt.Errorf(`primary key required for updates to 'children'`)
 		return
 	}
 
 	updateStmt := genUpdateStmt(
-		"children",
+		`children`,
 		"id",
 		fieldsForChild,
 		fieldMask,
@@ -2271,7 +2271,7 @@ func (p *pgClientImpl) bulkDeleteChild(
 	}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"children\" WHERE \"id\" = ANY($1)",
+		`DELETE FROM children WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -2350,7 +2350,7 @@ func (p *pgClientImpl) implChildBulkFillIncludes(
 ) (err error) {
 	if includes.TableName != `children` {
 		return fmt.Errorf(
-			"expected includes for 'children', got '%s'",
+			`expected includes for 'children', got '%s'`,
 			includes.TableName,
 		)
 	}
@@ -2445,7 +2445,7 @@ func (p *pgClientImpl) privateChildFillDarlingGrandparents(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		`SELECT * FROM "grandparents"
+		`SELECT * FROM grandparents
 		 WHERE "favorite_grandkid_id" = ANY($1)
 		 `,
 		pq.Array(ids),
@@ -2538,8 +2538,8 @@ func (p *pgClientImpl) privateChildFillParentParent(
 	if len(ids) > 0 {
 		rows, err := p.db.QueryContext(
 			ctx,
-			`SELECT * FROM "parents"
-			WHERE "id" = ANY($1)`,
+			`SELECT * FROM parents
+			WHERE id = ANY($1)`,
 			pq.Array(ids),
 		)
 		if err != nil {

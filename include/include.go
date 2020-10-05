@@ -83,7 +83,6 @@ package include
 
 import (
 	"fmt"
-	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -505,8 +504,7 @@ func writeIdent(b *strings.Builder, ident string) {
 	if unquotedIdentRE.Match([]byte(ident)) {
 		b.WriteString(ident)
 	} else {
-		quotedQuotes := strings.Replace(
-			ident, `"`, `""`, int(math.MinInt64))
+		quotedQuotes := strings.ReplaceAll(ident, `"`, `""`)
 		b.WriteByte('"')
 		b.WriteString(quotedQuotes)
 		b.WriteByte('"')

@@ -42,9 +42,9 @@ func genInsertCommon(
 	pkeyName string,
 	includeID bool,
 ) {
-	into.WriteString("INSERT INTO \"")
+	into.WriteString("INSERT INTO ")
 	into.WriteString(table)
-	into.WriteString("\" (")
+	into.WriteString(" (")
 	for i, field := range fields {
 		if !includeID && field == pkeyName {
 			continue
@@ -93,9 +93,9 @@ func genUpdateStmt(
 ) string {
 	var ret strings.Builder
 
-	ret.WriteString("UPDATE \"")
+	ret.WriteString("UPDATE ")
 	ret.WriteString(table)
-	ret.WriteString("\" SET ")
+	ret.WriteString(" SET ")
 
 	lhs := make([]string, 0, len(fields))
 	rhs := make([]string, 0, len(fields))

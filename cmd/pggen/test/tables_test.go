@@ -319,7 +319,7 @@ func TestFillIncludes(t *testing.T) {
 	if smallEntity.SingleAttachment.Id != singleAttachmentID {
 		t.Fatalf("failed to fetch single attachment")
 	}
-	if smallEntity.ExplicitBelongsTo != nil || smallEntity.ExplicitBelongsToMany != nil {
+	if smallEntity.ExplicitBelongsTo != nil || smallEntity.ExplicitBelongsToManies != nil {
 		t.Fatalf("shouldn't load ExplicitBelongsTo or ExplicitBelongsToMany")
 	}
 }
@@ -424,9 +424,9 @@ func TestExplicitBelongsTo(t *testing.T) {
 func TestExplicitBelongsToMany(t *testing.T) {
 	smallEntityType := reflect.TypeOf(models.SmallEntity{})
 
-	f, has := smallEntityType.FieldByName("ExplicitBelongsToMany")
+	f, has := smallEntityType.FieldByName("ExplicitBelongsToManies")
 	if !has {
-		t.Fatalf("pggen generated failed to generate ExplicitBelongsToMany")
+		t.Fatalf("pggen generated failed to generate ExplicitBelongsToManies")
 	}
 
 	if f.Type.Kind() != reflect.Slice {

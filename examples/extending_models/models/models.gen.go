@@ -149,7 +149,7 @@ func (p *pgClientImpl) listDog(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"dogs\" WHERE \"id\" = ANY($1)",
+		`SELECT * FROM dogs WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -287,7 +287,7 @@ func (p *pgClientImpl) bulkInsertDog(
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"dogs",
+		`dogs`,
 		fieldsForDog,
 		len(values),
 		"id",
@@ -367,12 +367,12 @@ func (p *pgClientImpl) updateDog(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(DogIdFieldIndex) {
-		err = fmt.Errorf("primary key required for updates to 'dogs'")
+		err = fmt.Errorf(`primary key required for updates to 'dogs'`)
 		return
 	}
 
 	updateStmt := genUpdateStmt(
-		"dogs",
+		`dogs`,
 		"id",
 		fieldsForDog,
 		fieldMask,
@@ -633,7 +633,7 @@ func (p *pgClientImpl) bulkDeleteDog(
 	}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"dogs\" WHERE \"id\" = ANY($1)",
+		`DELETE FROM dogs WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -712,7 +712,7 @@ func (p *pgClientImpl) implDogBulkFillIncludes(
 ) (err error) {
 	if includes.TableName != `dogs` {
 		return fmt.Errorf(
-			"expected includes for 'dogs', got '%s'",
+			`expected includes for 'dogs', got '%s'`,
 			includes.TableName,
 		)
 	}

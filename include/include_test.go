@@ -105,6 +105,9 @@ func TestParseSuccess(t *testing.T) {
 		{
 			src: `"123 "" _f"`,
 		},
+		{
+			src: `"a.b".c`,
+		},
 	}
 
 	for i, c := range cases {

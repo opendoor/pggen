@@ -107,7 +107,7 @@ func Test1ToManyForeignKey(t *testing.T) {
 	chkErr(t, err)
 
 	if len(roots[0].WackyAttachments) != 2 {
-		log.Fatal("wrong number of attachments loaded")
+		t.Fatal("wrong number of attachments loaded")
 	}
 }
 
@@ -129,7 +129,7 @@ func Test1To1ForeignKey(t *testing.T) {
 	chkErr(t, err)
 
 	if roots[0].WackySingleAttachment == nil {
-		log.Fatal("failed to load single attachemnt")
+		t.Fatal("failed to load single attachemnt")
 	}
 }
 
