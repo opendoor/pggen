@@ -282,6 +282,14 @@ name = "small_entities"
 		exitCode: 0,
 		stderrRE: "WARN: table 'small_entities' has no nullable 'deleted_at' deleted at timestamp",
 	},
+	{
+		toml: `
+[[table]]
+	name = 'badschema."name'
+		`,
+		exitCode: 1,
+		stderrRE: `parsing 'badschema."name': unmatched quote`,
+	},
 }
 
 func TestCLI(t *testing.T) {

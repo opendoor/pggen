@@ -22,7 +22,8 @@ func (r *Resolver) maybeEmitEnumType(
 	}
 	// if there are no variants, then it is not an enum
 	if len(variants) > 0 {
-		goName := names.PgToGoName(pgTypeName)
+		// PgTableToGoModel handles enums in non-public schemas a bit better than PgToGoName
+		goName := names.PgTableToGoModel(pgTypeName)
 
 		typeInfo := Info{
 			Name:            goName,
@@ -185,13 +186,21 @@ func enumValuesToGoNames(values []string) []string {
 // Given the oid of a postgres type, return all the variants that
 // that enum has.
 func (r *Resolver) enumVariants(typeName string) ([]string, error) {
+	pgName, err := names.ParsePgName(typeName)
+	if err != nil {
+		return nil, fmt.Errorf("reflecting on potential enum '%s': %s", typeName, err.Error())
+	}
+
 	rows, err := r.db.Query(`
 		SELECT e.enumlabel
 		FROM pg_type t
 		JOIN pg_enum e
 			ON (t.oid = e.enumtypid)
-		WHERE t.typname = $1
-		`, typeName)
+		JOIN pg_namespace ns
+			ON (t.typnamespace = ns.oid)
+		WHERE ns.nspname = $1
+		  AND t.typname = $2
+		`, pgName.Schema, pgName.Name)
 	if err != nil {
 		return nil, err
 	}

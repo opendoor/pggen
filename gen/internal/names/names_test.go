@@ -40,3 +40,28 @@ func TestPgToGoName(t *testing.T) {
 		}
 	}
 }
+
+func TestPgTableToGoModel(t *testing.T) {
+	type testCase struct {
+		src      string
+		expected string
+	}
+
+	cases := []testCase{
+		{
+			src:      "foos",
+			expected: "Foo",
+		},
+		{
+			src:      "foo.bars",
+			expected: "Foo_Bar",
+		},
+	}
+
+	for i, c := range cases {
+		actual := PgTableToGoModel(c.src)
+		if actual != c.expected {
+			t.Fatalf("%d: expected '%s', got '%s'", i, c.expected, actual)
+		}
+	}
+}

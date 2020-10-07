@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -40,14 +41,19 @@ func (g *Generator) genStoredFuncs(
 func (g *Generator) storedFuncToQueryConf(
 	storedFunc *config.StoredFuncConfig,
 ) (*config.QueryConfig, []meta.Arg, error) {
-	args, err := g.metaResolver.FuncArgs(storedFunc.Name)
+	name, err := names.ParsePgName(storedFunc.Name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generating call to '%s': %s", storedFunc.Name, err.Error())
+	}
+
+	args, err := g.metaResolver.FuncArgs(name)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var queryTxt strings.Builder
 	err = storedFuncQueryTmpl.Execute(&queryTxt, map[string]interface{}{
-		"name": storedFunc.Name,
+		"name": name.String(),
 		"args": args,
 	})
 	if err != nil {
@@ -64,7 +70,7 @@ func (g *Generator) storedFuncToQueryConf(
 }
 
 var storedFuncQueryTmpl *template.Template = template.Must(template.New("stored-func-shim").Parse(`
-SELECT * FROM "{{ index . "name" }}"(
+SELECT * FROM {{ index . "name" }}(
 	{{- range $i, $a := index . "args" -}}
 		{{- if $i }},{{end -}}
 		${{ $a.Idx -}}

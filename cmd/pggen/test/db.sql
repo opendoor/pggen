@@ -1,4 +1,10 @@
-DROP SCHEMA public CASCADE;
+----------------------------------------------------------------------------------------------------
+--                                                                                                --
+--                                          public                                                --
+--                                                                                                --
+----------------------------------------------------------------------------------------------------
+
+DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 
 -- enable uuid utils
@@ -11,7 +17,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE enum_type AS ENUM ('', 'option1', 'option2');
 CREATE TYPE enum_type_with_blank AS ENUM ('', 'blank', 'other');
 
-CREATE TYPE funky_name_enum AS ENUM ('has spaces', '+special@chars*^?/:;%()={}[]~`&''.,><', 'foo', 'foo+');
+CREATE TYPE funky_name_enum AS ENUM ('has spaces', '+special@chars*^?/:%()={}[]~`&''.,><', 'foo', 'foo+');
 
 CREATE TABLE type_rainbow (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -736,3 +742,66 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql;
+
+----------------------------------------------------------------------------------------------------
+--                                                                                                --
+--                                        otherschema                                             --
+--                                                                                                --
+----------------------------------------------------------------------------------------------------
+
+DROP SCHEMA IF EXISTS otherschema CASCADE;
+CREATE SCHEMA otherschema;
+
+-- NOTE: name clashes with enum defined in public. This should not cause any problems
+--       because they are in different schemas.
+CREATE TYPE otherschema.enum_type AS ENUM ('opt1', 'opt2', 'opt3');
+
+CREATE TABLE otherschema.foos (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    my_enum otherschema.enum_type NOT NULL
+);
+
+CREATE OR REPLACE FUNCTION otherschema.my_get_foos_value(my_id integer)
+RETURNS text
+AS $$
+SELECT value FROM otherschema.foos WHERE id = my_id
+$$
+LANGUAGE sql;
+
+-- test associations
+CREATE TABLE otherschema.parents (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL
+);
+CREATE TABLE otherschema.children (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    parent_id integer NOT NULL
+        REFERENCES otherschema.parents(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE otherschema.unconstrained_children (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    parent_id integer NOT NULL -- will have to be explicitly configured
+);
+
+-- test cross-schema associations
+CREATE TABLE otherschema.small_entity_children (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    small_entity_id integer NOT NULL
+        REFERENCES small_entities(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE children_of_otherschema ( -- NOTE: created in public schema not otherschema
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL,
+    otherschema_parent_id integer NOT NULL
+        REFERENCES otherschema.parents(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE TABLE otherschema."funky ""name" (
+    id SERIAL PRIMARY KEY,
+    value text NOT NULL
+);
+

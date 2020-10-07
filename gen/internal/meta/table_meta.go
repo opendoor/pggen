@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jinzhu/inflection"
 	"github.com/lib/pq"
 
 	"github.com/opendoor-labs/pggen/gen/internal/config"
@@ -133,7 +134,7 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 		}
 		info.Info = meta
 
-		tr.meta.tableInfo[table.Name] = info
+		tr.meta.tableInfo[meta.PgName] = info
 		tr.meta.tableTyNameToTableName[meta.GoName] = meta.PgName
 	}
 
@@ -343,20 +344,22 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 	// infered rather than explicitly configured.
 	inferedReferencs := map[string]map[string]bool{}
 	for _, table := range tables {
-		meta := infoTab[table.Name]
-		inferedReferencs[table.Name] = map[string]bool{}
+		quotedName := mustConfigPgNameToQuoted(table.Name)
+		meta := infoTab[quotedName]
+		inferedReferencs[quotedName] = map[string]bool{}
 		for _, ref := range meta.Info.IncomingReferences {
 			refererMeta := infoTab[ref.PointsFrom.Info.PgName]
 
 			// don't pass the infered relationship along if we've been asked not to
 			if !refererMeta.Config.NoInferBelongsTo {
-				inferedReferencs[table.Name][ref.PointsFrom.Info.PgName] = true
+				inferedReferencs[quotedName][ref.PointsFrom.Info.PgName] = true
 			}
 		}
 	}
 
 	for _, table := range tables {
-		pointsFromTable := tr.meta.tableInfo[table.Name]
+		quotedName := mustConfigPgNameToQuoted(table.Name)
+		pointsFromTable := tr.meta.tableInfo[quotedName]
 
 		for _, belongsTo := range table.BelongsTo {
 			if len(belongsTo.Table) == 0 {
@@ -390,7 +393,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 			pgPointsFromFieldName := belongsTo.ParentFieldName
 			goPointsFromFieldName := names.PgToGoName(belongsTo.ParentFieldName)
 			if pgPointsFromFieldName == "" {
-				info := &tr.meta.tableInfo[table.Name].Info
+				info := &tr.meta.tableInfo[quotedName].Info
 				if belongsTo.OneToOne {
 					goPointsFromFieldName = info.GoName
 				} else {
@@ -399,19 +402,21 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 				pgPointsFromFieldName = info.PgName
 			}
 
+			belongsToQuotedName := mustConfigPgNameToQuoted(belongsTo.Table)
+
 			pgPointsToFieldName := belongsTo.ChildFieldName
 			goPointsToFieldName := names.PgToGoName(pgPointsToFieldName)
 			if pgPointsToFieldName == "" {
-				info := &tr.meta.tableInfo[belongsTo.Table].Info
+				info := &tr.meta.tableInfo[belongsToQuotedName].Info
 				goPointsToFieldName = info.GoName
 				pgPointsToFieldName = info.PgName
 			}
 
-			pointsToMeta := infoTab[belongsTo.Table].Info
+			pointsToMeta := infoTab[belongsToQuotedName].Info
 			ref := RefMeta{
-				PointsTo:              tr.meta.tableInfo[belongsTo.Table],
+				PointsTo:              tr.meta.tableInfo[belongsToQuotedName],
 				PointsToField:         pointsToMeta.PkeyCol,
-				PointsFrom:            tr.meta.tableInfo[table.Name],
+				PointsFrom:            tr.meta.tableInfo[quotedName],
 				PointsFromField:       belongsToColMeta,
 				GoPointsFromFieldName: goPointsFromFieldName,
 				PgPointsFromFieldName: pgPointsFromFieldName,
@@ -421,21 +426,22 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 				Nullable:              belongsToColMeta.Nullable,
 			}
 			// prevent inference when we have an explicit config
-			inferedReferencs[belongsTo.Table][ref.PointsFrom.Info.PgName] = false
+			inferedReferencs[belongsToQuotedName][ref.PointsFrom.Info.PgName] = false
 
-			info := infoTab[belongsTo.Table]
+			info := infoTab[mustConfigPgNameToQuoted(belongsTo.Table)]
 			info.AllIncomingReferences = append(info.AllIncomingReferences, ref)
-			infoTab[belongsTo.Table] = info
+			infoTab[belongsToQuotedName] = info
 		}
 	}
 
 	// fill in with infered references that have not been overridden by an
 	// explicit config
 	for _, table := range tables {
-		meta := infoTab[table.Name]
+		quotedName := mustConfigPgNameToQuoted(table.Name)
+		meta := infoTab[quotedName]
 
 		for _, ref := range meta.Info.IncomingReferences {
-			if inferedReferencs[table.Name][ref.PointsFrom.Info.PgName] {
+			if inferedReferencs[quotedName][ref.PointsFrom.Info.PgName] {
 				meta.AllIncomingReferences = append(meta.AllIncomingReferences, ref)
 			}
 		}
@@ -543,6 +549,10 @@ type ColMeta struct {
 
 // Given the name of a table returns metadata about it
 func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
+	tableName, err := names.ParsePgName(table)
+	if err != nil {
+		return PgTableInfo{}, err
+	}
 	rows, err := tr.db.Query(`
 		WITH unique_cols AS (
 			SELECT
@@ -551,7 +561,10 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 			FROM pg_class c
 			JOIN pg_index ix
 				ON (c.oid = ix.indrelid)
-			WHERE c.relname = $1
+			LEFT JOIN pg_namespace ns
+				ON (c.relnamespace = ns.oid)
+			WHERE (ns.nspname = $1 OR c.relkind = 'v')
+			  AND c.relname = $2
 		)
 
 		SELECT DISTINCT ON (a.attnum)
@@ -563,17 +576,22 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 			COALESCE(ct.contype = 'p', false) AS is_primary,
 			COALESCE(u.is_unique, 'f'::bool) AS is_unique
 		FROM pg_attribute a
-		INNER JOIN pg_class c
+		JOIN pg_class c
 			ON (c.oid = a.attrelid)
+		LEFT JOIN pg_namespace ns
+			ON (c.relnamespace = ns.oid)
 		LEFT JOIN pg_constraint ct
 			ON (ct.conrelid = c.oid AND a.attnum = ANY(ct.conkey) AND ct.contype = 'p')
 		LEFT JOIN pg_attrdef ad
 			ON (ad.adrelid = c.oid AND ad.adnum = a.attnum)
 		LEFT JOIN unique_cols u
 			ON (u.colnum = a.attnum)
-		WHERE a.attisdropped = false AND c.relname = $1 AND (a.attnum > 0)
+		WHERE a.attisdropped = false
+		  AND (ns.nspname = $1 OR c.relkind = 'v')
+		  AND c.relname = $2
+		  AND a.attnum > 0
 		ORDER BY a.attnum
-		`, table)
+		`, tableName.Schema, tableName.Name)
 	if err != nil {
 		return PgTableInfo{}, err
 	}
@@ -623,10 +641,14 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 		}
 	}
 
+	goName := names.PgTableToGoModel(table)
 	return PgTableInfo{
-		PgName:       table,
-		GoName:       names.PgTableToGoModel(table),
-		PluralGoName: names.PgToGoName(table),
+		PgName: tableName.String(),
+		GoName: goName,
+		// we pluralize `goName` rather than just converting `table` to PascalCase
+		// to better handle tables from non-public schemas (the schema/table boundary
+		// would not end up captalized if we just use `names.PgToGoName`)
+		PluralGoName: inflection.Plural(goName),
 		PkeyCol:      pkeyCol,
 		PkeyColIdx:   pkeyColIdx,
 		Cols:         cols,
@@ -637,20 +659,31 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 // References list. Any tables which are referenced by the given table must
 // already be loaded into `g.tables`.
 func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
+	tableName, err := names.ParsePgName(meta.PgName)
+	if err != nil {
+		return err
+	}
 	rows, err := tr.db.Query(`
 		SELECT
+			ptns.nspname as points_to_schema,
 			pt.relname as points_to,
 			c.confkey as points_to_keys,
+			pfns.nspname as points_from_schema,
 			pf.relname as points_from,
 			c.conkey as points_from_keys
 		FROM pg_constraint c
 		JOIN pg_class pt
 			ON (pt.oid = c.confrelid)
+		JOIN pg_namespace ptns
+			ON (pt.relnamespace = ptns.oid)
 		JOIN pg_class pf
 			ON (c.conrelid = pf.oid)
+		JOIN pg_namespace pfns
+			ON (pf.relnamespace = pfns.oid)
 		WHERE c.contype = 'f'
-		  AND pt.relname = $1
-		`, meta.PgName)
+		  AND ptns.nspname = $1
+		  AND pt.relname = $2
+		`, tableName.Schema, tableName.Name)
 	if err != nil {
 		return err
 	}
@@ -658,24 +691,28 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 	metaColNumToIdx := columnResolverTable(meta.Cols)
 
 	for rows.Next() {
-
 		var (
-			pgPointsTo   string
-			pgPointsFrom string
+			pgPointsToSchema   string
+			pgPointsToTable    string
+			pgPointsFromSchema string
+			pgPointsFromTable  string
+			pointsToIdxs       = []int64{}
+			pointsFromIdxs     = []int64{}
 		)
 
-		pointsToIdxs := []int64{}
-		pointsFromIdxs := []int64{}
-		var ref RefMeta
 		err = rows.Scan(
-			&pgPointsTo, pq.Array(&pointsToIdxs),
-			&pgPointsFrom, pq.Array(&pointsFromIdxs),
+			&pgPointsToSchema, &pgPointsToTable, pq.Array(&pointsToIdxs),
+			&pgPointsFromSchema, &pgPointsFromTable, pq.Array(&pointsFromIdxs),
 		)
 		if err != nil {
 			return err
 		}
 
-		_, inTOMLConfig := tr.meta.tableInfo[pgPointsFrom]
+		// convert the name parts into a single string
+		pointsTo := (&names.PgName{Schema: pgPointsToSchema, Name: pgPointsToTable}).String()
+		pointsFrom := (&names.PgName{Schema: pgPointsFromSchema, Name: pgPointsFromTable}).String()
+
+		_, inTOMLConfig := tr.meta.tableInfo[pointsFrom]
 		if !inTOMLConfig {
 			continue
 		}
@@ -691,10 +728,13 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 			return fmt.Errorf("out of bounds foreign key field (to) at index %d", pointsToIdx)
 		}
 		pointsToIdx = int64(metaColNumToIdx[pointsToIdx])
+
+		var ref RefMeta
+
 		ref.PointsToField = &meta.Cols[pointsToIdx]
 
-		ref.PointsTo = tr.meta.tableInfo[pgPointsTo]
-		ref.PointsFrom = tr.meta.tableInfo[pgPointsFrom]
+		ref.PointsTo = tr.meta.tableInfo[pointsTo]
+		ref.PointsFrom = tr.meta.tableInfo[pointsFrom]
 
 		fromCols := ref.PointsFrom.Info.Cols
 		fromColsColNumToIdx := columnResolverTable(fromCols)
@@ -725,4 +765,12 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 	}
 
 	return nil
+}
+
+func mustConfigPgNameToQuoted(name string) string {
+	n, err := names.ParsePgName(name)
+	if err != nil {
+		panic(fmt.Sprintf("internal error: bad name: %s", err.Error()))
+	}
+	return n.String()
 }

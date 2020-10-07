@@ -26,9 +26,7 @@ func (r *Resolver) EmitStructType(typeName string, genCtx interface{}) error {
 		return err
 	}
 
-	sigTxt := typeSig.String()
-	bodyTxt := typeBody.String()
-	err = r.EmitType(typeName, sigTxt, bodyTxt) //typeSig.String(), typeBody.String())
+	err = r.EmitType(typeName, typeSig.String(), typeBody.String())
 	if err != nil {
 		return err
 	}

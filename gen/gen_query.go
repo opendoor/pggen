@@ -27,7 +27,7 @@ func (g *Generator) genQueries(
 	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
 	// HACK: not really a type, but the type resolver can be used to ensure that
 	//       exactly one copy of this declaration makes it into the final output.
-	err := g.typeResolver.EmitType("ensure-stable-used", "sig", "var _ = unstable.NotFoundError{}")
+	err := g.typeResolver.EmitType("ensure-unstable-used", "sig", "var _ = unstable.NotFoundError{}")
 	if err != nil {
 		return fmt.Errorf("internal-error: emitting bogus NotFoundError usage: %s", err)
 	}
@@ -57,7 +57,11 @@ func (g *Generator) genQuery(
 	// not needed, but it does make the generated code a little nicer
 	config.Body = strings.TrimSpace(config.Body)
 
-	config.ReturnType = names.PgToGoName(config.ReturnType)
+	// tables in non-public schemas are allowed to have underscores in their names, so
+	// we don't want to convert in that case.
+	if !g.typeResolver.Probe(config.ReturnType) {
+		config.ReturnType = names.PgToGoName(config.ReturnType)
+	}
 
 	if config.Body == "" {
 		return fmt.Errorf("empty query body")

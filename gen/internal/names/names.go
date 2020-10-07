@@ -15,7 +15,18 @@ import (
 //
 
 func PgTableToGoModel(tableName string) string {
-	return PgToGoName(inflection.Singular(tableName))
+	parsed, err := ParsePgName(tableName)
+	if err != nil {
+		// fall back to treating the name as a single name
+		// not idea, but we want to keep this infallable
+		return PgToGoName(inflection.Singular(tableName))
+	}
+
+	if parsed.Schema == "public" {
+		return PgToGoName(inflection.Singular(parsed.Name))
+	}
+
+	return PgToGoName(parsed.Schema) + "_" + PgToGoName(inflection.Singular(parsed.Name))
 }
 
 // Convert a postgres name (assumed to be snake_case)

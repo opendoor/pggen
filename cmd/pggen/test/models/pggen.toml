@@ -1,3 +1,9 @@
+####################################################################################
+#                                                                                  #
+#                                       public                                     #
+#                                                                                  #
+####################################################################################
+
 #
 # Stored Functions
 #
@@ -434,3 +440,43 @@
 
 [[table]]
     name = "offset_table_fillings"
+
+####################################################################################
+#                                                                                  #
+#                                     otherschema                                  #
+#                                                                                  #
+####################################################################################
+
+# stuff for the basic smoke test
+[[table]]
+    name = "otherschema.foos"
+[[stored_function]]
+    name = "otherschema.my_get_foos_value"
+[[statement]]
+    name = "ClobberAllOtherschemaFooValues"
+    body = "UPDATE otherschema.foos SET value = ''"
+[[query]]
+    name = "GetAllOtherschemaFoos"
+    return_type = "Otherschema_Foo"
+    body = "SELECT * FROM otherschema.foos"
+
+# for associations within a non-public schema
+[[table]]
+    name = "otherschema.parents"
+[[table]]
+    name = "otherschema.children"
+[[table]]
+    name = "otherschema.unconstrained_children"
+    [[table.belongs_to]]
+        table = "otherschema.parents"
+        key_field = "parent_id"
+        one_to_one = true # just to mix things up
+
+# for associations between schemas
+[[table]]
+    name = "otherschema.small_entity_children"
+[[table]]
+    name = "children_of_otherschema"
+
+[[table]]
+    name = 'otherschema."funky ""name"'

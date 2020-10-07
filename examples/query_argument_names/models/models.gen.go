@@ -150,7 +150,7 @@ func (p *pgClientImpl) listUser(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		"SELECT * FROM \"users\" WHERE \"id\" = ANY($1)",
+		`SELECT * FROM users WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -287,7 +287,7 @@ func (p *pgClientImpl) bulkInsertUser(
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
-		"users",
+		`users`,
 		fieldsForUser,
 		len(values),
 		"id",
@@ -365,12 +365,12 @@ func (p *pgClientImpl) updateUser(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(UserIdFieldIndex) {
-		err = fmt.Errorf("primary key required for updates to 'users'")
+		err = fmt.Errorf(`primary key required for updates to 'users'`)
 		return
 	}
 
 	updateStmt := genUpdateStmt(
-		"users",
+		`users`,
 		"id",
 		fieldsForUser,
 		fieldMask,
@@ -623,7 +623,7 @@ func (p *pgClientImpl) bulkDeleteUser(
 	}
 	res, err := p.db.ExecContext(
 		ctx,
-		"DELETE FROM \"users\" WHERE \"id\" = ANY($1)",
+		`DELETE FROM users WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -702,7 +702,7 @@ func (p *pgClientImpl) implUserBulkFillIncludes(
 ) (err error) {
 	if includes.TableName != `users` {
 		return fmt.Errorf(
-			"expected includes for 'users', got '%s'",
+			`expected includes for 'users', got '%s'`,
 			includes.TableName,
 		)
 	}

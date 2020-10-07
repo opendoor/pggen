@@ -44,7 +44,12 @@ func (r *Resolver) Resolve(conf *config.DbConfig) error {
 //
 // The second return value indicates if the value was found
 func (r *Resolver) TableMeta(pgName string) (*TableMeta, bool) {
-	res, ok := r.tableResolver.meta.tableInfo[pgName]
+	n, err := names.ParsePgName(pgName)
+	if err != nil {
+		return nil, false
+	}
+
+	res, ok := r.tableResolver.meta.tableInfo[n.String()]
 	return res, ok
 }
 
@@ -102,7 +107,7 @@ func (mc *Resolver) QueryMeta(
 	// Resolve the return type by factoring in the null flags and
 	// whether or not it is an alias for a table type.
 	nullFlags := config.NullFlags
-	pgTableName, isTable := mc.tableResolver.meta.tableTyNameToTableName[names.PgToGoName(config.ReturnType)]
+	pgTableName, isTable := mc.tableResolver.meta.tableTyNameToTableName[config.ReturnType]
 	if isTable {
 		if len(config.NullFlags) > 0 || len(config.NotNullFields) > 0 {
 			err = fmt.Errorf("don't set null flags on query returning table struct")
@@ -198,6 +203,7 @@ func (mc *Resolver) argsOfStmt(body string, argNamesSpec string) ([]Arg, error) 
 
 	stmt, err := tx.Prepare(body)
 	if err != nil {
+		fmt.Println("failed prep, body =", body)
 		return nil, err
 	}
 	// Don't check the error code. Not worth bringing down the process over.
@@ -370,20 +376,26 @@ func overrideNullability(
 
 // Given the name of a postgres stored function, return a list
 // describing its arguments
-func (mc *Resolver) FuncArgs(funcName string) ([]Arg, error) {
+func (mc *Resolver) FuncArgs(funcName names.PgName) ([]Arg, error) {
 	rows, err := mc.db.Query(`
 		WITH proc_args AS (
 			SELECT
 				UNNEST(p.proargnames) as argname,
 				UNNEST(p.proargtypes) as argtype
 			FROM pg_proc p
-			WHERE p.proname = $1
+			JOIN pg_namespace ns
+				ON (p.pronamespace = ns.oid)
+			WHERE ns.nspname = $1
+			  AND p.proname = $2
 		), argmodes AS (
 			SELECT
 				UNNEST(p.proargnames) as argname,
 				UNNEST(p.proargmodes) as argmode
 			FROM pg_proc p
-			WHERE p.proname = $1
+			JOIN pg_namespace ns
+				ON (p.pronamespace = ns.oid)
+			WHERE ns.nspname = $1
+			  AND p.proname = $2
 		)
 
 		SELECT arg.argname, t.typname
@@ -394,7 +406,7 @@ func (mc *Resolver) FuncArgs(funcName string) ([]Arg, error) {
 			ON (mode.argname = arg.argname)
 		WHERE mode.argmode != 't'
 		   OR mode.argmode IS NULL
-		`, funcName)
+		`, funcName.Schema, funcName.Name)
 	if err != nil {
 		return nil, err
 	}
