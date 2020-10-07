@@ -5,24 +5,35 @@ services:
     build: .
     environment:
       LINT: "1"
-      DB_HOST: "postgres12"
+      DB_HOST: "postgres13"
     volumes:
       - ".:/pggen"
     links:
-      - "postgres12"
+      - "postgres13"
     depends_on:
-      - "postgres12"
+      - "postgres13"
 
   msgv:
     build:
       context: .
       dockerfile: Dockerfile.msgv
     environment:
-      DB_HOST: "postgres12"
+      DB_HOST: "postgres13"
     links:
-      - "postgres12"
+      - "postgres13"
     depends_on:
-      - "postgres12"
+      - "postgres13"
+    volumes:
+      - ".:/pggen"
+
+  test13:
+    build: .
+    environment:
+      DB_HOST: "postgres13"
+    links:
+      - "postgres13"
+    depends_on:
+      - "postgres13"
     volumes:
       - ".:/pggen"
 
@@ -81,6 +92,10 @@ services:
     volumes:
       - ".:/pggen"
 
+  postgres13:
+    image: postgres:13
+    environment:
+      POSTGRES_PASSWORD: "test"
   postgres12:
     image: postgres:12
     environment:
