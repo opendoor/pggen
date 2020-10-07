@@ -5,21 +5,30 @@ services:
     image: pggen_source
     environment:
       LINT: "1"
-      DB_HOST: "postgres12"
+      DB_HOST: "postgres13"
     links:
-      - "postgres12"
+      - "postgres13"
     depends_on:
-      - "postgres12"
+      - "postgres13"
 
   # check the minimum supported go version
   msgv:
     image: pggen_source_msgv
     environment:
-      DB_HOST: "postgres12"
+      DB_HOST: "postgres13"
     links:
-      - "postgres12"
+      - "postgres13"
     depends_on:
-      - "postgres12"
+      - "postgres13"
+
+  test13:
+    image: pggen_source
+    environment:
+      DB_HOST: "postgres13"
+    links:
+      - "postgres13"
+    depends_on:
+      - "postgres13"
 
   test12:
     image: pggen_source
@@ -66,6 +75,10 @@ services:
     depends_on:
       - "postgres9_5"
 
+  postgres13:
+    image: postgres:12
+    environment:
+      POSTGRES_PASSWORD: "test"
   postgres12:
     image: postgres:12
     environment:
