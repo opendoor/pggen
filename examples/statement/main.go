@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/examples/query_argument_names/models"
+	"github.com/opendoor-labs/pggen/examples/statement/models"
 )
 
 func main() {
