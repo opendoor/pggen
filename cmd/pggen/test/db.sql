@@ -373,6 +373,13 @@ CREATE TABLE offset_table_fillings (
     i1 integer NOT NULL
 );
 
+CREATE TABLE default_values (
+    id SERIAL PRIMARY KEY,
+    defaulted_string text NOT NULL DEFAULT 'default value',
+    defaulted_int integer NOT NULL DEFAULT 42,
+    nondefault_string text NOT NULL UNIQUE
+);
+
 --
 -- Load Data
 --

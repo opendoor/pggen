@@ -275,12 +275,15 @@ func (p *pgClientImpl) bulkInsertFoo(
 		o(&opt)
 	}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsForFoo)
 	args := make([]interface{}, 0, 2*len(values))
 	for _, v := range values {
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test(FooIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Value)
+		if !defaultFields.Test(FooValueFieldIndex) {
+			args = append(args, v.Value)
+		}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -289,6 +292,7 @@ func (p *pgClientImpl) bulkInsertFoo(
 		len(values),
 		"id",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -321,9 +325,15 @@ const (
 // For use as a 'fieldMask' parameter
 var FooAllFields pggen.FieldSet = pggen.NewFieldSetFilled(2)
 
-var fieldsForFoo []string = []string{
-	`id`,
-	`value`,
+var defaultableColsForFoo = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet(FooMaxFieldIndex)
+	fs.Set(FooIdFieldIndex, true)
+	return fs
+}()
+
+var fieldsForFoo []fieldNameAndIdx = []fieldNameAndIdx{
+	{name: `id`, idx: FooIdFieldIndex},
+	{name: `value`, idx: FooValueFieldIndex},
 }
 
 // Update a Foo. 'value' must at the least have
@@ -488,6 +498,7 @@ func (p *pgClientImpl) bulkUpsertFoo(
 		constraintNames = []string{`id`}
 	}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsForFoo)
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -496,6 +507,7 @@ func (p *pgClientImpl) bulkUpsertFoo(
 		len(values),
 		`id`,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -541,10 +553,12 @@ func (p *pgClientImpl) bulkUpsertFoo(
 
 	args := make([]interface{}, 0, 2*len(values))
 	for _, v := range values {
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test(FooIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Value)
+		if !defaultFields.Test(FooValueFieldIndex) {
+			args = append(args, v.Value)
+		}
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)

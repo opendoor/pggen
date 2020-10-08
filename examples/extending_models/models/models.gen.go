@@ -276,14 +276,21 @@ func (p *pgClientImpl) bulkInsertDog(
 		o(&opt)
 	}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsForDog)
 	args := make([]interface{}, 0, 4*len(values))
 	for _, v := range values {
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test(DogIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Breed)
-		args = append(args, v.Size.String())
-		args = append(args, v.AgeInDogYears)
+		if !defaultFields.Test(DogBreedFieldIndex) {
+			args = append(args, v.Breed)
+		}
+		if !defaultFields.Test(DogSizeFieldIndex) {
+			args = append(args, v.Size.String())
+		}
+		if !defaultFields.Test(DogAgeInDogYearsFieldIndex) {
+			args = append(args, v.AgeInDogYears)
+		}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -292,6 +299,7 @@ func (p *pgClientImpl) bulkInsertDog(
 		len(values),
 		"id",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -326,11 +334,17 @@ const (
 // For use as a 'fieldMask' parameter
 var DogAllFields pggen.FieldSet = pggen.NewFieldSetFilled(4)
 
-var fieldsForDog []string = []string{
-	`id`,
-	`breed`,
-	`size`,
-	`age_in_dog_years`,
+var defaultableColsForDog = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet(DogMaxFieldIndex)
+	fs.Set(DogIdFieldIndex, true)
+	return fs
+}()
+
+var fieldsForDog []fieldNameAndIdx = []fieldNameAndIdx{
+	{name: `id`, idx: DogIdFieldIndex},
+	{name: `breed`, idx: DogBreedFieldIndex},
+	{name: `size`, idx: DogSizeFieldIndex},
+	{name: `age_in_dog_years`, idx: DogAgeInDogYearsFieldIndex},
 }
 
 // Update a Dog. 'value' must at the least have
@@ -501,6 +515,7 @@ func (p *pgClientImpl) bulkUpsertDog(
 		constraintNames = []string{`id`}
 	}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsForDog)
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -509,6 +524,7 @@ func (p *pgClientImpl) bulkUpsertDog(
 		len(values),
 		`id`,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -562,12 +578,18 @@ func (p *pgClientImpl) bulkUpsertDog(
 
 	args := make([]interface{}, 0, 4*len(values))
 	for _, v := range values {
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test(DogIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Breed)
-		args = append(args, v.Size.String())
-		args = append(args, v.AgeInDogYears)
+		if !defaultFields.Test(DogBreedFieldIndex) {
+			args = append(args, v.Breed)
+		}
+		if !defaultFields.Test(DogSizeFieldIndex) {
+			args = append(args, v.Size.String())
+		}
+		if !defaultFields.Test(DogAgeInDogYearsFieldIndex) {
+			args = append(args, v.AgeInDogYears)
+		}
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)

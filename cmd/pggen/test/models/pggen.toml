@@ -441,6 +441,9 @@
 [[table]]
     name = "offset_table_fillings"
 
+[[table]]
+    name = "default_values"
+
 ####################################################################################
 #                                                                                  #
 #                                     otherschema                                  #
