@@ -10,7 +10,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Images
           command: |
@@ -28,7 +28,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       # CircleCI provides a mechanism for caching build artefacts which
       # can be used to cache docker image layers, but it turns out that
       # saving and loading the cache is actually slower than just pulling
@@ -49,7 +49,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Image
           command: |
@@ -66,7 +66,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Image
           command: |
@@ -83,7 +83,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Image
           command: |
@@ -100,7 +100,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Image
           command: |
@@ -117,7 +117,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Image
           command: |
@@ -136,7 +136,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 18.05.0-ce
+          version: 19.03.13
       - run:
           name: Build Docker Image
           command: |
