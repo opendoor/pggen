@@ -46,6 +46,11 @@ you can define methods on the intermediate layer.
 This example shows how to configure a statement to be executed against the
 database.
 
+### [Example: upsert](upsert)
+
+This example shows how to use the upsert interface that pggen will automatically
+generate for each model struct generated from a table.
+
 ### [Example: id_in_set](id_in_set)
 
 This example shows how to write a query that checks for set containment
