@@ -18,7 +18,7 @@ import (
 //       for OffsetTableFilling and then running `go test -race --run TestOffsetTableFilling`
 //       in a loop. Re-generating the models code makes the race warnings go away.
 func TestOffsetTableFilling(t *testing.T) {
-	nscanners := 100
+	nscanners := 50
 	nmods := 10
 
 	// insert some data so the results are not empty, not really needed but somehow
@@ -41,7 +41,7 @@ func TestOffsetTableFilling(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(nscanners)
 	scanRoutine := func(tid int) {
-		for i := 0; i < 100; i++ {
+		for i := 0; i < nscanners; i++ {
 			// don't check the error, as it might be something like
 			// "sorry, too many clients already" or "cached plan must not change result type".
 			// we don't actually care about these issues, we just want to see if we will
