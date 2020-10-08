@@ -290,7 +290,19 @@ name = "small_entities"
 		exitCode: 1,
 		stderrRE: `parsing 'badschema."name': unmatched quote`,
 	},
+	{
+		toml: `
+require_query_comments = true
+[[query]]
+	name = 'SomeQuery'
+	body = "SELECT * FROM small_entities"
+		`,
+		exitCode: 1,
+		stderrRE: `query 'SomeQuery' is missing a comment but require_query_comments is set`,
+	},
 }
+
+// TODO(ethan): have a test for the require_query_comments global configuration option
 
 func TestCLI(t *testing.T) {
 	debug := false

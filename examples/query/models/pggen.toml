@@ -1,0 +1,30 @@
+# This global pragma makes pggen enforce the property that all querys have a
+# `comment` configured
+require_query_comments = true
+
+[[table]]
+    name = "users"
+
+[[query]]
+    name = "GetUserNicknameAndEmail"
+    # This tells pggen that the returned `nickname` column can never be NULL, so
+    # it knows to generate a `string` rather than a `*string` for the column value.
+    # `email` is left out of this list, so it will be represented with a `*string`
+    not_null_fields = ["nickname"]
+    comment = '''
+    This comment will end up on the methods that are generated based on the query.
+    '''
+    # The query to run against the database. For longer queries multi-line strings using
+    # ''' are often useful.
+    body = '''
+    SELECT nickname, email FROM users WHERE id = $1
+    '''
+
+[[query]]
+    name = "MyGetUser"
+    return_type = "User"
+    comment = '''
+    This query returns a model struct. We let pggen know that via the return_type
+    configuration option.
+    '''
+    body = "SELECT * FROM users WHERE id = $1"

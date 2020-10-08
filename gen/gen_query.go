@@ -13,6 +13,7 @@ import (
 func (g *Generator) genQueries(
 	into *strings.Builder,
 	queries []config.QueryConfig,
+	requireComments bool,
 ) error {
 	if len(queries) > 0 {
 		g.log.Infof("	generating %d queries\n", len(queries))
@@ -33,6 +34,10 @@ func (g *Generator) genQueries(
 	}
 
 	for i, query := range queries {
+		if requireComments && query.Comment == "" {
+			return fmt.Errorf("query '%s' is missing a comment but require_query_comments is set", query.Name)
+		}
+
 		err := g.genQuery(into, &queries[i], nil)
 		if err != nil {
 			return fmt.Errorf("generating query '%s': %s", query.Name, err.Error())
@@ -109,6 +114,7 @@ func buildTableGenCtx(qm *meta.QueryMeta) meta.TableGenCtx {
 
 var queryShimTmpl = template.Must(template.New("query-shim").Parse(`
 {{ if .ConfigData.SingleResult }}
+{{ .Comment }}
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
@@ -126,6 +132,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 		{{- end }}
 	)
 }
+{{ .Comment }}
 func (p *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
@@ -215,6 +222,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	return
 }
 {{- else }}
+{{ .Comment }}
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
@@ -228,6 +236,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 		{{- end }}
 	)
 }
+{{ .Comment }}
 func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
@@ -298,6 +307,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	return
 }
 
+{{ .Comment }}
 func (p *PGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args }}
@@ -311,6 +321,7 @@ func (p *PGClient) {{ .ConfigData.Name }}Query(
 		{{- end}}
 	)
 }
+{{ .Comment }}
 func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args }}
