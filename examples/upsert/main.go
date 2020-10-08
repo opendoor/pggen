@@ -56,14 +56,13 @@ func main() {
 	// let's be a little nicer
 	//
 
-
 	// build the set of fields to update in the event of a conflict
 	ratingFieldSet := pggen.NewFieldSet(models.UserMaxFieldIndex)
 	ratingFieldSet.Set(models.UserRatingFieldIndex, true)
 
 	id2, err := pgClient.UpsertUser(ctx,
 		&models.User{
-			Email: "calvin@whitehouse.gov",
+			Email:  "calvin@whitehouse.gov",
 			Rating: "Was in the wrong place at the wrong time.",
 		},
 		[]string{"email"}, // use the email column to detect conflicts

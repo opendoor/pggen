@@ -80,6 +80,9 @@ type QueryMeta struct {
 	MultiReturn bool
 	// The name of the return type for a row returned by this query
 	ReturnTypeName string
+	// A golang comment derived from the Comment field from the query
+	// config.
+	Comment string
 }
 
 func (mc *Resolver) QueryMeta(
@@ -93,6 +96,8 @@ func (mc *Resolver) QueryMeta(
 	}()
 
 	ret.ConfigData = *config
+
+	ret.Comment = configCommentToGoComment(config.Comment)
 
 	if inferArgTypes {
 		var args []Arg

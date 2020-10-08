@@ -725,6 +725,7 @@ func (p *PGClient) MyGetFooValue(
 		arg1,
 	)
 }
+
 func (p *TxPGClient) MyGetFooValue(
 	ctx context.Context,
 	arg1 int64,

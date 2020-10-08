@@ -725,6 +725,7 @@ func (p *PGClient) GetFooValues(
 		arg1,
 	)
 }
+
 func (tx *TxPGClient) GetFooValues(
 	ctx context.Context,
 	arg1 []int64,
@@ -785,6 +786,7 @@ func (p *PGClient) GetFooValuesQuery(
 		arg1,
 	)
 }
+
 func (tx *TxPGClient) GetFooValuesQuery(
 	ctx context.Context,
 	arg1 []int64,

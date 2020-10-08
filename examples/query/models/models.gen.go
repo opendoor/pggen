@@ -12,7 +12,6 @@ import (
 	"github.com/opendoor-labs/pggen/unstable"
 	"strings"
 	"sync"
-	"time"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -26,10 +25,12 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
-	rwlockForUser                sync.RWMutex
-	colIdxTabForUser             []int
-	rwlockForGetUserAnywayRow    sync.RWMutex
-	colIdxTabForGetUserAnywayRow []int
+	rwlockForUser                          sync.RWMutex
+	colIdxTabForUser                       []int
+	rwlockForGetUserNicknameAndEmailRow    sync.RWMutex
+	colIdxTabForGetUserNicknameAndEmailRow []int
+	rwlockForMyGetUserRow                  sync.RWMutex
+	colIdxTabForMyGetUserRow               []int
 }
 
 // bogus usage so we can compile with no tables configured
@@ -151,7 +152,7 @@ func (p *pgClientImpl) listUser(
 
 	rows, err := p.db.QueryContext(
 		ctx,
-		`SELECT * FROM users WHERE "id" = ANY($1) AND "deleted_at" IS NULL `,
+		`SELECT * FROM users WHERE "id" = ANY($1)`,
 		pq.Array(ids),
 	)
 	if err != nil {
@@ -277,25 +278,14 @@ func (p *pgClientImpl) bulkInsertUser(
 	for _, o := range opts {
 		o(&opt)
 	}
-	now := time.Now()
-	for i := range values {
-		createdAt := now.UTC()
-		values[i].CreatedAt = createdAt
-	}
-	for i := range values {
-		updatedAt := now.UTC()
-		values[i].UpdatedAt = updatedAt
-	}
 
-	args := make([]interface{}, 0, 5*len(values))
+	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
 		if opt.UsePkey {
 			args = append(args, v.Id)
 		}
 		args = append(args, v.Email)
-		args = append(args, v.CreatedAt)
-		args = append(args, v.UpdatedAt)
-		args = append(args, v.DeletedAt)
+		args = append(args, v.Nickname)
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -327,24 +317,20 @@ func (p *pgClientImpl) bulkInsertUser(
 
 // bit indicies for 'fieldMask' parameters
 const (
-	UserIdFieldIndex        int = 0
-	UserEmailFieldIndex     int = 1
-	UserCreatedAtFieldIndex int = 2
-	UserUpdatedAtFieldIndex int = 3
-	UserDeletedAtFieldIndex int = 4
-	UserMaxFieldIndex       int = (5 - 1)
+	UserIdFieldIndex       int = 0
+	UserEmailFieldIndex    int = 1
+	UserNicknameFieldIndex int = 2
+	UserMaxFieldIndex      int = (3 - 1)
 )
 
 // A field set saying that all fields in User should be updated.
 // For use as a 'fieldMask' parameter
-var UserAllFields pggen.FieldSet = pggen.NewFieldSetFilled(5)
+var UserAllFields pggen.FieldSet = pggen.NewFieldSetFilled(3)
 
 var fieldsForUser []string = []string{
 	`id`,
 	`email`,
-	`created_at`,
-	`updated_at`,
-	`deleted_at`,
+	`nickname`,
 }
 
 // Update a User. 'value' must at the least have
@@ -384,9 +370,6 @@ func (p *pgClientImpl) updateUser(
 		err = fmt.Errorf(`primary key required for updates to 'users'`)
 		return
 	}
-	now := time.Now().UTC()
-	value.UpdatedAt = now
-	fieldMask.Set(UserUpdatedAtFieldIndex, true)
 
 	updateStmt := genUpdateStmt(
 		`users`,
@@ -396,21 +379,15 @@ func (p *pgClientImpl) updateUser(
 		"id",
 	)
 
-	args := make([]interface{}, 0, 5)
+	args := make([]interface{}, 0, 3)
 	if fieldMask.Test(UserIdFieldIndex) {
 		args = append(args, value.Id)
 	}
 	if fieldMask.Test(UserEmailFieldIndex) {
 		args = append(args, value.Email)
 	}
-	if fieldMask.Test(UserCreatedAtFieldIndex) {
-		args = append(args, value.CreatedAt)
-	}
-	if fieldMask.Test(UserUpdatedAtFieldIndex) {
-		args = append(args, value.UpdatedAt)
-	}
-	if fieldMask.Test(UserDeletedAtFieldIndex) {
-		args = append(args, value.DeletedAt)
+	if fieldMask.Test(UserNicknameFieldIndex) {
+		args = append(args, value.Nickname)
 	}
 
 	// add the primary key arg for the WHERE condition
@@ -521,17 +498,6 @@ func (p *pgClientImpl) bulkUpsertUser(
 		constraintNames = []string{`id`}
 	}
 
-	now := time.Now()
-	createdAt := now.UTC()
-	for i := range values {
-		values[i].CreatedAt = createdAt
-	}
-	updatedAt := now.UTC()
-	for i := range values {
-		values[i].UpdatedAt = updatedAt
-	}
-	fieldMask.Set(UserUpdatedAtFieldIndex, true)
-
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -552,8 +518,8 @@ func (p *pgClientImpl) bulkUpsertUser(
 		stmt.WriteString(strings.Join(constraintNames, ","))
 		stmt.WriteString(") DO UPDATE SET ")
 
-		updateCols := make([]string, 0, 5)
-		updateExprs := make([]string, 0, 5)
+		updateCols := make([]string, 0, 3)
+		updateExprs := make([]string, 0, 3)
 		if options.UsePkey {
 			updateCols = append(updateCols, `id`)
 			updateExprs = append(updateExprs, `excluded.id`)
@@ -562,17 +528,9 @@ func (p *pgClientImpl) bulkUpsertUser(
 			updateCols = append(updateCols, `email`)
 			updateExprs = append(updateExprs, `excluded.email`)
 		}
-		if fieldMask.Test(UserCreatedAtFieldIndex) {
-			updateCols = append(updateCols, `created_at`)
-			updateExprs = append(updateExprs, `excluded.created_at`)
-		}
-		if fieldMask.Test(UserUpdatedAtFieldIndex) {
-			updateCols = append(updateCols, `updated_at`)
-			updateExprs = append(updateExprs, `excluded.updated_at`)
-		}
-		if fieldMask.Test(UserDeletedAtFieldIndex) {
-			updateCols = append(updateCols, `deleted_at`)
-			updateExprs = append(updateExprs, `excluded.deleted_at`)
+		if fieldMask.Test(UserNicknameFieldIndex) {
+			updateCols = append(updateCols, `nickname`)
+			updateExprs = append(updateExprs, `excluded.nickname`)
 		}
 		if len(updateCols) > 1 {
 			stmt.WriteRune('(')
@@ -595,15 +553,13 @@ func (p *pgClientImpl) bulkUpsertUser(
 
 	stmt.WriteString(` RETURNING "id"`)
 
-	args := make([]interface{}, 0, 5*len(values))
+	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
 		if options.UsePkey {
 			args = append(args, v.Id)
 		}
 		args = append(args, v.Email)
-		args = append(args, v.CreatedAt)
-		args = append(args, v.UpdatedAt)
-		args = append(args, v.DeletedAt)
+		args = append(args, v.Nickname)
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
@@ -667,25 +623,11 @@ func (p *pgClientImpl) bulkDeleteUser(
 	for _, o := range opts {
 		o(&options)
 	}
-	now := time.Now().UTC()
-	var (
-		res sql.Result
-		err error
+	res, err := p.db.ExecContext(
+		ctx,
+		`DELETE FROM users WHERE "id" = ANY($1)`,
+		pq.Array(ids),
 	)
-	if options.DoHardDelete {
-		res, err = p.db.ExecContext(
-			ctx,
-			`DELETE FROM users WHERE "id" = ANY($1)`,
-			pq.Array(ids),
-		)
-	} else {
-		res, err = p.db.ExecContext(
-			ctx,
-			`UPDATE users SET "deleted_at" = $1 WHERE "id" = ANY($2)`,
-			now,
-			pq.Array(ids),
-		)
-	}
 	if err != nil {
 		return err
 	}
@@ -787,33 +729,127 @@ func (p *pgClientImpl) implUserBulkFillIncludes(
 	return
 }
 
-func (p *PGClient) GetUserAnyway(
+// This comment will end up on the methods that are generated based on the query.
+func (p *PGClient) GetUserNicknameAndEmail(
 	ctx context.Context,
 	arg1 int64,
-) (ret []User, err error) {
-	return p.impl.GetUserAnyway(
+) (ret []GetUserNicknameAndEmailRow, err error) {
+	return p.impl.GetUserNicknameAndEmail(
 		ctx,
 		arg1,
 	)
 }
 
-func (tx *TxPGClient) GetUserAnyway(
+// This comment will end up on the methods that are generated based on the query.
+func (tx *TxPGClient) GetUserNicknameAndEmail(
 	ctx context.Context,
 	arg1 int64,
-) (ret []User, err error) {
-	return tx.impl.GetUserAnyway(
+) (ret []GetUserNicknameAndEmailRow, err error) {
+	return tx.impl.GetUserNicknameAndEmail(
 		ctx,
 		arg1,
 	)
 }
-func (p *pgClientImpl) GetUserAnyway(
+func (p *pgClientImpl) GetUserNicknameAndEmail(
+	ctx context.Context,
+	arg1 int64,
+) (ret []GetUserNicknameAndEmailRow, err error) {
+	ret = []GetUserNicknameAndEmailRow{}
+
+	var rows *sql.Rows
+	rows, err = p.GetUserNicknameAndEmailQuery(
+		ctx,
+		arg1,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err == nil {
+			err = rows.Close()
+			if err != nil {
+				ret = nil
+			}
+		} else {
+			rowErr := rows.Close()
+			if rowErr != nil {
+				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+			}
+		}
+	}()
+
+	for rows.Next() {
+		var row GetUserNicknameAndEmailRow
+		err = row.Scan(ctx, p.client, rows)
+		ret = append(ret, row)
+	}
+
+	return
+}
+
+// This comment will end up on the methods that are generated based on the query.
+func (p *PGClient) GetUserNicknameAndEmailQuery(
+	ctx context.Context,
+	arg1 int64,
+) (*sql.Rows, error) {
+	return p.impl.GetUserNicknameAndEmailQuery(
+		ctx,
+		arg1,
+	)
+}
+
+// This comment will end up on the methods that are generated based on the query.
+func (tx *TxPGClient) GetUserNicknameAndEmailQuery(
+	ctx context.Context,
+	arg1 int64,
+) (*sql.Rows, error) {
+	return tx.impl.GetUserNicknameAndEmailQuery(
+		ctx,
+		arg1,
+	)
+}
+func (p *pgClientImpl) GetUserNicknameAndEmailQuery(
+	ctx context.Context,
+	arg1 int64,
+) (*sql.Rows, error) {
+	return p.db.QueryContext(
+		ctx,
+		`SELECT nickname, email FROM users WHERE id = $1`,
+		arg1,
+	)
+}
+
+// This query returns a model struct. We let pggen know that via the return_type
+// configuration option.
+func (p *PGClient) MyGetUser(
+	ctx context.Context,
+	arg1 int64,
+) (ret []User, err error) {
+	return p.impl.MyGetUser(
+		ctx,
+		arg1,
+	)
+}
+
+// This query returns a model struct. We let pggen know that via the return_type
+// configuration option.
+func (tx *TxPGClient) MyGetUser(
+	ctx context.Context,
+	arg1 int64,
+) (ret []User, err error) {
+	return tx.impl.MyGetUser(
+		ctx,
+		arg1,
+	)
+}
+func (p *pgClientImpl) MyGetUser(
 	ctx context.Context,
 	arg1 int64,
 ) (ret []User, err error) {
 	ret = []User{}
 
 	var rows *sql.Rows
-	rows, err = p.GetUserAnywayQuery(
+	rows, err = p.MyGetUserQuery(
 		ctx,
 		arg1,
 	)
@@ -843,26 +879,30 @@ func (p *pgClientImpl) GetUserAnyway(
 	return
 }
 
-func (p *PGClient) GetUserAnywayQuery(
+// This query returns a model struct. We let pggen know that via the return_type
+// configuration option.
+func (p *PGClient) MyGetUserQuery(
 	ctx context.Context,
 	arg1 int64,
 ) (*sql.Rows, error) {
-	return p.impl.GetUserAnywayQuery(
+	return p.impl.MyGetUserQuery(
 		ctx,
 		arg1,
 	)
 }
 
-func (tx *TxPGClient) GetUserAnywayQuery(
+// This query returns a model struct. We let pggen know that via the return_type
+// configuration option.
+func (tx *TxPGClient) MyGetUserQuery(
 	ctx context.Context,
 	arg1 int64,
 ) (*sql.Rows, error) {
-	return tx.impl.GetUserAnywayQuery(
+	return tx.impl.MyGetUserQuery(
 		ctx,
 		arg1,
 	)
 }
-func (p *pgClientImpl) GetUserAnywayQuery(
+func (p *pgClientImpl) MyGetUserQuery(
 	ctx context.Context,
 	arg1 int64,
 ) (*sql.Rows, error) {
@@ -895,12 +935,22 @@ type DBQueries interface {
 	// query methods
 	//
 
-	// GetUserAnyway query
-	GetUserAnyway(
+	// GetUserNicknameAndEmail query
+	GetUserNicknameAndEmail(
+		ctx context.Context,
+		arg1 int64,
+	) ([]GetUserNicknameAndEmailRow, error)
+	GetUserNicknameAndEmailQuery(
+		ctx context.Context,
+		arg1 int64,
+	) (*sql.Rows, error)
+
+	// MyGetUser query
+	MyGetUser(
 		ctx context.Context,
 		arg1 int64,
 	) ([]User, error)
-	GetUserAnywayQuery(
+	MyGetUserQuery(
 		ctx context.Context,
 		arg1 int64,
 	) (*sql.Rows, error)
@@ -916,11 +966,9 @@ type DBQueries interface {
 }
 
 type User struct {
-	Id        int64      `gorm:"column:id;is_primary"`
-	Email     string     `gorm:"column:email"`
-	CreatedAt time.Time  `gorm:"column:created_at"`
-	UpdatedAt time.Time  `gorm:"column:updated_at"`
-	DeletedAt *time.Time `gorm:"column:deleted_at"`
+	Id       int64  `gorm:"column:id;is_primary"`
+	Email    string `gorm:"column:email"`
+	Nickname string `gorm:"column:nickname"`
 }
 
 func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
@@ -980,17 +1028,11 @@ func (r *User) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 			return err
 		}
 	}
-	r.CreatedAt = nullableTgts.scanCreatedAt.Time
-	r.UpdatedAt = nullableTgts.scanUpdatedAt.Time
-	r.DeletedAt = convertNullTime(nullableTgts.scanDeletedAt)
 
 	return nil
 }
 
 type nullableScanTgtsForUser struct {
-	scanCreatedAt pggenNullTime
-	scanUpdatedAt pggenNullTime
-	scanDeletedAt pggenNullTime
 }
 
 // a table mapping codegen-time col indicies to functions returning a scanner for the
@@ -1012,27 +1054,106 @@ var scannerTabForUser = [...]func(*User, *nullableScanTgtsForUser) interface{}{
 		r *User,
 		nullableTgts *nullableScanTgtsForUser,
 	) interface{} {
-		return &(nullableTgts.scanCreatedAt)
-	},
-	func(
-		r *User,
-		nullableTgts *nullableScanTgtsForUser,
-	) interface{} {
-		return &(nullableTgts.scanUpdatedAt)
-	},
-	func(
-		r *User,
-		nullableTgts *nullableScanTgtsForUser,
-	) interface{} {
-		return &(nullableTgts.scanDeletedAt)
+		return &(r.Nickname)
 	},
 }
 
 var genTimeColIdxTabForUser map[string]int = map[string]int{
-	`id`:         0,
-	`email`:      1,
-	`created_at`: 2,
-	`updated_at`: 3,
-	`deleted_at`: 4,
+	`id`:       0,
+	`email`:    1,
+	`nickname`: 2,
+}
+
+type GetUserNicknameAndEmailRow struct {
+	Nickname string  ``
+	Email    *string ``
+}
+
+func (r *GetUserNicknameAndEmailRow) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
+	client.rwlockForGetUserNicknameAndEmailRow.RLock()
+	if client.colIdxTabForGetUserNicknameAndEmailRow == nil {
+		client.rwlockForGetUserNicknameAndEmailRow.RUnlock() // release the lock to allow the write lock to be aquired
+		err := client.fillColPosTab(
+			ctx,
+			genTimeColIdxTabForGetUserNicknameAndEmailRow,
+			&client.rwlockForGetUserNicknameAndEmailRow,
+			rs,
+			&client.colIdxTabForGetUserNicknameAndEmailRow,
+		)
+		if err != nil {
+			return err
+		}
+		client.rwlockForGetUserNicknameAndEmailRow.RLock() // get the lock back for the rest of the routine
+	}
+
+	var nullableTgts nullableScanTgtsForGetUserNicknameAndEmailRow
+
+	scanTgts := make([]interface{}, len(client.colIdxTabForGetUserNicknameAndEmailRow))
+	for runIdx, genIdx := range client.colIdxTabForGetUserNicknameAndEmailRow {
+		if genIdx == -1 {
+			scanTgts[runIdx] = &pggenSinkScanner{}
+		} else {
+			scanTgts[runIdx] = scannerTabForGetUserNicknameAndEmailRow[genIdx](r, &nullableTgts)
+		}
+	}
+	client.rwlockForGetUserNicknameAndEmailRow.RUnlock() // we are now done referencing the idx tab in the happy path
+
+	err := rs.Scan(scanTgts...)
+	if err != nil {
+		// The database schema may have been changed out from under us, let's
+		// check to see if we just need to update our column index tables and retry.
+		colNames, colsErr := rs.Columns()
+		if colsErr != nil {
+			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
+		}
+		client.rwlockForGetUserNicknameAndEmailRow.RLock()
+		if len(client.colIdxTabForGetUserNicknameAndEmailRow) != len(colNames) {
+			client.rwlockForGetUserNicknameAndEmailRow.RUnlock() // release the lock to allow the write lock to be aquired
+			err = client.fillColPosTab(
+				ctx,
+				genTimeColIdxTabForGetUserNicknameAndEmailRow,
+				&client.rwlockForGetUserNicknameAndEmailRow,
+				rs,
+				&client.colIdxTabForGetUserNicknameAndEmailRow,
+			)
+			if err != nil {
+				return err
+			}
+
+			return r.Scan(ctx, client, rs)
+		} else {
+			client.rwlockForGetUserNicknameAndEmailRow.RUnlock()
+			return err
+		}
+	}
+	r.Email = convertNullString(nullableTgts.scanEmail)
+
+	return nil
+}
+
+type nullableScanTgtsForGetUserNicknameAndEmailRow struct {
+	scanEmail sql.NullString
+}
+
+// a table mapping codegen-time col indicies to functions returning a scanner for the
+// field that was at that column index at codegen-time.
+var scannerTabForGetUserNicknameAndEmailRow = [...]func(*GetUserNicknameAndEmailRow, *nullableScanTgtsForGetUserNicknameAndEmailRow) interface{}{
+	func(
+		r *GetUserNicknameAndEmailRow,
+		nullableTgts *nullableScanTgtsForGetUserNicknameAndEmailRow,
+	) interface{} {
+		return &(r.Nickname)
+	},
+	func(
+		r *GetUserNicknameAndEmailRow,
+		nullableTgts *nullableScanTgtsForGetUserNicknameAndEmailRow,
+	) interface{} {
+		return &(nullableTgts.scanEmail)
+	},
+}
+
+var genTimeColIdxTabForGetUserNicknameAndEmailRow map[string]int = map[string]int{
+	`nickname`: 0,
+	`email`:    1,
 }
 var _ = unstable.NotFoundError{}

@@ -738,6 +738,7 @@ func (p *PGClient) GetUserByEmailOrNickname(
 		nickname,
 	)
 }
+
 func (tx *TxPGClient) GetUserByEmailOrNickname(
 	ctx context.Context,
 	email string,
@@ -799,6 +800,7 @@ func (p *PGClient) GetUserByEmailOrNicknameQuery(
 		nickname,
 	)
 }
+
 func (tx *TxPGClient) GetUserByEmailOrNicknameQuery(
 	ctx context.Context,
 	email string,

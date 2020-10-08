@@ -14,12 +14,15 @@ type DbConfig struct {
 	// The name of the nullable timestamp field that should be used to
 	// implement soft deletes. Overridden by the config option of the
 	// same name on TableConfig.
-	DeletedAtField  string             `toml:"deleted_at_field"`
-	TypeOverrides   []TypeOverride     `toml:"type_override"`
-	StoredFunctions []StoredFuncConfig `toml:"stored_function"`
-	Queries         []QueryConfig      `toml:"query"`
-	Stmts           []StmtConfig       `toml:"statement"`
-	Tables          []TableConfig      `toml:"table"`
+	DeletedAtField string `toml:"deleted_at_field"`
+	// If true, it is an error for any [[query]] config block to be missing
+	// the `comment` field. Useful if you want to be strict about documentation.
+	RequireQueryComments bool               `toml:"require_query_comments"`
+	TypeOverrides        []TypeOverride     `toml:"type_override"`
+	StoredFunctions      []StoredFuncConfig `toml:"stored_function"`
+	Queries              []QueryConfig      `toml:"query"`
+	Stmts                []StmtConfig       `toml:"statement"`
+	Tables               []TableConfig      `toml:"table"`
 }
 
 // Stored functions are a special case of queries. The main advantage
@@ -45,6 +48,9 @@ type QueryConfig struct {
 	// The name that should be used to identify this query in generated go
 	// code.
 	Name string `toml:"name"`
+	// A comment to place on the generated method so that IDEs can provide
+	// online documentation for the method.
+	Comment string `toml:"comment"`
 	// The actual text of the query.
 	Body string `toml:"body"`
 	// A string consisting of the runes '-' and 'n' to indicate the

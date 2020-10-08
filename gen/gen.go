@@ -173,7 +173,7 @@ func (g *Generator) Gen() error {
 		return err
 	}
 
-	err = g.genQueries(&body, conf.Queries)
+	err = g.genQueries(&body, conf.Queries, conf.RequireQueryComments)
 	if err != nil {
 		return err
 	}
