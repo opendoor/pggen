@@ -302,8 +302,6 @@ require_query_comments = true
 	},
 }
 
-// TODO(ethan): have a test for the require_query_comments global configuration option
-
 func TestCLI(t *testing.T) {
 	debug := false
 	debugEnvVar := os.Getenv("PGGEN_DEBUG_CLI")
