@@ -304,17 +304,22 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 	}
 	{{- end }}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsFor{{ .GoName }})
 	args := make([]interface{}, 0, {{ len .Meta.Info.Cols }} * len(values))
 	for _, v := range values {
 		{{- range .Meta.Info.Cols }}
 		{{- if (not .IsPrimary) }}
 		{{- if .Nullable }}
-		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+		if !defaultFields.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
+			args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+		}
 		{{- else }}
-		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+		if !defaultFields.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
+			args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+		}
 		{{- end }}
 		{{- else }}
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
 			{{- if .Nullable }}
 			args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
 			{{- else }}
@@ -331,6 +336,7 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 		len(values),
 		"{{ .PkeyCol.PgName }}",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -364,9 +370,19 @@ const (
 // For use as a 'fieldMask' parameter
 var {{ .GoName }}AllFields pggen.FieldSet = pggen.NewFieldSetFilled({{ len .Meta.Info.Cols }})
 
-var fieldsFor{{ .GoName }} []string = []string{
+var defaultableColsFor{{ .GoName }} = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet({{ .GoName }}MaxFieldIndex)
 	{{- range .Meta.Info.Cols }}
-	` + "`" + `{{ .PgName }}` + "`" + `,
+	{{- if .DefaultExpr }}
+	fs.Set({{ $.GoName }}{{ .GoName }}FieldIndex, true)
+	{{- end }}
+	{{- end }}
+	return fs
+}()
+
+var fieldsFor{{ .GoName }} []fieldNameAndIdx = []fieldNameAndIdx{
+	{{- range .Meta.Info.Cols }}
+	{ name: ` + "`" + `{{ .PgName }}` + "`" + `, idx: {{ $.GoName }}{{ .GoName }}FieldIndex },
 	{{- end }}
 }
 
@@ -583,6 +599,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 	{{- end }}
 	{{- end }}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsFor{{ .GoName }})
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -591,6 +608,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		len(values),
 		` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -642,7 +660,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 	for _, v := range values {
 		{{- range $i, $col := .Meta.Info.Cols }}
 		{{- if (eq $i $.PkeyColIdx) }}
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
 			{{- if .Nullable }}
 			args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
 			{{- else }}
@@ -651,9 +669,13 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		}
 		{{- else }}
 		{{- if .Nullable }}
-		args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+		if !defaultFields.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
+			args = append(args, {{ call .TypeInfo.NullSqlArgument (printf "v.%s" .GoName) }})
+		}
 		{{- else }}
-		args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+		if !defaultFields.Test({{ $.GoName }}{{ .GoName }}FieldIndex) {
+			args = append(args, {{ call .TypeInfo.SqlArgument (printf "v.%s" .GoName) }})
+		}
 		{{- end }}
 		{{- end }}
 		{{- end }}

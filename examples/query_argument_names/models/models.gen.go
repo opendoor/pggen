@@ -277,13 +277,18 @@ func (p *pgClientImpl) bulkInsertUser(
 		o(&opt)
 	}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsForUser)
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test(UserIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Email)
-		args = append(args, v.Nickname)
+		if !defaultFields.Test(UserEmailFieldIndex) {
+			args = append(args, v.Email)
+		}
+		if !defaultFields.Test(UserNicknameFieldIndex) {
+			args = append(args, v.Nickname)
+		}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -292,6 +297,7 @@ func (p *pgClientImpl) bulkInsertUser(
 		len(values),
 		"id",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -325,10 +331,16 @@ const (
 // For use as a 'fieldMask' parameter
 var UserAllFields pggen.FieldSet = pggen.NewFieldSetFilled(3)
 
-var fieldsForUser []string = []string{
-	`id`,
-	`email`,
-	`nickname`,
+var defaultableColsForUser = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet(UserMaxFieldIndex)
+	fs.Set(UserIdFieldIndex, true)
+	return fs
+}()
+
+var fieldsForUser []fieldNameAndIdx = []fieldNameAndIdx{
+	{name: `id`, idx: UserIdFieldIndex},
+	{name: `email`, idx: UserEmailFieldIndex},
+	{name: `nickname`, idx: UserNicknameFieldIndex},
 }
 
 // Update a User. 'value' must at the least have
@@ -496,6 +508,7 @@ func (p *pgClientImpl) bulkUpsertUser(
 		constraintNames = []string{`id`}
 	}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsForUser)
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -504,6 +517,7 @@ func (p *pgClientImpl) bulkUpsertUser(
 		len(values),
 		`id`,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -553,11 +567,15 @@ func (p *pgClientImpl) bulkUpsertUser(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test(UserIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Email)
-		args = append(args, v.Nickname)
+		if !defaultFields.Test(UserEmailFieldIndex) {
+			args = append(args, v.Email)
+		}
+		if !defaultFields.Test(UserNicknameFieldIndex) {
+			args = append(args, v.Nickname)
+		}
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)

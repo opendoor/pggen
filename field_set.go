@@ -6,9 +6,8 @@ import (
 	"github.com/willf/bitset"
 )
 
-// A bitset to use to select a subset of fields to update when calling
-// a generated Update<Entity> method. FieldSets are reference types like
-// slices or maps, so if you want to copy one, use the Clone method.
+// A bitset to use to select a subset of fields. FieldSets are reference
+// types like slices or maps, so if you want to copy one, use the Clone method.
 type FieldSet struct {
 	b *bitset.BitSet
 }
@@ -29,21 +28,41 @@ func NewFieldSetFilled(length int) FieldSet {
 
 // Deep copy the field set.
 func (fs FieldSet) Clone() FieldSet {
+	if fs.b == nil {
+		return FieldSet{}
+	}
 	return FieldSet{b: fs.b.Clone()}
 }
 
 // Set the bit at position `bit` to `value`. Can be chained.
 func (fs FieldSet) Set(bit int, value bool) FieldSet {
+	if fs.b == nil {
+		fs.b = &bitset.BitSet{}
+	}
 	fs.b.SetTo(uint(bit), value)
 	return fs
 }
 
 // Return the value of the given bit
 func (fs FieldSet) Test(bit int) bool {
+	if fs.b == nil {
+		return false
+	}
 	return fs.b.Test(uint(bit))
 }
 
 // Return the number of bits set to 1
 func (fs FieldSet) CountSetBits() int {
+	if fs.b == nil {
+		return 0
+	}
 	return int(fs.b.Count())
+}
+
+// Return the intersection of the two field sets. Equivalent of bitwise AND.
+func (fs FieldSet) Intersection(rhs FieldSet) FieldSet {
+	if fs.b == nil || rhs.b == nil {
+		return FieldSet{}
+	}
+	return FieldSet{b: fs.b.Intersection(rhs.b)}
 }

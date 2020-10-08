@@ -4,7 +4,8 @@ package pggen
 
 type InsertOpt func(opts *InsertOptions)
 type InsertOptions struct {
-	UsePkey bool
+	UsePkey       bool
+	DefaultFields FieldSet
 }
 
 // InsertUsePkey tells an insert method to insert the primary key into the database
@@ -14,9 +15,20 @@ func InsertUsePkey(opts *InsertOptions) {
 	opts.UsePkey = true
 }
 
+// Set the fields that will be generated from the default values stored in the database.
+// By default, all field values are inserted based on the provided struct.
+// If all fields are specified, only those fields which actually have a default in the
+// database are defaulted, other fields are inserted as normal.
+func InsertDefaultFields(fieldSet FieldSet) InsertOpt {
+	return func(opts *InsertOptions) {
+		opts.DefaultFields = fieldSet
+	}
+}
+
 type UpsertOpt func(opts *UpsertOptions)
 type UpsertOptions struct {
-	UsePkey bool
+	UsePkey       bool
+	DefaultFields FieldSet
 }
 
 // UpsertUsePkey tells an upsert method to insert the primary key into the database
@@ -24,6 +36,16 @@ type UpsertOptions struct {
 // as is the default.
 func UpsertUsePkey(opts *UpsertOptions) {
 	opts.UsePkey = true
+}
+
+// Set the fields that will be generated from the default values stored in the database.
+// By default, all field values are inserted based on the provided struct.
+// If all fields are specified, only those fields which actually have a default in the
+// database are defaulted, other fields are inserted as normal.
+func UpsertDefaultFields(fieldSet FieldSet) UpsertOpt {
+	return func(opts *UpsertOptions) {
+		opts.DefaultFields = fieldSet
+	}
 }
 
 type GetOpt func(opts *GetOptions)

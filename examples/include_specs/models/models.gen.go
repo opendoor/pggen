@@ -279,13 +279,18 @@ func (p *pgClientImpl) bulkInsertGrandparent(
 		o(&opt)
 	}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsForGrandparent)
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test(GrandparentIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Name)
-		args = append(args, v.FavoriteGrandkidId)
+		if !defaultFields.Test(GrandparentNameFieldIndex) {
+			args = append(args, v.Name)
+		}
+		if !defaultFields.Test(GrandparentFavoriteGrandkidIdFieldIndex) {
+			args = append(args, v.FavoriteGrandkidId)
+		}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -294,6 +299,7 @@ func (p *pgClientImpl) bulkInsertGrandparent(
 		len(values),
 		"id",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -327,10 +333,16 @@ const (
 // For use as a 'fieldMask' parameter
 var GrandparentAllFields pggen.FieldSet = pggen.NewFieldSetFilled(3)
 
-var fieldsForGrandparent []string = []string{
-	`id`,
-	`name`,
-	`favorite_grandkid_id`,
+var defaultableColsForGrandparent = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet(GrandparentMaxFieldIndex)
+	fs.Set(GrandparentIdFieldIndex, true)
+	return fs
+}()
+
+var fieldsForGrandparent []fieldNameAndIdx = []fieldNameAndIdx{
+	{name: `id`, idx: GrandparentIdFieldIndex},
+	{name: `name`, idx: GrandparentNameFieldIndex},
+	{name: `favorite_grandkid_id`, idx: GrandparentFavoriteGrandkidIdFieldIndex},
 }
 
 // Update a Grandparent. 'value' must at the least have
@@ -498,6 +510,7 @@ func (p *pgClientImpl) bulkUpsertGrandparent(
 		constraintNames = []string{`id`}
 	}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsForGrandparent)
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -506,6 +519,7 @@ func (p *pgClientImpl) bulkUpsertGrandparent(
 		len(values),
 		`id`,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -555,11 +569,15 @@ func (p *pgClientImpl) bulkUpsertGrandparent(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test(GrandparentIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.Name)
-		args = append(args, v.FavoriteGrandkidId)
+		if !defaultFields.Test(GrandparentNameFieldIndex) {
+			args = append(args, v.Name)
+		}
+		if !defaultFields.Test(GrandparentFavoriteGrandkidIdFieldIndex) {
+			args = append(args, v.FavoriteGrandkidId)
+		}
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
@@ -1105,13 +1123,18 @@ func (p *pgClientImpl) bulkInsertParent(
 		o(&opt)
 	}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsForParent)
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test(ParentIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.GrandparentId)
-		args = append(args, v.Name)
+		if !defaultFields.Test(ParentGrandparentIdFieldIndex) {
+			args = append(args, v.GrandparentId)
+		}
+		if !defaultFields.Test(ParentNameFieldIndex) {
+			args = append(args, v.Name)
+		}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -1120,6 +1143,7 @@ func (p *pgClientImpl) bulkInsertParent(
 		len(values),
 		"id",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -1153,10 +1177,16 @@ const (
 // For use as a 'fieldMask' parameter
 var ParentAllFields pggen.FieldSet = pggen.NewFieldSetFilled(3)
 
-var fieldsForParent []string = []string{
-	`id`,
-	`grandparent_id`,
-	`name`,
+var defaultableColsForParent = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet(ParentMaxFieldIndex)
+	fs.Set(ParentIdFieldIndex, true)
+	return fs
+}()
+
+var fieldsForParent []fieldNameAndIdx = []fieldNameAndIdx{
+	{name: `id`, idx: ParentIdFieldIndex},
+	{name: `grandparent_id`, idx: ParentGrandparentIdFieldIndex},
+	{name: `name`, idx: ParentNameFieldIndex},
 }
 
 // Update a Parent. 'value' must at the least have
@@ -1324,6 +1354,7 @@ func (p *pgClientImpl) bulkUpsertParent(
 		constraintNames = []string{`id`}
 	}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsForParent)
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -1332,6 +1363,7 @@ func (p *pgClientImpl) bulkUpsertParent(
 		len(values),
 		`id`,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -1381,11 +1413,15 @@ func (p *pgClientImpl) bulkUpsertParent(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test(ParentIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.GrandparentId)
-		args = append(args, v.Name)
+		if !defaultFields.Test(ParentGrandparentIdFieldIndex) {
+			args = append(args, v.GrandparentId)
+		}
+		if !defaultFields.Test(ParentNameFieldIndex) {
+			args = append(args, v.Name)
+		}
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
@@ -1925,13 +1961,18 @@ func (p *pgClientImpl) bulkInsertChild(
 		o(&opt)
 	}
 
+	defaultFields := opt.DefaultFields.Intersection(defaultableColsForChild)
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if opt.UsePkey {
+		if opt.UsePkey && !defaultFields.Test(ChildIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.ParentId)
-		args = append(args, v.Name)
+		if !defaultFields.Test(ChildParentIdFieldIndex) {
+			args = append(args, v.ParentId)
+		}
+		if !defaultFields.Test(ChildNameFieldIndex) {
+			args = append(args, v.Name)
+		}
 	}
 
 	bulkInsertQuery := genBulkInsertStmt(
@@ -1940,6 +1981,7 @@ func (p *pgClientImpl) bulkInsertChild(
 		len(values),
 		"id",
 		opt.UsePkey,
+		defaultFields,
 	)
 
 	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
@@ -1973,10 +2015,16 @@ const (
 // For use as a 'fieldMask' parameter
 var ChildAllFields pggen.FieldSet = pggen.NewFieldSetFilled(3)
 
-var fieldsForChild []string = []string{
-	`id`,
-	`parent_id`,
-	`name`,
+var defaultableColsForChild = func() pggen.FieldSet {
+	fs := pggen.NewFieldSet(ChildMaxFieldIndex)
+	fs.Set(ChildIdFieldIndex, true)
+	return fs
+}()
+
+var fieldsForChild []fieldNameAndIdx = []fieldNameAndIdx{
+	{name: `id`, idx: ChildIdFieldIndex},
+	{name: `parent_id`, idx: ChildParentIdFieldIndex},
+	{name: `name`, idx: ChildNameFieldIndex},
 }
 
 // Update a Child. 'value' must at the least have
@@ -2144,6 +2192,7 @@ func (p *pgClientImpl) bulkUpsertChild(
 		constraintNames = []string{`id`}
 	}
 
+	defaultFields := options.DefaultFields.Intersection(defaultableColsForChild)
 	var stmt strings.Builder
 	genInsertCommon(
 		&stmt,
@@ -2152,6 +2201,7 @@ func (p *pgClientImpl) bulkUpsertChild(
 		len(values),
 		`id`,
 		options.UsePkey,
+		defaultFields,
 	)
 
 	setBits := fieldMask.CountSetBits()
@@ -2201,11 +2251,15 @@ func (p *pgClientImpl) bulkUpsertChild(
 
 	args := make([]interface{}, 0, 3*len(values))
 	for _, v := range values {
-		if options.UsePkey {
+		if options.UsePkey && !defaultFields.Test(ChildIdFieldIndex) {
 			args = append(args, v.Id)
 		}
-		args = append(args, v.ParentId)
-		args = append(args, v.Name)
+		if !defaultFields.Test(ChildParentIdFieldIndex) {
+			args = append(args, v.ParentId)
+		}
+		if !defaultFields.Test(ChildNameFieldIndex) {
+			args = append(args, v.Name)
+		}
 	}
 
 	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)

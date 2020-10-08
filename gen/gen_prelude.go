@@ -44,16 +44,22 @@ import (
 	"github.com/opendoor-labs/pggen"
 )
 
+type fieldNameAndIdx struct {
+	name string
+	idx int
+}
+
 func genBulkInsertStmt(
 	table string,
-	fields []string,
+	fields []fieldNameAndIdx,
 	nrecords int,
 	pkeyName string,
 	includeID bool,
+	defaultFieldSet pggen.FieldSet,
 ) string {
 	var ret strings.Builder
 
-	genInsertCommon(&ret, table, fields, nrecords, pkeyName, includeID)
+	genInsertCommon(&ret, table, fields, nrecords, pkeyName, includeID, defaultFieldSet)
 
 	ret.WriteString(" RETURNING \"")
 	ret.WriteString(pkeyName)
@@ -62,25 +68,25 @@ func genBulkInsertStmt(
 	return ret.String()
 }
 
-// shared between the generated upsert code and genBulkInsertStmt
 func genInsertCommon(
 	into *strings.Builder,
 	table string,
-	fields []string,
+	fields []fieldNameAndIdx,
 	nrecords int,
 	pkeyName string,
 	includeID bool,
+	defaultFieldSet pggen.FieldSet,
 ) {
 	into.WriteString("INSERT INTO ")
 	into.WriteString(table)
 	into.WriteString(" (")
 	for i, field := range fields {
-		if !includeID && field == pkeyName {
+		if (!includeID && field.name == pkeyName) || defaultFieldSet.Test(field.idx) {
 			continue
 		}
 
 		into.WriteRune('"')
-		into.WriteString(field)
+		into.WriteString(field.name)
 		into.WriteRune('"')
 		if i + 1 < len(fields) {
 			into.WriteRune(',')
@@ -89,8 +95,10 @@ func genInsertCommon(
 	into.WriteString(") VALUES ")
 
 	nInsertFields := len(fields)
-	if !includeID {
-		nInsertFields--
+	for _, field := range fields {
+		if defaultFieldSet.Test(field.idx) || (!includeID && field.name == pkeyName) {
+			nInsertFields--
+		}
 	}
 
 	nextArg := 1
@@ -116,7 +124,7 @@ func genInsertCommon(
 func genUpdateStmt(
 	table string,
 	pgPkey string,
-	fields []string,
+	fields []fieldNameAndIdx,
 	fieldMask pggen.FieldSet,
 	pkeyName string,
 ) string {
@@ -131,7 +139,7 @@ func genUpdateStmt(
 	argNo := 1
 	for i, f := range fields {
 		if fieldMask.Test(i) {
-			lhs = append(lhs, f)
+			lhs = append(lhs, f.name)
 			rhs = append(rhs, fmt.Sprintf("$%d", argNo))
 			argNo++
 		}

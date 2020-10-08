@@ -1167,3 +1167,111 @@ func TestDroppingColumnOnTheFly(t *testing.T) {
 	_, err = pgClient.Handle().ExecContext(ctx, `ALTER TABLE drop_cols ADD COLUMN f1 int NOT NULL DEFAULT 1`)
 	chkErr(t, err)
 }
+
+// this tests using the default values from the database when inserting or upserting
+func TestDefaultInserts(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	id, err := txClient.InsertDefaultValue(ctx, &models.DefaultValue{
+		NondefaultString: "not default - 1",
+	}, pggen.InsertDefaultFields(models.DefaultValueAllFields))
+	chkErr(t, err)
+	vals, err := txClient.GetDefaultValue(ctx, id)
+	chkErr(t, err)
+	if vals.DefaultedInt != 42 {
+		t.Fatal("expected 42 (insert)")
+	}
+	if vals.DefaultedString != "default value" {
+		t.Fatal("expected 'default value' (insert)")
+	}
+	if vals.NondefaultString != "not default - 1" {
+		t.Fatal("expected 'not default' (insert)")
+	}
+
+	// partial set of default fields
+	partialDefaults := pggen.NewFieldSet(models.DefaultValueMaxFieldIndex)
+	partialDefaults.Set(models.DefaultValueDefaultedStringFieldIndex, true)
+	id, err = txClient.InsertDefaultValue(
+		ctx, &models.DefaultValue{}, pggen.InsertDefaultFields(partialDefaults))
+	chkErr(t, err)
+	vals, err = txClient.GetDefaultValue(ctx, id)
+	chkErr(t, err)
+	if vals.DefaultedInt != 0 { // should not be defaulted
+		t.Fatal("expected 0 (insert - partial)")
+	}
+	if vals.DefaultedString != "default value" { // should be defaulted
+		t.Fatal("expected 'default value' (insert)")
+	}
+
+	// now once more without any defaults asked for
+	id, err = txClient.InsertDefaultValue(ctx, &models.DefaultValue{
+		NondefaultString: "not default - 2",
+	})
+	chkErr(t, err)
+	vals, err = txClient.GetDefaultValue(ctx, id)
+	chkErr(t, err)
+	if vals.DefaultedInt != 0 { // should now be go zero values
+		t.Fatal("expected 0 (insert)")
+	}
+	if vals.DefaultedString != "" {
+		t.Fatal("expected '' (insert)")
+	}
+
+	// check that upsert behaves the same way
+	id, err = txClient.UpsertDefaultValue(ctx, &models.DefaultValue{
+		NondefaultString: "not default - 3",
+	}, nil, models.DefaultValueAllFields, pggen.UpsertDefaultFields(models.DefaultValueAllFields))
+	chkErr(t, err)
+	vals, err = txClient.GetDefaultValue(ctx, id)
+	chkErr(t, err)
+	if vals.DefaultedInt != 42 {
+		t.Fatal("expected 42 (upsert)")
+	}
+	if vals.DefaultedString != "default value" {
+		t.Fatal("expected 'default value' (upsert)")
+	}
+	if vals.NondefaultString != "not default - 3" {
+		t.Fatal("expected 'not default' (upsert)")
+	}
+
+	// upsert without defaults
+	id, err = txClient.UpsertDefaultValue(ctx, &models.DefaultValue{
+		NondefaultString: "not default - 4",
+	}, nil, models.DefaultValueAllFields)
+	chkErr(t, err)
+	vals, err = txClient.GetDefaultValue(ctx, id)
+	chkErr(t, err)
+	if vals.DefaultedInt != 0 { // should now be go zero values
+		t.Fatal("expected 0 (upsert)")
+	}
+	if vals.DefaultedString != "" {
+		t.Fatal("expected '' (upsert)")
+	}
+
+	// upsert should set defaults on conflict
+	_, err = txClient.UpsertDefaultValue(ctx,
+		&models.DefaultValue{
+			Id:               id,
+			NondefaultString: "not default - 4",
+		},
+		[]string{"nondefault_string"},
+		models.DefaultValueAllFields,
+		pggen.UpsertDefaultFields(models.DefaultValueAllFields),
+	)
+	chkErr(t, err)
+	vals, err = txClient.GetDefaultValue(ctx, id)
+	chkErr(t, err)
+	if vals.DefaultedInt != 42 {
+		t.Fatalf("expected 42, got %d (upsert - conflict)", vals.DefaultedInt)
+	}
+	if vals.DefaultedString != "default value" {
+		t.Fatal("expected 'default value' (upsert - conflict)")
+	}
+	if vals.NondefaultString != "not default - 4" {
+		t.Fatal("expected 'not default' (upsert - conflict)")
+	}
+}
