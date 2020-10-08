@@ -1,0 +1,6 @@
+[[table]]
+    name = "users"
+
+[[statement]]
+    name = "DeleteUsersByNickname"
+    body = "DELETE FROM users WHERE nickname = $1"
