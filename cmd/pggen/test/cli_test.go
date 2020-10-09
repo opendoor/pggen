@@ -312,6 +312,14 @@ require_query_comments = true
 		exitCode: 1,
 		stderrRE: `cannot have a json type`,
 	},
+	{
+		toml: `
+[[type_override]]
+	pkg = "github.com/opendoor-labs/pggen/examples/query/models" # note lack of quotes
+		`,
+		exitCode: 1,
+		stderrRE: `import paths without spaces in them should be quoted strings`,
+	},
 }
 
 func TestCLI(t *testing.T) {
