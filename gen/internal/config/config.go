@@ -1,5 +1,11 @@
 package config
 
+import (
+	"fmt"
+
+	"github.com/opendoor-labs/pggen/gen/internal/names"
+)
+
 // The configuration file format used to specify the database objects
 // to generate code for.
 type DbConfig struct {
@@ -184,6 +190,43 @@ type TypeOverride struct {
 	NullPkg string `toml:"nullable_pkg"`
 	// The name of a go type which might be null (often Null<TypeName>)
 	NullableTypeName string `toml:"nullable_type_name"`
+}
+
+// Give a user provided configuration, runs some santity checks on the provided values
+// to try to provent users from encountering hard to diagnose issues down the line.
+func (c *DbConfig) Validate() error {
+	for _, override := range c.TypeOverrides {
+		if len(override.Pkg) > 0 {
+			err := names.ValidateImportPath(override.Pkg)
+			if err != nil {
+				return fmt.Errorf("override for type '%s': %s", override.PgTypeName, err.Error())
+			}
+		}
+		if len(override.NullPkg) > 0 {
+			err := names.ValidateImportPath(override.NullPkg)
+			if err != nil {
+				return fmt.Errorf("override for type '%s': %s", override.PgTypeName, err.Error())
+			}
+		}
+	}
+
+	for _, table := range c.Tables {
+		for _, jsonType := range table.JsonTypes {
+			if len(jsonType.Pkg) > 0 {
+				err := names.ValidateImportPath(jsonType.Pkg)
+				if err != nil {
+					return fmt.Errorf(
+						"table '%s': column '%s': %s",
+						table.Name,
+						jsonType.ColumnName,
+						err.Error(),
+					)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // Given a user provided configuration, convert it into a normalized form that

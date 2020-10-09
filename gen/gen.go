@@ -263,6 +263,10 @@ func (g *Generator) setupGenEnv() (*config.DbConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = conf.Validate()
+	if err != nil {
+		return nil, err
+	}
 
 	err = g.typeResolver.Resolve(&conf)
 	if err != nil {
