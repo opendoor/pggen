@@ -33,7 +33,7 @@ func NewResolver(db *sql.DB, registerImport func(string)) *Resolver {
 	}
 }
 
-// Resolve performs any ahead-of-time compuations needed to service subsequent
+// Resolve performs any ahead-of-time computations needed to service subsequent
 // type resolution requests.
 //
 // This method _must_ be called before any other methods are called.

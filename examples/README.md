@@ -94,3 +94,8 @@ are getting run against the database.
 This example shows how to write queries that return just a single row as a result using
 the `single_result` configuration option. This is a small quality of life improvement over
 having to unpack a slice each time you place a query.
+
+## [Example: json_columns](json_columns)
+
+This example shows how to ask pggen to generate conversion code between arbitrary go
+types and `json` or `jsonb` types in postgres.

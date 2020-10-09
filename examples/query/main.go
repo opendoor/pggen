@@ -8,7 +8,6 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
-	// "github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/examples/query/models"
 )
 

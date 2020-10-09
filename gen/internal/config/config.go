@@ -124,6 +124,10 @@ type TableConfig struct {
 	DeletedAtField string `toml:"deleted_at_field"`
 	// A list of extra annotations to add to the generated fields.
 	FieldTags []FieldTag `toml:"field_tags"`
+	// A list of annotations indicating types that specific json columns should
+	// be (de)serialized into. By default, all `json` and `jsonb` columns will
+	// become byte arrays.
+	JsonTypes []JsonType `toml:"json_type"`
 }
 
 // An explicitly configured foreign key relationship which can be attached
@@ -149,6 +153,17 @@ type BelongsTo struct {
 type FieldTag struct {
 	ColumnName string `toml:"column_name"`
 	Tags       string `toml:"tags"`
+}
+
+type JsonType struct {
+	// The name of the `json` or `jsonb` column which should be parsed and serialized
+	// into a structured type using the encoding/json package.
+	ColumnName string `toml:"column_name"`
+	// The name of the type, including package name, that the column should be parsed
+	// into.
+	TypeName string `toml:"type_name"`
+	// The import string for the package in which the type lives. Should include quotes.
+	Pkg string `toml:"pkg"`
 }
 
 type TypeOverride struct {

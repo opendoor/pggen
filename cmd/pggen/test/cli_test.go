@@ -300,6 +300,18 @@ require_query_comments = true
 		exitCode: 1,
 		stderrRE: `query 'SomeQuery' is missing a comment but require_query_comments is set`,
 	},
+	{
+		toml: `
+[[table]]
+	name = 'small_entities'
+	[[table.json_type]]
+		column_name = 'anint'
+		type_name = 'DoesntMatter'
+		pkg = '"github.com/doesnt/matter"'
+		`,
+		exitCode: 1,
+		stderrRE: `cannot have a json type`,
+	},
 }
 
 func TestCLI(t *testing.T) {
