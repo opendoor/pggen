@@ -24,10 +24,15 @@ type Resolver struct {
 	typeResolver  *types.Resolver
 }
 
-func NewResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *Resolver {
+func NewResolver(
+	l *log.Logger,
+	db *sql.DB,
+	typeResolver *types.Resolver,
+	registerImport func(string),
+) *Resolver {
 	return &Resolver{
 		db:            db,
-		tableResolver: newTableResolver(l, db, typeResolver),
+		tableResolver: newTableResolver(l, db, typeResolver, registerImport),
 		typeResolver:  typeResolver,
 	}
 }
@@ -457,7 +462,7 @@ func (mc *Resolver) queryReturns(query string) ([]ColMeta, error) {
 		return nil, err
 	}
 
-	viewMeta, err := mc.tableResolver.tableInfo(viewName)
+	viewMeta, err := mc.tableResolver.tableInfo(&config.TableConfig{Name: viewName})
 	if err != nil {
 		return nil, err
 	}

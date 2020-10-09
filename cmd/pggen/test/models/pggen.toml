@@ -444,6 +444,27 @@
 [[table]]
     name = "default_values"
 
+[[table]]
+    name = "json_values"
+    [[table.json_type]]
+        column_name = "json_field"
+        type_name = "jsontypes.SomeData"
+        pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
+    [[table.json_type]]
+        column_name = "json_field_not_null"
+        type_name = "JsonData"
+        # if the type is defined in the `models` package, we don't need to provide a
+        # package config key
+    [[table.json_type]]
+        column_name = "jsonb_field"
+        type_name = "jsontypes.SomeData"
+        pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
+    [[table.json_type]]
+        column_name = "jsonb_field_not_null"
+        type_name = "jsontypes.SomeData"
+        pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
+
+
 ####################################################################################
 #                                                                                  #
 #                                     otherschema                                  #

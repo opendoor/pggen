@@ -380,6 +380,15 @@ CREATE TABLE default_values (
     nondefault_string text NOT NULL UNIQUE
 );
 
+-- for testing the `json_types` config key
+CREATE TABLE json_values (
+    id SERIAL PRIMARY KEY,
+    json_field json,
+    json_field_not_null json NOT NULL,
+    jsonb_field jsonb,
+    jsonb_field_not_null jsonb NOT NULL
+);
+
 --
 -- Load Data
 --

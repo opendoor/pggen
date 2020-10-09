@@ -11,6 +11,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/opendoor-labs/pggen"
+	"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 	"github.com/opendoor-labs/pggen/include"
 )
@@ -1273,5 +1274,69 @@ func TestDefaultInserts(t *testing.T) {
 	}
 	if vals.NondefaultString != "not default - 4" {
 		t.Fatal("expected 'not default' (upsert - conflict)")
+	}
+}
+
+// tests that pggen can generate reasonable shim code to convert back and forth
+// between go structs and json data.
+func TestJSONColumnConversion(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	four := 4
+
+	// insert when all the data is filled in
+	id, err := txClient.InsertJsonValue(ctx, &models.JsonValue{
+		JsonField: &jsontypes.SomeData{
+			Foo: "one",
+			Bar: &four,
+		},
+		JsonFieldNotNull: models.JsonData{
+			Baz: "another value",
+		},
+		JsonbField: &jsontypes.SomeData{
+			Foo: "two",
+			Bar: &four,
+		},
+		JsonbFieldNotNull: jsontypes.SomeData{
+			Foo: "three",
+			Bar: &four,
+		},
+	})
+	chkErr(t, err)
+	val, err := txClient.GetJsonValue(ctx, id)
+	chkErr(t, err)
+
+	if val.JsonField.Foo != "one" || *val.JsonField.Bar != 4 {
+		t.Fatal("missing values for json_field")
+	}
+	if val.JsonFieldNotNull.Baz != "another value" ||
+		val.JsonbField.Foo != "two" ||
+		val.JsonbFieldNotNull.Foo != "three" {
+		t.Fatalf("missing values, actual = %#v", val)
+	}
+
+	// test when the nullable cols are null
+	id, err = txClient.InsertJsonValue(ctx, &models.JsonValue{
+		JsonFieldNotNull: models.JsonData{
+			Baz: "another value",
+		},
+		JsonbFieldNotNull: jsontypes.SomeData{
+			Foo: "three",
+			Bar: &four,
+		},
+	})
+	chkErr(t, err)
+	val, err = txClient.GetJsonValue(ctx, id)
+	chkErr(t, err)
+
+	if val.JsonField != nil {
+		t.Fatalf("expected nil, got %p", val.JsonField)
+	}
+	if val.JsonFieldNotNull.Baz != "another value" {
+		t.Fatal("expected 'another value'")
 	}
 }

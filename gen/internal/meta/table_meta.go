@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/jinzhu/inflection"
 	"github.com/lib/pq"
@@ -26,21 +27,28 @@ type tablesMeta struct {
 }
 
 type tableResolver struct {
-	meta         tablesMeta
-	db           *sql.DB
-	log          *log.Logger
-	typeResolver *types.Resolver
+	meta           tablesMeta
+	db             *sql.DB
+	log            *log.Logger
+	typeResolver   *types.Resolver
+	registerImport func(string)
 }
 
-func newTableResolver(l *log.Logger, db *sql.DB, typeResolver *types.Resolver) *tableResolver {
+func newTableResolver(
+	l *log.Logger,
+	db *sql.DB,
+	typeResolver *types.Resolver,
+	registerImport func(string),
+) *tableResolver {
 	return &tableResolver{
 		meta: tablesMeta{
 			tableTyNameToTableName: map[string]string{},
 			tableInfo:              map[string]*TableMeta{},
 		},
-		log:          l,
-		typeResolver: typeResolver,
-		db:           db,
+		log:            l,
+		typeResolver:   typeResolver,
+		registerImport: registerImport,
+		db:             db,
 	}
 }
 
@@ -109,9 +117,9 @@ type TableGenCtx struct {
 
 // nullFlags computes the null flags specifying the nullness of this
 // table in the same format used by the `null_flags` config option
-func (info TableMeta) nullFlags() string {
-	nf := make([]byte, 0, len(info.Info.Cols))
-	for _, c := range info.Info.Cols {
+func (tm *TableMeta) nullFlags() string {
+	nf := make([]byte, 0, len(tm.Info.Cols))
+	for _, c := range tm.Info.Cols {
 		if c.Nullable {
 			nf = append(nf, 'n')
 		} else {
@@ -128,7 +136,7 @@ func (tr *tableResolver) populateTableInfo(tables []config.TableConfig) error {
 		info := &TableMeta{}
 		info.Config = &tables[i]
 
-		meta, err := tr.tableInfo(table.Name)
+		meta, err := tr.tableInfo(info.Config)
 		if err != nil {
 			return fmt.Errorf("table '%s': %s", table.Name, err.Error())
 		}
@@ -548,8 +556,8 @@ type ColMeta struct {
 }
 
 // Given the name of a table returns metadata about it
-func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
-	tableName, err := names.ParsePgName(table)
+func (tr *tableResolver) tableInfo(table *config.TableConfig) (PgTableInfo, error) {
+	tableName, err := names.ParsePgName(table.Name)
 	if err != nil {
 		return PgTableInfo{}, err
 	}
@@ -611,7 +619,7 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 		if err != nil {
 			return PgTableInfo{}, err
 		}
-		typeInfo, err := tr.typeResolver.TypeInfoOf(col.PgType)
+		typeInfo, err := tr.typeInfoOfCol(table, col.PgName, col.PgType)
 		if err != nil {
 			return PgTableInfo{}, fmt.Errorf("column '%s': %s", col.PgName, err.Error())
 		}
@@ -622,7 +630,7 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 	if len(cols) == 0 {
 		return PgTableInfo{}, fmt.Errorf(
 			"could not find table '%s' in the database",
-			table,
+			table.Name,
 		)
 	}
 
@@ -641,7 +649,7 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 		}
 	}
 
-	goName := names.PgTableToGoModel(table)
+	goName := names.PgTableToGoModel(table.Name)
 	return PgTableInfo{
 		PgName: tableName.String(),
 		GoName: goName,
@@ -654,6 +662,132 @@ func (tr *tableResolver) tableInfo(table string) (PgTableInfo, error) {
 		Cols:         cols,
 	}, nil
 }
+
+func (tr *tableResolver) typeInfoOfCol(conf *config.TableConfig, colName string, colType string) (*types.Info, error) {
+	var jsonOverride *config.JsonType
+	for i, jsonType := range conf.JsonTypes {
+		if jsonType.ColumnName == colName {
+			jsonOverride = &conf.JsonTypes[i]
+		}
+	}
+	if jsonOverride == nil {
+		// in the common case, there are no json type overrides to worry about so we can just
+		// dispatch to the type resolver.
+		return tr.typeResolver.TypeInfoOf(colType)
+	}
+
+	if !(colType == "json" || colType == "jsonb") {
+		return nil, fmt.Errorf(
+			"cannot have a json type because the column type in postgres type is '%s' not 'json' or 'jsonb'",
+			colType,
+		)
+	}
+
+	// hook up the imports
+	tr.registerImport(`"encoding/json"`)
+	tr.registerImport(`"database/sql/driver"`)
+	if jsonOverride.Pkg != "" {
+		tr.registerImport(jsonOverride.Pkg)
+	}
+
+	// use PgToGoName because jsonOverride.TypeName could have a . in it
+	nullConverterTypeName := strings.ReplaceAll("nullConvert"+jsonOverride.TypeName, ".", "__PGGENMODSEP__")
+
+	// emit the converter wrapper type
+	nullScanCtx := struct {
+		ConverterTypeName string
+		TargetTypeName    string
+	}{
+		ConverterTypeName: nullConverterTypeName,
+		TargetTypeName:    jsonOverride.TypeName,
+	}
+	var body strings.Builder
+	err := jsonNullScanTypeTmpl.Execute(&body, nullScanCtx)
+	if err != nil {
+		return nil, fmt.Errorf("creating null scan target type for json type: %s", err.Error())
+	}
+	err = tr.typeResolver.EmitType(nullConverterTypeName, jsonOverride.Pkg+nullConverterTypeName, body.String())
+	if err != nil {
+		return nil, err
+	}
+
+	// construct and return a type info struct hooking up the new converter type
+	toConverter := func(v string) string {
+		return fmt.Sprintf("&%s{valid: true, value: &%s}", nullConverterTypeName, v)
+	}
+	nullToConverter := func(v string) string {
+		return fmt.Sprintf("&%s{valid: true, value: %s}", nullConverterTypeName, v)
+	}
+	return &types.Info{
+		Name:         jsonOverride.TypeName,
+		Pkg:          jsonOverride.Pkg,
+		NullName:     "*" + jsonOverride.TypeName,
+		ScanNullName: nullConverterTypeName,
+		NullConvertFunc: func(v string) string {
+			return fmt.Sprintf("convert%s(%s)", nullConverterTypeName, v)
+		},
+		SqlReceiver:         toConverter,
+		NullSqlReceiver:     func(v string) string { return "&" + v }, // will already be a null scanner
+		SqlArgument:         toConverter,
+		NullSqlArgument:     nullToConverter,
+		IsTimestampWithZone: false,
+	}, nil
+}
+
+var jsonNullScanTypeTmpl = template.Must(template.New("json-null-scan-type-tmpl").Parse(`
+type {{ .ConverterTypeName }} struct {
+	valid bool
+	value *{{ .TargetTypeName }}
+}
+func (n *{{ .ConverterTypeName }}) Scan(value interface{}) error {
+	if value == nil {
+		n.value, n.valid = &{{ .TargetTypeName }}{}, false
+		return nil
+	}
+
+	buff, isByteArray := value.([]byte)
+	if !isByteArray {
+		return fmt.Errorf("scanning {{ .TargetTypeName }}: expecting a []byte")
+	}
+	if string(buff) == "null" {
+		// postgres returns NULL json values as null literals, pggen represents them
+		// with go nulls.
+		n.value, n.valid = &{{ .TargetTypeName }}{}, false
+		return nil
+	}
+
+	if n.value == nil {
+		n.value = &{{ .TargetTypeName }}{}
+	}
+	err := json.Unmarshal(buff, n.value)
+	if err != nil {
+		return fmt.Errorf("scanning {{ .TargetTypeName }}: %s", err.Error())
+	}
+	n.valid = true
+
+	return nil
+}
+func (n {{ .ConverterTypeName }}) Value() (driver.Value, error) {
+	if !n.valid {
+		return nil, nil
+	}
+
+	buff, err := json.Marshal(n.value)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling {{ .TargetTypeName }}: %s", err.Error())
+	}
+
+	return buff, nil
+}
+
+func convert{{ .ConverterTypeName }}(v {{ .ConverterTypeName }}) *{{ .TargetTypeName }} {
+	if !v.valid {
+		return nil
+	}
+
+	return v.value
+}
+`))
 
 // Given a tableMeta with the PgName and Cols already filled out, fill in the
 // References list. Any tables which are referenced by the given table must

@@ -1,0 +1,19 @@
+[[table]]
+    name = "users"
+    [[table.json_type]]
+        # tell pggen the name of the column that we want to generate shims for
+        column_name = "bio"
+        # Tell pggen the type that we want to convert to and from. Since we have
+        # not provided a `pkg` key, UserBio will need to be defined in our models
+        # package.
+        type_name = "UserBio"
+    [[table.json_type]]
+        column_name = "config"
+        # Note that when importing a type from another package, type_name must include
+        # the package.
+        type_name = "config.Config"
+        # We can also ask pggen to import and use a type from an arbitrary package.
+        pkg = '"github.com/opendoor-labs/pggen/examples/json_columns/config"'
+    # Note that even though the `homepage` column has the type `jsonb`, we are not
+    # going to configure it to connect to a go type. Instead, pggen will just use a
+    # []byte and allow user code to manipulate the data in any way desired.

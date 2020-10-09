@@ -109,13 +109,14 @@ func FromConfig(config Config) (*Generator, error) {
 	}
 
 	imports := initialImports()
-	typeResolver := types.NewResolver(db, func(importStr string) {
+	registerImport := func(importStr string) {
 		imports[importStr] = true
-	})
+	}
+	typeResolver := types.NewResolver(db, registerImport)
 	return &Generator{
 		config:       config,
 		log:          logger,
-		metaResolver: meta.NewResolver(logger, db, typeResolver),
+		metaResolver: meta.NewResolver(logger, db, typeResolver, registerImport),
 		pkg:          pkg,
 		imports:      imports,
 		typeResolver: typeResolver,
