@@ -71,6 +71,15 @@ func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClien
 	}, nil
 }
 
+func (p *PGClient) Conn(ctx context.Context) (*ConnPGClient, error) {
+	conn, err := p.topLevelDB.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConnPGClient{impl: pgClientImpl{db: conn, client: p}}, nil
+}
+
 // A postgres client that operates within a transaction. Supports all the same
 // generated methods that PGClient does.
 type TxPGClient struct {
@@ -87,6 +96,18 @@ func (tx *TxPGClient) Rollback() error {
 
 func (tx *TxPGClient) Commit() error {
 	return tx.impl.db.(*sql.Tx).Commit()
+}
+
+type ConnPGClient struct {
+	impl pgClientImpl
+}
+
+func (conn *ConnPGClient) Close() error {
+	return conn.impl.db.(*sql.Conn).Close()
+}
+
+func (conn *ConnPGClient) Handle() pggen.DBHandle {
+	return conn.impl.db
 }
 
 // A database client that can wrap either a direct database connection or a transaction
@@ -109,6 +130,13 @@ func (tx *TxPGClient) GetUser(
 	opts ...pggen.GetOpt,
 ) (*User, error) {
 	return tx.impl.getUser(ctx, id)
+}
+func (conn *ConnPGClient) GetUser(
+	ctx context.Context,
+	id int64,
+	opts ...pggen.GetOpt,
+) (*User, error) {
+	return conn.impl.getUser(ctx, id)
 }
 func (p *pgClientImpl) getUser(
 	ctx context.Context,
@@ -138,6 +166,13 @@ func (tx *TxPGClient) ListUser(
 	opts ...pggen.ListOpt,
 ) (ret []User, err error) {
 	return tx.impl.listUser(ctx, ids, false /* isGet */)
+}
+func (conn *ConnPGClient) ListUser(
+	ctx context.Context,
+	ids []int64,
+	opts ...pggen.ListOpt,
+) (ret []User, err error) {
+	return conn.impl.listUser(ctx, ids, false /* isGet */)
 }
 func (p *pgClientImpl) listUser(
 	ctx context.Context,
@@ -222,6 +257,16 @@ func (tx *TxPGClient) InsertUser(
 
 // Insert a User into the database. Returns the primary
 // key of the inserted row.
+func (conn *ConnPGClient) InsertUser(
+	ctx context.Context,
+	value *User,
+	opts ...pggen.InsertOpt,
+) (ret int64, err error) {
+	return conn.impl.insertUser(ctx, value, opts...)
+}
+
+// Insert a User into the database. Returns the primary
+// key of the inserted row.
 func (p *pgClientImpl) insertUser(
 	ctx context.Context,
 	value *User,
@@ -260,6 +305,16 @@ func (tx *TxPGClient) BulkInsertUser(
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
 	return tx.impl.bulkInsertUser(ctx, values, opts...)
+}
+
+// Insert a list of User. Returns a list of the primary keys of
+// the inserted rows.
+func (conn *ConnPGClient) BulkInsertUser(
+	ctx context.Context,
+	values []User,
+	opts ...pggen.InsertOpt,
+) ([]int64, error) {
+	return conn.impl.bulkInsertUser(ctx, values, opts...)
 }
 
 // Insert a list of User. Returns a list of the primary keys of
@@ -381,6 +436,20 @@ func (tx *TxPGClient) UpdateUser(
 ) (ret int64, err error) {
 	return tx.impl.updateUser(ctx, value, fieldMask)
 }
+
+// Update a User. 'value' must at the least have
+// a primary key set. The 'fieldMask' field set indicates which fields
+// should be updated in the database.
+//
+// Returns the primary key of the updated row.
+func (conn *ConnPGClient) UpdateUser(
+	ctx context.Context,
+	value *User,
+	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
+) (ret int64, err error) {
+	return conn.impl.updateUser(ctx, value, fieldMask)
+}
 func (p *pgClientImpl) updateUser(
 	ctx context.Context,
 	value *User,
@@ -478,6 +547,30 @@ func (tx *TxPGClient) UpsertUser(
 	return value.Id, nil
 }
 
+// Upsert a User value. If the given value conflicts with
+// an existing row in the database, use the provided value to update that row
+// rather than inserting it. Only the fields specified by 'fieldMask' are
+// actually updated. All other fields are left as-is.
+func (conn *ConnPGClient) UpsertUser(
+	ctx context.Context,
+	value *User,
+	constraintNames []string,
+	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
+) (ret int64, err error) {
+	var val []int64
+	val, err = conn.impl.bulkUpsertUser(ctx, []User{*value}, constraintNames, fieldMask, opts...)
+	if err != nil {
+		return
+	}
+	if len(val) == 1 {
+		return val[0], nil
+	}
+
+	// only possible if no upsert fields were specified by the field mask
+	return value.Id, nil
+}
+
 // Upsert a set of User values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
@@ -504,6 +597,20 @@ func (tx *TxPGClient) BulkUpsertUser(
 	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
 	return tx.impl.bulkUpsertUser(ctx, values, constraintNames, fieldMask, opts...)
+}
+
+// Upsert a set of User values. If any of the given values conflict with
+// existing rows in the database, use the provided values to update the rows which
+// exist in the database rather than inserting them. Only the fields specified by
+// 'fieldMask' are actually updated. All other fields are left as-is.
+func (conn *ConnPGClient) BulkUpsertUser(
+	ctx context.Context,
+	values []User,
+	constraintNames []string,
+	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
+) (ret []int64, err error) {
+	return conn.impl.bulkUpsertUser(ctx, values, constraintNames, fieldMask, opts...)
 }
 func (p *pgClientImpl) bulkUpsertUser(
 	ctx context.Context,
@@ -642,6 +749,13 @@ func (tx *TxPGClient) DeleteUser(
 ) error {
 	return tx.impl.bulkDeleteUser(ctx, []int64{id}, opts...)
 }
+func (conn *ConnPGClient) DeleteUser(
+	ctx context.Context,
+	id int64,
+	opts ...pggen.DeleteOpt,
+) error {
+	return conn.impl.bulkDeleteUser(ctx, []int64{id}, opts...)
+}
 
 func (p *PGClient) BulkDeleteUser(
 	ctx context.Context,
@@ -656,6 +770,13 @@ func (tx *TxPGClient) BulkDeleteUser(
 	opts ...pggen.DeleteOpt,
 ) error {
 	return tx.impl.bulkDeleteUser(ctx, ids, opts...)
+}
+func (conn *ConnPGClient) BulkDeleteUser(
+	ctx context.Context,
+	ids []int64,
+	opts ...pggen.DeleteOpt,
+) error {
+	return conn.impl.bulkDeleteUser(ctx, ids, opts...)
 }
 func (p *pgClientImpl) bulkDeleteUser(
 	ctx context.Context,
@@ -715,6 +836,14 @@ func (tx *TxPGClient) UserFillIncludes(
 ) error {
 	return tx.impl.privateUserBulkFillIncludes(ctx, []*User{rec}, includes)
 }
+func (conn *ConnPGClient) UserFillIncludes(
+	ctx context.Context,
+	rec *User,
+	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
+) error {
+	return conn.impl.privateUserBulkFillIncludes(ctx, []*User{rec}, includes)
+}
 
 func (p *PGClient) UserBulkFillIncludes(
 	ctx context.Context,
@@ -731,6 +860,14 @@ func (tx *TxPGClient) UserBulkFillIncludes(
 	opts ...pggen.IncludeOpt,
 ) error {
 	return tx.impl.privateUserBulkFillIncludes(ctx, recs, includes)
+}
+func (conn *ConnPGClient) UserBulkFillIncludes(
+	ctx context.Context,
+	recs []*User,
+	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
+) error {
+	return conn.impl.privateUserBulkFillIncludes(ctx, recs, includes)
 }
 func (p *pgClientImpl) privateUserBulkFillIncludes(
 	ctx context.Context,

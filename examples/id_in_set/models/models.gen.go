@@ -70,6 +70,15 @@ func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClien
 	}, nil
 }
 
+func (p *PGClient) Conn(ctx context.Context) (*ConnPGClient, error) {
+	conn, err := p.topLevelDB.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConnPGClient{impl: pgClientImpl{db: conn, client: p}}, nil
+}
+
 // A postgres client that operates within a transaction. Supports all the same
 // generated methods that PGClient does.
 type TxPGClient struct {
@@ -86,6 +95,18 @@ func (tx *TxPGClient) Rollback() error {
 
 func (tx *TxPGClient) Commit() error {
 	return tx.impl.db.(*sql.Tx).Commit()
+}
+
+type ConnPGClient struct {
+	impl pgClientImpl
+}
+
+func (conn *ConnPGClient) Close() error {
+	return conn.impl.db.(*sql.Conn).Close()
+}
+
+func (conn *ConnPGClient) Handle() pggen.DBHandle {
+	return conn.impl.db
 }
 
 // A database client that can wrap either a direct database connection or a transaction
@@ -108,6 +129,13 @@ func (tx *TxPGClient) GetFoo(
 	opts ...pggen.GetOpt,
 ) (*Foo, error) {
 	return tx.impl.getFoo(ctx, id)
+}
+func (conn *ConnPGClient) GetFoo(
+	ctx context.Context,
+	id int64,
+	opts ...pggen.GetOpt,
+) (*Foo, error) {
+	return conn.impl.getFoo(ctx, id)
 }
 func (p *pgClientImpl) getFoo(
 	ctx context.Context,
@@ -137,6 +165,13 @@ func (tx *TxPGClient) ListFoo(
 	opts ...pggen.ListOpt,
 ) (ret []Foo, err error) {
 	return tx.impl.listFoo(ctx, ids, false /* isGet */)
+}
+func (conn *ConnPGClient) ListFoo(
+	ctx context.Context,
+	ids []int64,
+	opts ...pggen.ListOpt,
+) (ret []Foo, err error) {
+	return conn.impl.listFoo(ctx, ids, false /* isGet */)
 }
 func (p *pgClientImpl) listFoo(
 	ctx context.Context,
@@ -221,6 +256,16 @@ func (tx *TxPGClient) InsertFoo(
 
 // Insert a Foo into the database. Returns the primary
 // key of the inserted row.
+func (conn *ConnPGClient) InsertFoo(
+	ctx context.Context,
+	value *Foo,
+	opts ...pggen.InsertOpt,
+) (ret int64, err error) {
+	return conn.impl.insertFoo(ctx, value, opts...)
+}
+
+// Insert a Foo into the database. Returns the primary
+// key of the inserted row.
 func (p *pgClientImpl) insertFoo(
 	ctx context.Context,
 	value *Foo,
@@ -259,6 +304,16 @@ func (tx *TxPGClient) BulkInsertFoo(
 	opts ...pggen.InsertOpt,
 ) ([]int64, error) {
 	return tx.impl.bulkInsertFoo(ctx, values, opts...)
+}
+
+// Insert a list of Foo. Returns a list of the primary keys of
+// the inserted rows.
+func (conn *ConnPGClient) BulkInsertFoo(
+	ctx context.Context,
+	values []Foo,
+	opts ...pggen.InsertOpt,
+) ([]int64, error) {
+	return conn.impl.bulkInsertFoo(ctx, values, opts...)
 }
 
 // Insert a list of Foo. Returns a list of the primary keys of
@@ -365,6 +420,20 @@ func (tx *TxPGClient) UpdateFoo(
 ) (ret int64, err error) {
 	return tx.impl.updateFoo(ctx, value, fieldMask)
 }
+
+// Update a Foo. 'value' must at the least have
+// a primary key set. The 'fieldMask' field set indicates which fields
+// should be updated in the database.
+//
+// Returns the primary key of the updated row.
+func (conn *ConnPGClient) UpdateFoo(
+	ctx context.Context,
+	value *Foo,
+	fieldMask pggen.FieldSet,
+	opts ...pggen.UpdateOpt,
+) (ret int64, err error) {
+	return conn.impl.updateFoo(ctx, value, fieldMask)
+}
 func (p *pgClientImpl) updateFoo(
 	ctx context.Context,
 	value *Foo,
@@ -453,6 +522,30 @@ func (tx *TxPGClient) UpsertFoo(
 	return value.Id, nil
 }
 
+// Upsert a Foo value. If the given value conflicts with
+// an existing row in the database, use the provided value to update that row
+// rather than inserting it. Only the fields specified by 'fieldMask' are
+// actually updated. All other fields are left as-is.
+func (conn *ConnPGClient) UpsertFoo(
+	ctx context.Context,
+	value *Foo,
+	constraintNames []string,
+	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
+) (ret int64, err error) {
+	var val []int64
+	val, err = conn.impl.bulkUpsertFoo(ctx, []Foo{*value}, constraintNames, fieldMask, opts...)
+	if err != nil {
+		return
+	}
+	if len(val) == 1 {
+		return val[0], nil
+	}
+
+	// only possible if no upsert fields were specified by the field mask
+	return value.Id, nil
+}
+
 // Upsert a set of Foo values. If any of the given values conflict with
 // existing rows in the database, use the provided values to update the rows which
 // exist in the database rather than inserting them. Only the fields specified by
@@ -479,6 +572,20 @@ func (tx *TxPGClient) BulkUpsertFoo(
 	opts ...pggen.UpsertOpt,
 ) (ret []int64, err error) {
 	return tx.impl.bulkUpsertFoo(ctx, values, constraintNames, fieldMask, opts...)
+}
+
+// Upsert a set of Foo values. If any of the given values conflict with
+// existing rows in the database, use the provided values to update the rows which
+// exist in the database rather than inserting them. Only the fields specified by
+// 'fieldMask' are actually updated. All other fields are left as-is.
+func (conn *ConnPGClient) BulkUpsertFoo(
+	ctx context.Context,
+	values []Foo,
+	constraintNames []string,
+	fieldMask pggen.FieldSet,
+	opts ...pggen.UpsertOpt,
+) (ret []int64, err error) {
+	return conn.impl.bulkUpsertFoo(ctx, values, constraintNames, fieldMask, opts...)
 }
 func (p *pgClientImpl) bulkUpsertFoo(
 	ctx context.Context,
@@ -596,6 +703,13 @@ func (tx *TxPGClient) DeleteFoo(
 ) error {
 	return tx.impl.bulkDeleteFoo(ctx, []int64{id}, opts...)
 }
+func (conn *ConnPGClient) DeleteFoo(
+	ctx context.Context,
+	id int64,
+	opts ...pggen.DeleteOpt,
+) error {
+	return conn.impl.bulkDeleteFoo(ctx, []int64{id}, opts...)
+}
 
 func (p *PGClient) BulkDeleteFoo(
 	ctx context.Context,
@@ -610,6 +724,13 @@ func (tx *TxPGClient) BulkDeleteFoo(
 	opts ...pggen.DeleteOpt,
 ) error {
 	return tx.impl.bulkDeleteFoo(ctx, ids, opts...)
+}
+func (conn *ConnPGClient) BulkDeleteFoo(
+	ctx context.Context,
+	ids []int64,
+	opts ...pggen.DeleteOpt,
+) error {
+	return conn.impl.bulkDeleteFoo(ctx, ids, opts...)
 }
 func (p *pgClientImpl) bulkDeleteFoo(
 	ctx context.Context,
@@ -669,6 +790,14 @@ func (tx *TxPGClient) FooFillIncludes(
 ) error {
 	return tx.impl.privateFooBulkFillIncludes(ctx, []*Foo{rec}, includes)
 }
+func (conn *ConnPGClient) FooFillIncludes(
+	ctx context.Context,
+	rec *Foo,
+	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
+) error {
+	return conn.impl.privateFooBulkFillIncludes(ctx, []*Foo{rec}, includes)
+}
 
 func (p *PGClient) FooBulkFillIncludes(
 	ctx context.Context,
@@ -685,6 +814,14 @@ func (tx *TxPGClient) FooBulkFillIncludes(
 	opts ...pggen.IncludeOpt,
 ) error {
 	return tx.impl.privateFooBulkFillIncludes(ctx, recs, includes)
+}
+func (conn *ConnPGClient) FooBulkFillIncludes(
+	ctx context.Context,
+	recs []*Foo,
+	includes *include.Spec,
+	opts ...pggen.IncludeOpt,
+) error {
+	return conn.impl.privateFooBulkFillIncludes(ctx, recs, includes)
 }
 func (p *pgClientImpl) privateFooBulkFillIncludes(
 	ctx context.Context,
@@ -749,6 +886,16 @@ func (tx *TxPGClient) GetFooValues(
 		arg1,
 	)
 }
+
+func (conn *ConnPGClient) GetFooValues(
+	ctx context.Context,
+	arg1 []int64,
+) (ret []*string, err error) {
+	return conn.impl.GetFooValues(
+		ctx,
+		arg1,
+	)
+}
 func (p *pgClientImpl) GetFooValues(
 	ctx context.Context,
 	arg1 []int64,
@@ -806,6 +953,16 @@ func (tx *TxPGClient) GetFooValuesQuery(
 	arg1 []int64,
 ) (*sql.Rows, error) {
 	return tx.impl.GetFooValuesQuery(
+		ctx,
+		arg1,
+	)
+}
+
+func (conn *ConnPGClient) GetFooValuesQuery(
+	ctx context.Context,
+	arg1 []int64,
+) (*sql.Rows, error) {
+	return conn.impl.GetFooValuesQuery(
 		ctx,
 		arg1,
 	)

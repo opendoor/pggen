@@ -133,7 +133,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	)
 }
 {{ .Comment }}
-func (p *TxPGClient) {{ .ConfigData.Name }}(
+func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
@@ -143,7 +143,25 @@ func (p *TxPGClient) {{ .ConfigData.Name }}(
 {{- else }}
 ) (ret *{{ .ReturnTypeName }}, err error) {
 {{- end }}
-	return p.impl.{{ .ConfigData.Name }}(
+	return tx.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args }}
+		{{ .GoName }},
+		{{- end }}
+	)
+}
+{{ .Comment }}
+func (conn *ConnPGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+{{- if (not .MultiReturn) }}
+) (ret {{ .ReturnTypeName }}, err error) {
+{{- else }}
+) (ret *{{ .ReturnTypeName }}, err error) {
+{{- end }}
+	return conn.impl.{{ .ConfigData.Name }}(
 		ctx,
 		{{- range .Args }}
 		{{ .GoName }},
@@ -250,6 +268,20 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 		{{- end }}
 	)
 }
+{{ .Comment }}
+func (conn *ConnPGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+) (ret []{{ .ReturnTypeName }}, err error) {
+	return conn.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args }}
+		{{ .GoName }},
+		{{- end }}
+	)
+}
 func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
@@ -329,6 +361,20 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
 	{{- end }}
 ) (*sql.Rows, error) {
 	return tx.impl.{{ .ConfigData.Name }}Query(
+		ctx,
+		{{- range .Args}}
+		{{ .GoName }},
+		{{- end}}
+	)
+}
+{{ .Comment }}
+func (conn *ConnPGClient) {{ .ConfigData.Name }}Query(
+	ctx context.Context,
+	{{- range .Args }}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
+) (*sql.Rows, error) {
+	return conn.impl.{{ .ConfigData.Name }}Query(
 		ctx,
 		{{- range .Args}}
 		{{ .GoName }},

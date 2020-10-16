@@ -91,6 +91,15 @@ func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClien
 	}, nil
 }
 
+func (p *PGClient) Conn(ctx context.Context) (*ConnPGClient, error) {
+	conn, err := p.topLevelDB.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConnPGClient{impl: pgClientImpl{ db: conn, client: p }}, nil
+}
+
 // A postgres client that operates within a transaction. Supports all the same
 // generated methods that PGClient does.
 type TxPGClient struct {
@@ -107,6 +116,18 @@ func (tx *TxPGClient) Rollback() error {
 
 func (tx *TxPGClient) Commit() error {
 	return tx.impl.db.(*sql.Tx).Commit()
+}
+
+type ConnPGClient struct {
+	impl pgClientImpl
+}
+
+func (conn *ConnPGClient) Close() error {
+	return conn.impl.db.(*sql.Conn).Close()
+}
+
+func (conn *ConnPGClient) Handle() pggen.DBHandle {
+	return conn.impl.db
 }
 
 // A database client that can wrap either a direct database connection or a transaction
