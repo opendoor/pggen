@@ -68,6 +68,19 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 		{{- end}}
 	)
 }
+func (conn *ConnPGClient) {{ .ConfigData.Name }}(
+	ctx context.Context,
+	{{- range .Args}}
+	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end}}
+) (sql.Result, error) {
+	return conn.impl.{{ .ConfigData.Name }}(
+		ctx,
+		{{- range .Args}}
+		{{ .GoName }},
+		{{- end}}
+	)
+}
 func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
