@@ -99,3 +99,10 @@ having to unpack a slice each time you place a query.
 
 This example shows how to ask pggen to generate conversion code between arbitrary go
 types and `json` or `jsonb` types in postgres.
+
+## [Example: nullable_query_arguments](nullable_query_arguments)
+
+This example show how to ask pggen to generate code which allows nils to be passed into
+queries. By default, you can only pass concrete types like `string` and `int` into a
+pggen query.
+
