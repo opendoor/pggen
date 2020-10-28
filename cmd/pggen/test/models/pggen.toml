@@ -230,6 +230,19 @@
     body = "SELECT array_agg(value) as variants FROM simple_enums WHERE value = ANY($1)"
 
 [[query]]
+    name = "SearchForNullableEnum"
+    nullable_arguments = true
+    return_type = "SimpleEnum"
+    single_result = true
+    body = "SELECT * FROM simple_enums WHERE (value = $1) OR (value IS NULL AND $1 IS NULL)"
+
+[[query]]
+    name = "SearchForNullableEnumSingleColResult"
+    nullable_arguments = true
+    single_result = true
+    body = "SELECT value FROM simple_enums WHERE (value = $1) OR (value IS NULL AND $1 IS NULL)"
+
+[[query]]
     name = "SelectJSON"
     not_null_fields = ["json_field_not_null", "jsonb_field_not_null"]
     body = '''
@@ -464,6 +477,8 @@
         type_name = "jsontypes.SomeData"
         pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
 
+[[table]]
+    name = "simple_enums"
 
 ####################################################################################
 #                                                                                  #

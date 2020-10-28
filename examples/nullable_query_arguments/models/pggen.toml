@@ -1,0 +1,37 @@
+# This global pragma makes pggen enforce the property that all querys have a
+# `comment` configured
+require_query_comments = true
+
+[[table]]
+    name = "users"
+
+[[query]]
+    name = "GetUsersByNullableNickname"
+    return_type = "User"
+    # It is so rare to want to pass NULLs into a query that by default we don't
+    # accept nullable parameters. We have to explictly ask pggen to generate nullable
+    # argument types for us.
+    nullable_arguments = true
+    comment = '''
+    This query looks up users by their nickname, even if that nickname is NULL.
+
+    Note the funny `nickname = $1 OR (nickname IS NULL AND $1 IS NULL)` construct.
+    This is a common pattern when querying based on possibly-null parameters. The
+    reason for this has to do with SQL's trinary logic and null propigation. In the
+    context of of most programming languages nulls mean something like "a reference to
+    nothing", but in SQL it is better to think of NULL as meaning "unknown".
+    What is `nickname = UNKNOWN`? Well, we don't know what is on the rhs, so the whole
+    thing is `UNKNOWN`. What about `UNKNOWN OR true`? Well, all we need to know is that
+    one side of the OR is true in order for the whole thing to be true, so the whole
+    expression is `true`.
+
+    If we just wrote `WHERE nickname = $1` as would make sense in most programming
+    languages, we would end up with `WHERE UNKNOWN` when `$1` is NULL, and SQL
+    will only return queries where it knows for sure that the WHERE condition is
+    true, so we would never be able to return any results when `$1` is NULL. If that
+    was the case there would be no point in generating code for nullable arguments in
+    the first place.
+    '''
+    body = '''
+    SELECT * FROM users WHERE nickname = $1 OR (nickname IS NULL AND $1 IS NULL)
+    '''

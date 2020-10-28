@@ -108,13 +108,17 @@ type DBQueries interface {
 	// query methods
 	//
 
-	{{ range .Queries }}
+	{{ range $i, $query := .Queries }}
 	{{ if .ConfigData.SingleResult }}
 	// {{ .ConfigData.Name }} query
 	{{ .ConfigData.Name }}(
 		ctx context.Context,
 		{{- range .Args }}
+		{{- if $query.ConfigData.NullableArguments }}
+		{{ .GoName }} {{ .TypeInfo.NullName }},
+		{{- else }}
 		{{ .GoName }} {{ .TypeInfo.Name }},
+		{{- end }}
 		{{- end }}
 	{{- if (not .MultiReturn) }}
 	) ({{ .ReturnTypeName }}, error)
@@ -127,7 +131,11 @@ type DBQueries interface {
 	{{ .ConfigData.Name }}(
 		ctx context.Context,
 		{{- range .Args }}
+		{{- if $query.ConfigData.NullableArguments }}
+		{{ .GoName }} {{ .TypeInfo.NullName }},
+		{{- else }}
 		{{ .GoName }} {{ .TypeInfo.Name }},
+		{{- end }}
 		{{- end }}
 	) ([]{{ .ReturnTypeName }}, error)
 	{{ .ConfigData.Name }}Query(

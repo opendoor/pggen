@@ -92,6 +92,11 @@ type QueryConfig struct {
 	// for this query, as there is no point to supporting streaming mode for
 	// a single-result query.
 	SingleResult bool `toml:"single_result"`
+	// If true, allow nullable types to be passed in as arguments to the query.
+	// Normally, query arguments are always non-null so making every argument
+	// a pointer type would just be annoying for client code, but sometimes you
+	// do actually want nullable arguments.
+	NullableArguments bool `toml:"nullable_arguments"`
 }
 
 // Statements are like queries but they are executed for side effects
