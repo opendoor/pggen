@@ -283,3 +283,20 @@ func TestSingleReturnNotFound(t *testing.T) {
 		t.Fatal("found it unexpectedly")
 	}
 }
+
+func TestNullableArguments(t *testing.T) {
+	opt1 := models.EnumTypeOption1
+
+	option1, err := pgClient.SearchForNullableEnum(ctx, &opt1)
+	chkErr(t, err)
+
+	if *option1.Value != models.EnumTypeOption1 {
+		t.Fatal("exected option1")
+	}
+
+	null, err := pgClient.SearchForNullableEnumSingleColResult(ctx, nil)
+	chkErr(t, err)
+	if null != nil {
+		t.Fatal("expected nil")
+	}
+}

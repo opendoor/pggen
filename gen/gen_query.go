@@ -118,7 +118,11 @@ var queryShimTmpl = template.Must(template.New("query-shim").Parse(`
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 {{- if (not .MultiReturn) }}
 ) (ret {{ .ReturnTypeName }}, err error) {
@@ -136,7 +140,11 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 {{- if (not .MultiReturn) }}
 ) (ret {{ .ReturnTypeName }}, err error) {
@@ -154,7 +162,11 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 {{- if (not .MultiReturn) }}
 ) (ret {{ .ReturnTypeName }}, err error) {
@@ -171,7 +183,11 @@ func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 {{- if (not .MultiReturn) }}
 ) (ret {{ .ReturnTypeName }}, err error) {
@@ -188,13 +204,18 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	// impl remains consistant. We don't need to split out a seperate Query
 	// method though.
 	var rows *sql.Rows
+	{{- /* We can't call out to *Query method because this is in the SingleResult block. */}}
 	rows, err = p.db.QueryContext(
 		ctx,
 		` + "`" +
 	`{{ .ConfigData.Body }}` +
 	"`" + `,
 		{{- range .Args }}
+		{{- if $.ConfigData.NullableArguments }}
+		{{ call .TypeInfo.NullSqlArgument .GoName }},
+		{{- else }}
 		{{ call .TypeInfo.SqlArgument .GoName }},
+		{{- end }}
 		{{- end }}
 	)
 	if err != nil {
@@ -239,12 +260,16 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 
 	return
 }
-{{- else }}
+{{- else }}{{/* if .ConfigData.SingleResult */}}
 {{ .Comment }}
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
 	return p.impl.{{ .ConfigData.Name }}(
@@ -258,7 +283,11 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
 	return tx.impl.{{ .ConfigData.Name }}(
@@ -272,7 +301,11 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
 	return conn.impl.{{ .ConfigData.Name }}(
@@ -285,7 +318,11 @@ func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (ret []{{ .ReturnTypeName }}, err error) {
 	ret = []{{ .ReturnTypeName }}{}
@@ -343,7 +380,11 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 func (p *PGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (*sql.Rows, error) {
 	return p.impl.{{ .ConfigData.Name }}Query(
@@ -357,7 +398,11 @@ func (p *PGClient) {{ .ConfigData.Name }}Query(
 func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (*sql.Rows, error) {
 	return tx.impl.{{ .ConfigData.Name }}Query(
@@ -371,7 +416,11 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}Query(
 func (conn *ConnPGClient) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (*sql.Rows, error) {
 	return conn.impl.{{ .ConfigData.Name }}Query(
@@ -384,7 +433,11 @@ func (conn *ConnPGClient) {{ .ConfigData.Name }}Query(
 func (p *pgClientImpl) {{ .ConfigData.Name }}Query(
 	ctx context.Context,
 	{{- range .Args }}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end }}
 ) (*sql.Rows, error) {
 	return p.db.QueryContext(
@@ -393,10 +446,14 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}Query(
 	`{{ .ConfigData.Body }}` +
 	"`" + `,
 		{{- range .Args }}
+		{{- if $.ConfigData.NullableArguments }}
+		{{ call .TypeInfo.NullSqlArgument .GoName }},
+		{{- else }}
 		{{ call .TypeInfo.SqlArgument .GoName }},
+		{{- end }}
 		{{- end }}
 	)
 }
 
-{{- end }}
+{{- end }}{{/* if .ConfigData.SingleResult */}}
 `))
