@@ -11,19 +11,24 @@ import (
 	"unicode"
 )
 
-func WriteGoFile(path string, src []byte) error {
+func WriteGoFile(path string, rawSrc []byte) error {
 	outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer outFile.Close()
 
-	formattedSrc, err := format.Source(src)
-	if err != nil {
-		return fmt.Errorf("internal pggen error: %s", err.Error())
+	var src []byte
+	if os.Getenv("PGGEN_GOFMT") == "off" {
+		src = rawSrc
+	} else {
+		src, err = format.Source(rawSrc)
+		if err != nil {
+			return fmt.Errorf("internal pggen error: %s", err.Error())
+		}
 	}
 
-	return WriteCompletely(outFile, formattedSrc)
+	return WriteCompletely(outFile, src)
 }
 
 func WriteCompletely(w io.Writer, data []byte) error {

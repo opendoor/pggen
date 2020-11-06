@@ -82,29 +82,9 @@ on one or more examples rather than running the whole suite every time.
 When modifying the output of the codegenerator, you are likely to introduce compile
 errors in the generated code. Because we run the `go/format` package over our output
 before landing it to a disk you won't be able to debug the issue by looking at the
-generated file by default. In order to make this easier, you can modify the `WriteGoFile`
-routine in `gen/internal/utils/utils.go` to skip the formatting and just dump the code to disk.
-
-```
-diff --git a/gen/utils.go b/gen/utils.go
-index dd7804d..e3a446f 100644
---- a/gen/internal/utils/utils.go
-+++ b/gen/internal/utils/utils.go
-@@ -20,8 +20,9 @@ func writeGoFile(path string, src []byte) error {
-
- 	formattedSrc, err := format.Source(src)
- 	if err != nil {
--		return fmt.Errorf("internal pggen error: %s", err.Error())
-+		// return fmt.Errorf("internal pggen error: %s", err.Error())
- 	}
-+	formattedSrc = src
-
- 	return writeCompletely(outFile, formattedSrc)
- }
-```
-
-Even without formatting the generated code is pretty readable, so this trick doesn't
-usually result in less debuggable generated code.
+generated file by default. In order to make this easier, you can set `PGGEN_GOFMT=off`
+in the environment. This will prevent pggen from formatting the generated code
+and make it easier to debug the output from pggen.
 
 ## A word about CI
 
