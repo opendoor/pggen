@@ -141,6 +141,8 @@ func (g *Generator) Gen() error {
 		return nil
 	}
 
+	defer g.metaResolver.Close() // nolint: errcheck
+
 	conf, err := g.setupGenEnv()
 	if err != nil {
 		return err
@@ -237,14 +239,6 @@ import (
 	}
 
 	return utils.WriteGoFile(g.config.OutputFileName, []byte(out.String()))
-}
-
-// Close closes the database connection that the generator holds
-func (b *Generator) Close() error {
-	if b.metaResolver != nil {
-		return b.metaResolver.Close()
-	}
-	return nil
 }
 
 func (g *Generator) setupGenEnv() (*config.DbConfig, error) {
