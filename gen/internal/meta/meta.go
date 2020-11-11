@@ -58,6 +58,11 @@ func (r *Resolver) TableMeta(pgName string) (*TableMeta, bool) {
 	return res, ok
 }
 
+// Close closes the database connection that the resolver holds
+func (r *Resolver) Close() error {
+	return r.db.Close()
+}
+
 // Arg represents an argument to both a postgres query and the golang
 // shim which wraps that query.
 //

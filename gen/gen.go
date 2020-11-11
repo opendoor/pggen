@@ -239,6 +239,14 @@ import (
 	return utils.WriteGoFile(g.config.OutputFileName, []byte(out.String()))
 }
 
+// Close closes the database connection that the generator holds
+func (b *Generator) Close() error {
+	if b.metaResolver != nil {
+		return b.metaResolver.Close()
+	}
+	return nil
+}
+
 func (g *Generator) setupGenEnv() (*config.DbConfig, error) {
 	g.log.Infof("pggen: using config '%s'\n", g.config.ConfigFilePath)
 	confData, err := ioutil.ReadFile(g.config.ConfigFilePath)

@@ -122,6 +122,13 @@ func main() {
 		fmt.Fprint(os.Stderr, err.Error()+"\n")
 		os.Exit(1)
 	}
+	defer func() {
+		err := g.Close()
+		if err != nil {
+			fmt.Fprint(os.Stderr, err.Error()+"\n")
+			os.Exit(1)
+		}
+	}()
 
 	err = g.Gen()
 	if err != nil {
