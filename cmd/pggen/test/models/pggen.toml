@@ -284,6 +284,11 @@
     SELECT text_field_not_null FROM type_rainbow WHERE text_field_not_null = 'this isnt there' LIMIT 1
     '''
 
+[[query]]
+    name = "AddHourToInterval"
+    single_result = true
+    null_flags = "-"
+    body = "SELECT INTERVAL '1h' + $1"
 
 #
 # Statements

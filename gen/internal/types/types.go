@@ -424,6 +424,7 @@ var defaultPgType2GoType = map[string]*Info{
 	"character varying": &stringGoTypeInfo,
 	"bpchar":            &stringGoTypeInfo,
 	"citext":            &stringGoTypeInfo,
+	"interval":          &stringGoTypeInfo,
 
 	// There is no decimal type in go, so PG money types are returned
 	// as text.
@@ -451,9 +452,6 @@ var defaultPgType2GoType = map[string]*Info{
 	// stuff into.
 	"json":  &byteArrayGoTypeInfo,
 	"jsonb": &byteArrayGoTypeInfo,
-
-	// intervals seem to be passed as int64
-	"interval": &int64GoTypeInfo,
 
 	// numeric types are returned as strings for the same reason that
 	// money types are.
