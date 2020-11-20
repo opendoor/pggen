@@ -300,3 +300,11 @@ func TestNullableArguments(t *testing.T) {
 		t.Fatal("expected nil")
 	}
 }
+
+func TestIntervalEcho(t *testing.T) {
+	res, err := pgClient.AddHourToInterval(ctx, "1h")
+	chkErr(t, err)
+	if res != "02:00:00" {
+		t.Fatalf("bad result, actual = %s", res)
+	}
+}
