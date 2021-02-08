@@ -363,10 +363,11 @@ established between different tables in postgres.
 ##### Timestamps
 
 It is very common for database objects to have some timestamps associated with them for
-tracking the life cycle of the object. By default, `pggen` won't do anything with timestamps,
-but if the `created_at_field` or `updated_at_field` keys are set, either globally or on a
-specific table in the toml file, `pggen` will generate `Update` and `Insert` methods that
-automatically keep the corresponding timestamp fields up to date.
+tracking the life cycle of the object. By default, `pggen` won't do anything with
+timestamps, but if the `created_at_field`, `updated_at_field`, or `deleted_at_field`
+keys are set, either globally or on a specific table in the toml file, `pggen`
+will generate `Update` and `Insert` methods that automatically keep the
+corresponding timestamp fields up to date.
 
 #### Relationships Between Tables
 
@@ -386,9 +387,10 @@ Postgres provides a feature called prepared functions, allowing you to register 
 in the database ahead of time and then call it from queries or other functions. `pggen` provides
 support for generating shims for prepared functions. Prepared functions don't provide all
 that much functionality over and above that provided by `pggen`s support for queries. The
-main advantage is that the argument names for the shims will be pulled from the argument names
-of the prepared function in postgres rather than being a fairly opaque `arg0`, `arg1`, ...,
-`argn`.
+main advantage is that the argument names for the shims will be pulled from the argument
+names of the prepared function in postgres rather than being a fairly opaque
+`arg0`, `arg1`, ..., `argn`. You can also generate names for your queries by making
+use of the `arg_names` configuration option on a query.
 
 ### Statements
 
@@ -414,19 +416,27 @@ MyInsertSmallEntity(ctx context.Context, arg0 int64) (sql.Result, error)
 
 ### GORM Compatibility
 
-`pggen` aims to generate models which are compatible with the `gorm` tool. We have a lot of
-code which uses `gorm` already and some people may prefer using `gorm` over the routines that
-`pggen` provides. `pggen` can still help those people by taking care of the drudge work of
-writing model structs which match up with the database table definitions.
+`pggen` aims to generate models which are compatible with the `gorm` tool. We have a lot
+of code which uses `gorm` already and some people may prefer using `gorm` over the
+routines that `pggen` provides. `pggen` can still help those people by taking care of
+the drudge work of writing model structs which match up with the database table
+definitions. pggen's GORM compatibility is focused on covering the most common
+cases that we've encountered in practice, so it may not be complete. If you encounter
+a way in which pggen-generated structs are not compatible with GORM usage, try
+using the `field_tags` configuration option on the table block to inject custom
+annotations into the generated code. Additionally, please report the incompatibility
+in the issue tracker.
 
 # Stability
 
-So long as `pggen` is an Opendoor internal project `pggen` may make breaking changes at any time
-provided that the `pggen` maintainers update all callsites within our internal codebase to use
-the new API. When/if `pggen` is publicly released, it will follow semver.
+So long as `pggen` is an Opendoor internal project `pggen` may make breaking changes
+at any time provided that the `pggen` maintainers update all callsites within our
+internal codebase to use the new API. When/if `pggen` is publicly released, it will
+follow semver.
 
-The minimum supported go language version of pggen is 1.11. `pggen` will not consider an msgv bump
-breaking for the purposes of semver, but it will only bump the msgv for a good reason (such as that
-language version reaching end of life or a very significant language feature). The msgv version will
-never accidentally change, and if a previously supported go version breaks without some indication
-that it was intentional, you should file a bug report.
+The minimum supported go language version of pggen is 1.11. `pggen` will not consider
+an msgv bump breaking for the purposes of semver, but it will only bump the msgv for a
+good reason (such as that language version reaching end of life or a very significant
+language feature). The msgv version will never accidentally change, and if a
+previously supported go version breaks without some indication that it was
+intentional, you should file a bug report.
