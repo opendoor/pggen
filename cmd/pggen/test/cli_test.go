@@ -19,6 +19,8 @@ import (
 // situations.
 
 type cliCase struct {
+	// The name of the test case.
+	name string
 	// A list of VAR=value environment variables to inject into the environment
 	// the command executes in.
 	extraEnv []string
@@ -48,11 +50,13 @@ type cmdCtx struct {
 var cliCases = []cliCase{
 	// help text
 	{
+		name:     "HelpText1",
 		cmd:      "{{ .Exe }} -h",
 		exitCode: 0,
 		stdoutRE: "(?s)Usage:.*Args:.*Options:",
 	},
 	{
+		name:     "HelpText2",
 		cmd:      "{{ .Exe }} --help",
 		exitCode: 0,
 		stdoutRE: "(?s)Usage:.*Args:.*Options:",
@@ -60,11 +64,13 @@ var cliCases = []cliCase{
 
 	// malformed args
 	{
+		name:     "BadArg1",
 		cmd:      "{{ .Exe }}",
 		exitCode: 1,
 		stderrRE: "(?s)Usage:.*Args:.*Options:",
 	},
 	{
+		name:     "BadArg2",
 		cmd:      "{{ .Exe }} --bad-arg {{ .Toml }}",
 		exitCode: 1,
 		stderrRE: "(?s)Usage:.*Args:.*Options:",
@@ -72,6 +78,7 @@ var cliCases = []cliCase{
 
 	// specific error messages
 	{
+		name: "NullFlagsAndReturnTypeError",
 		toml: `
 [[table]]
 name = "small_entities"
@@ -89,19 +96,9 @@ name = "small_entities"
 		stdoutRE: "generating 1 queries",
 	},
 	{
+		name: "MalformedToml",
 		toml: `
-[[stored_function]]
-    name = "returns_text"
-	return_type = "Bad"
-		`,
-		exitCode: 1,
-		stderrRE: "return_type cannot be provided.*primitive",
-		stdoutRE: "(?s)stored functions.*generating query 'ReturnsText'",
-	},
-	{
-		// malformed toml
-		toml: `
-[[stored_function]]
+[[query]]
     name "returns_text"
 	return_type = "Bad"
 		`,
@@ -109,7 +106,7 @@ name = "small_entities"
 		stderrRE: "while parsing config file",
 	},
 	{
-		// missing table
+		name: "MissingTable",
 		toml: `
 [[table]]
     name = "dne"
@@ -118,6 +115,7 @@ name = "small_entities"
 		stderrRE: "could not find table 'dne' in the database",
 	},
 	{
+		name: "UnknownConfigKey",
 		toml: `
 [[unknown_key]]
     also_unknwon = "dne"
@@ -126,6 +124,7 @@ name = "small_entities"
 		stderrRE: "WARN: unknown config file key: 'unknown_key'",
 	},
 	{
+		name: "BadTypeOverride",
 		toml: `
 [[type_override]]
 	type_name = "bogus"
@@ -135,6 +134,7 @@ name = "small_entities"
 	},
 	{
 		// ok to omit the package when the go type is a primitive
+		name: "TypeOverridePrimitive",
 		toml: `
 [[type_override]]
 	postgres_type_name = "integer"
@@ -142,6 +142,7 @@ name = "small_entities"
 		`,
 	},
 	{
+		name: "TypeOverrideNonPrimitiveNoPkg",
 		toml: `
 [[type_override]]
 	postgres_type_name = "foo_bar"
@@ -151,6 +152,7 @@ name = "small_entities"
 		stderrRE: "type override must include a package unless .*a primitive",
 	},
 	{
+		name: "TypeOverrideNoOverride",
 		toml: `
 [[type_override]]
 	postgres_type_name = "foo_bar"
@@ -159,6 +161,7 @@ name = "small_entities"
 		stderrRE: "type override must override the type or the nullable type",
 	},
 	{
+		name: "TypeOverrideMissingNullName",
 		toml: `
 [[type_override]]
 	postgres_type_name = "foo_bar"
@@ -170,64 +173,73 @@ name = "small_entities"
 	},
 	{
 		// test that we expand $ENV_VAR connection strings
-		cmd: "{{ .Exe }} -o {{ .Output }} -c $DB_URL {{ .Toml }}",
+		name: "EnvVar",
+		cmd:  "{{ .Exe }} -o {{ .Output }} -c $DB_URL {{ .Toml }}",
 		toml: `
-[[stored_function]]
-    name = "concats_text"
+[[query]]
+    name = "ConcatsText"
+	body = "SELECT $1 || $2"
 		`,
 		exitCode: 0,
 		stdoutRE: "ConcatsText",
 	},
 	{
 		// test that we try the connection strings in order
-		cmd: "{{ .Exe }} -o {{ .Output }} -c bad -c $DB_URL {{ .Toml }}",
+		name: "ConnectionOrder",
+		cmd:  "{{ .Exe }} -o {{ .Output }} -c bad -c $DB_URL {{ .Toml }}",
 		toml: `
-[[stored_function]]
-    name = "concats_text"
+[[query]]
+    name = "ConcatsText"
+	body = "SELECT $1 || $2"
 		`,
 		exitCode: 0,
 		stdoutRE: "ConcatsText",
 	},
 	{
-		cmd: "{{ .Exe }} -o {{ .Output }} -c bad -c bader -c badest {{ .Toml }}",
+		name: "AllBadConnections",
+		cmd:  "{{ .Exe }} -o {{ .Output }} -c bad -c bader -c badest {{ .Toml }}",
 		toml: `
-[[stored_function]]
+[[query]]
     name = "concats_text"
 		`,
 		exitCode: 1,
 		stderrRE: "unable to connect with any",
 	},
 	{
+		name:     "DisableVar1",
 		extraEnv: []string{"FOO=b"},
 		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO {{ .Toml }}",
 		toml: `
-[[stored_function]]
+[[query]]
     name = "concats_text"
 		`,
 		exitCode: 0,
 		stdoutRE: "doing nothing because a disable var matched",
 	},
 	{
+		name:     "DisableVar2",
 		extraEnv: []string{"FOO=b", "BLIP=baz"},
 		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO --disable-var BLIP=baz {{ .Toml }}",
 		toml: `
-[[stored_function]]
+[[query]]
     name = "concats_text"
 		`,
 		exitCode: 0,
 		stdoutRE: "doing nothing because a disable var matched",
 	},
 	{
+		name:     "DisableVar3",
 		extraEnv: []string{"FOO=b"},
 		cmd:      "{{ .Exe }} -o {{ .Output }} -d FOO -c bad {{ .Toml }}",
 		toml: `
-[[stored_function]]
+[[query]]
     name = "concats_text"
 		`,
 		exitCode: 0,
 		stdoutRE: "doing nothing because a disable var matched",
 	},
 	{
+		name: "MissingCreatedAtField",
 		toml: `
 [[table]]
     name = "timestamps_both"
@@ -237,6 +249,7 @@ name = "small_entities"
 		stderrRE: "WARN.*no.*does_not_exist.*created at",
 	},
 	{
+		name: "MissingUpdatedAtField",
 		toml: `
 [[table]]
     name = "timestamps_both"
@@ -246,25 +259,29 @@ name = "small_entities"
 		stderrRE: "WARN.*no.*does_not_exist.*updated at",
 	},
 	{
+		name:     "EnableVar1",
 		extraEnv: []string{"FOO=b"},
 		cmd:      "{{ .Exe }} -o {{ .Output }} -e FOO {{ .Toml }}",
 		toml: `
-[[stored_function]]
-    name = "returns_text"
+[[query]]
+    name = "ReturnsText"
+	body = "SELECT 'foo'::text AS t"
 		`,
 		exitCode: 0,
 		stdoutRE: "query 'ReturnsText'",
 	},
 	{
-		cmd: "{{ .Exe }} -o {{ .Output }} --enable-var UNSET=missing_value {{ .Toml }}",
+		name: "EnableVar2",
+		cmd:  "{{ .Exe }} -o {{ .Output }} --enable-var UNSET=missing_value {{ .Toml }}",
 		toml: `
-[[stored_function]]
+[[query]]
     name = "returns_text"
 		`,
 		exitCode: 0,
 		stdoutRE: "pggen: doing nothing because an enable var failed to match",
 	},
 	{
+		name: "EmptyQueryBody",
 		toml: `
 [[query]]
     name = "EmptyQueryBody"
@@ -274,6 +291,7 @@ name = "small_entities"
 		stderrRE: "generating query 'EmptyQueryBody': empty query body",
 	},
 	{
+		name: "MissingDeletedAt",
 		toml: `
 [[table]]
 	name = "small_entities"
@@ -283,6 +301,7 @@ name = "small_entities"
 		stderrRE: "WARN: table 'small_entities' has no nullable 'deleted_at' deleted at timestamp",
 	},
 	{
+		name: "UnmatchedQuote",
 		toml: `
 [[table]]
 	name = 'badschema."name'
@@ -291,6 +310,7 @@ name = "small_entities"
 		stderrRE: `parsing 'badschema."name': unmatched quote`,
 	},
 	{
+		name: "MissingComment",
 		toml: `
 require_query_comments = true
 [[query]]
@@ -301,6 +321,7 @@ require_query_comments = true
 		stderrRE: `query 'SomeQuery' is missing a comment but require_query_comments is set`,
 	},
 	{
+		name: "BadJsonColType",
 		toml: `
 [[table]]
 	name = 'small_entities'
@@ -313,6 +334,7 @@ require_query_comments = true
 		stderrRE: `cannot have a json type`,
 	},
 	{
+		name: "BadImportPath",
 		toml: `
 [[type_override]]
 	pkg = "github.com/opendoor-labs/pggen/examples/query/models" # note lack of quotes
@@ -351,10 +373,12 @@ func TestCLI(t *testing.T) {
 	chkErr(t, err)
 
 	for i := range cliCases {
-		err = runCLITest(i, exe, testDir, &cliCases[i])
-		if err != nil {
-			t.Fatalf("While running cli test case %d:\n%s\n", i, err)
-		}
+		t.Run(cliCases[i].name, func(t *testing.T) {
+			err = runCLITest(i, exe, testDir, &cliCases[i])
+			if err != nil {
+				t.Fatalf("While running cli test case %d:\n%s\n", i, err)
+			}
+		})
 	}
 }
 

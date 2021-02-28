@@ -171,11 +171,6 @@ func (g *Generator) Gen() error {
 		return err
 	}
 
-	err = g.genStoredFuncs(&body, conf.StoredFunctions)
-	if err != nil {
-		return err
-	}
-
 	err = g.genQueries(&body, conf.Queries, conf.RequireQueryComments)
 	if err != nil {
 		return err

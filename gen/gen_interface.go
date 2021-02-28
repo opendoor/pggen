@@ -40,23 +40,6 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 		genCtx.Queries = append(genCtx.Queries, meta)
 	}
 
-	// populate stored function metadata
-	genCtx.StoredFuncs = make([]meta.QueryMeta, 0, len(conf.StoredFunctions))
-	for i := range conf.StoredFunctions {
-		queryConf, args, err := g.storedFuncToQueryConf(&conf.StoredFunctions[i])
-		if err != nil {
-			return err
-		}
-
-		meta, err := g.metaResolver.QueryMeta(queryConf, false /* inferArgTypes */)
-		if err != nil {
-			return err
-		}
-		meta.Args = args
-
-		genCtx.StoredFuncs = append(genCtx.StoredFuncs, meta)
-	}
-
 	// populate the statement gen ctx
 	genCtx.Stmts = make([]meta.StmtMeta, 0, len(conf.Stmts))
 	for i := range conf.Stmts {

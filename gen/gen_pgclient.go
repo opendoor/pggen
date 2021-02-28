@@ -24,9 +24,6 @@ func (g *Generator) genPGClient(into io.Writer, conf *config.DbConfig) error {
 	for _, qc := range conf.Queries {
 		scanStructNames = append(scanStructNames, names.PgToGoName(qc.Name)+"Row")
 	}
-	for _, sf := range conf.StoredFunctions {
-		scanStructNames = append(scanStructNames, names.PgToGoName(sf.Name)+"Row")
-	}
 
 	gCtx := genCtx{ScanStructNames: scanStructNames}
 
