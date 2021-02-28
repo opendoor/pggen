@@ -8,7 +8,7 @@ import (
 	"os"
 	"sort"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/opendoor-labs/pggen/examples/id_in_set/models"
 	"github.com/opendoor-labs/pggen/middleware"
 )
@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	conn, err := sql.Open("postgres", os.Getenv("DB_URL"))
+	conn, err := sql.Open("pgx", os.Getenv("DB_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
