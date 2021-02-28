@@ -5,27 +5,43 @@
 ####################################################################################
 
 #
-# Stored Functions
+# Queries
 #
 
-[[stored_function]]
+[[query]]
     name = "returns_text"
     # null flags can be provided to assert that return values can never be null
     null_flags = "-"
+    body = "SELECT 'foo'::text AS t"
 
-[[stored_function]]
+[[query]]
     name = "concats_text"
+    body = "SELECT $1 || $2 AS t"
 
-[[stored_function]]
+[[query]]
     name = "select_matching_string"
+    body = '''
+    SELECT t.text_field
+    FROM type_rainbow t
+    WHERE t.text_field = $1
+    '''
 
-[[stored_function]]
+[[query]]
     name = "select_string_types"
+    body = '''
+    SELECT t.text_field, t.text_field_not_null,
+           t.varchar_field, t.varchar_field_not_null,
+           t.char_field, t.char_field_not_null
+    FROM type_rainbow t
+    '''
 
-[[stored_function]]
+[[query]]
     name = "select_money"
+    body = '''
+    SELECT money_field, money_field_not_null from type_rainbow;
+    '''
 
-[[stored_function]]
+[[query]]
     name = "select_time"
     # nullability of fields can be specified in a longer form way if
     # the terse null flags syntax gets to confusing for a wide query.
@@ -36,35 +52,77 @@
         "time_field_not_null",
         "timez_field_not_null",
     ]
+    body = '''
+    SELECT
+        ts_field,
+        ts_field_not_null,
+        tsz_field,
+        tsz_field_not_null,
+        date_field,
+        date_field_not_null,
+        time_field,
+        time_field_not_null,
+        timez_field,
+        timez_field_not_null
+    FROM type_rainbow
+    '''
 
-[[stored_function]]
+[[query]]
     name = "select_bool"
+    body = "SELECT bool_field, bool_field_not_null FROM type_rainbow"
 
-[[stored_function]]
+[[query]]
     name = "select_enum"
+    body = "SELECT enum_field, enum_field_not_null FROM type_rainbow"
 
-[[stored_function]]
+[[query]]
     name = "select_uuid"
     # multiple null flags can be provided
     null_flags = "n-"
+    body = "SELECT uuid_field, uuid_field_not_null FROM type_rainbow"
 
-[[stored_function]]
+[[query]]
     name = "select_numbers"
+    body = '''
+    SELECT
+        smallint_field,
+        smallint_field_not_null,
+        integer_field,
+        integer_field_not_null,
+        bigint_field,
+        bigint_field_not_null,
+        decimal_field,
+        decimal_field_not_null,
+        numeric_field,
+        numeric_field_not_null,
+        numeric_prec_field,
+        numeric_prec_field_not_null,
+        numeric_prec_scale_field,
+        numeric_prec_scale_field_not_null,
+        real_field,
+        real_field_not_null,
+        double_field,
+        double_field_not_null,
+        serial_field,
+        serial_field_not_null,
+        big_serial_field,
+        big_serial_field_not_null
+    FROM type_rainbow
+    '''
 
-[[stored_function]]
+[[query]]
     name = "select_blobs"
+    body = "SELECT bytea_field, bytea_field_not_null FROM type_rainbow"
 
-[[stored_function]]
+[[query]]
     name = "get_small_entity_1"
     return_type = "SmallEntity"
+    body = "SELECT * FROM small_entities"
 
-[[stored_function]]
+[[query]]
     name = "get_small_entity_2"
     return_type = "SmallEntity"
-
-#
-# Queries
-#
+    body = "SELECT * FROM small_entities"
 
 [[query]]
     name = "NonNullText"
@@ -494,8 +552,6 @@
 # stuff for the basic smoke test
 [[table]]
     name = "otherschema.foos"
-[[stored_function]]
-    name = "otherschema.my_get_foos_value"
 [[statement]]
     name = "ClobberAllOtherschemaFooValues"
     body = "UPDATE otherschema.foos SET value = ''"

@@ -160,10 +160,12 @@ func generateCode(exampleName string) error {
 	}
 
 	// actually generate the code
+	var errCollector strings.Builder
 	genCmd := exec.Command("go", "generate", "./"+exampleName+"/...")
+	genCmd.Stderr = &errCollector
 	err = genCmd.Run()
 	if err != nil {
-		return fmt.Errorf("generating code: %s", err.Error())
+		return fmt.Errorf("generating code: %s: %s", err.Error(), errCollector.String())
 	}
 
 	// diff the generated files against the expected generated code

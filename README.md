@@ -381,17 +381,6 @@ rather than a slice member. In the event that these defaults do not match up per
 with your data model `pggen` provides configuration options to explicitly control the
 creation of 1-1 and 1-many relationships.
 
-### [Prepared Functions](https://www.postgresql.org/docs/current/sql-createfunction.html)
-
-Postgres provides a feature called prepared functions, allowing you to register a function
-in the database ahead of time and then call it from queries or other functions. `pggen` provides
-support for generating shims for prepared functions. Prepared functions don't provide all
-that much functionality over and above that provided by `pggen`s support for queries. The
-main advantage is that the argument names for the shims will be pulled from the argument
-names of the prepared function in postgres rather than being a fairly opaque
-`arg0`, `arg1`, ..., `argn`. You can also generate names for your queries by making
-use of the `arg_names` configuration option on a query.
-
 ### Statements
 
 Sometimes you want to execute SQL commands for side effects rather than for a set of

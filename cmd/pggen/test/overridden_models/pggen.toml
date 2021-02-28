@@ -12,9 +12,10 @@
     type_name = "time.Time"
     nullable_type_name = "*time.Time"
 
-[[stored_function]]
-    name = "select_uuid"
+[[query]]
+    name = "SelectUuid"
     null_flags = "n-"
+    body = "SELECT uuid_field, uuid_field_not_null FROM type_rainbow"
 
 [[query]]
     name = "GetTimes"
