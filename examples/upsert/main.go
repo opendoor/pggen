@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/examples/upsert/models"
 )
