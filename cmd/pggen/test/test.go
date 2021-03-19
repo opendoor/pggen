@@ -34,7 +34,7 @@ func init() {
 
 	dbDriver, inEnv := os.LookupEnv("DB_DRIVER")
 	if !inEnv || dbDriver == "" {
-		dbDriver = "postgres" // default to using lib/pq
+		dbDriver = "pgx" // default to using jackc/pgx/v4/stdlib
 	}
 
 	db, err := sql.Open(dbDriver, dbURL)

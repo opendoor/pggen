@@ -184,7 +184,7 @@ func (p *pgClientImpl) listUser(
 		return []User{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM users WHERE "id" = ANY($1)`,
 		pq.Array(ids),
@@ -362,7 +362,7 @@ func (p *pgClientImpl) bulkInsertUser(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -716,7 +716,7 @@ func (p *pgClientImpl) bulkUpsertUser(
 		}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}

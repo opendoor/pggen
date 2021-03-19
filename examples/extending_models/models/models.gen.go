@@ -182,7 +182,7 @@ func (p *pgClientImpl) listDog(
 		return []Dog{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM dogs WHERE "id" = ANY($1)`,
 		pq.Array(ids),
@@ -357,7 +357,7 @@ func (p *pgClientImpl) bulkInsertDog(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -699,7 +699,7 @@ func (p *pgClientImpl) bulkUpsertDog(
 		}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}

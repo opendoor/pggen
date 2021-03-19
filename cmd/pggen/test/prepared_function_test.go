@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"testing"
 
-	_ "github.com/lib/pq"
-
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )
 
