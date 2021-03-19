@@ -230,7 +230,7 @@ func (mc *Resolver) argsOfStmt(body string, argNamesSpec string) ([]Arg, error) 
 		FROM pg_prepared_statements
 		WHERE statement = $1`, body).Scan(&types)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting parameter types: %s", err.Error())
 	}
 
 	argNames, err := argNamesToSlice(argNamesSpec, len(types.pgTypes))
@@ -242,7 +242,7 @@ func (mc *Resolver) argsOfStmt(body string, argNamesSpec string) ([]Arg, error) 
 		name := argNames[i]
 		typeInfo, err := mc.typeResolver.TypeInfoOf(t)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("resolving type info: %s", err.Error())
 		}
 		args = append(args, Arg{
 			Idx:      i + 1,
@@ -261,25 +261,26 @@ type RegTypeArray struct {
 
 // Scan implements the `sql.Scanner` interface
 func (r *RegTypeArray) Scan(src interface{}) error {
-	buff, ok := src.([]byte)
+	// buff, ok := src.([]byte)
+	regArrayString, ok := src.(string)
 	if !ok {
-		return fmt.Errorf("[]regtype Scan: expected a []byte")
+		return fmt.Errorf("[]regtype Scan: expected a string")
 	}
 
-	if buff[0] != '{' || buff[len(buff)-1] != '}' {
-		return fmt.Errorf("[]regtype Scan: malformed data '%s'", string(buff))
+	if regArrayString[0] != '{' || regArrayString[len(regArrayString)-1] != '}' {
+		return fmt.Errorf("[]regtype Scan: malformed data '%s'", regArrayString)
 	}
-	buff = buff[1 : len(buff)-1]
+	regArrayString = regArrayString[1 : len(regArrayString)-1]
 
-	if len(buff) == 0 {
+	if len(regArrayString) == 0 {
 		r.pgTypes = []string{}
 		return nil
 	}
 
-	for len(buff) > 0 {
+	for len(regArrayString) > 0 {
 		var ty string
 		var err error
-		ty, buff, err = splitType(buff)
+		ty, regArrayString, err = splitType(regArrayString)
 		if err != nil {
 			return err
 		}
@@ -291,7 +292,7 @@ func (r *RegTypeArray) Scan(src interface{}) error {
 
 // given a comma separated list of possibly quoted values,
 // splitType takes the first one off the `types` slice.
-func splitType(types []byte) (ty string, rest []byte, err error) {
+func splitType(types string) (ty string, rest string, err error) {
 	switch types[0] {
 	case '"':
 		for i := 1; i < len(types); i++ {
@@ -312,7 +313,7 @@ func splitType(types []byte) (ty string, rest []byte, err error) {
 				} else {
 					// s[len(s):] is an error rather than returning the
 					// empty slice, which is why we need this special case.
-					rest = []byte{}
+					rest = ""
 				}
 
 				return
@@ -337,7 +338,7 @@ func splitType(types []byte) (ty string, rest []byte, err error) {
 
 	// the last (non-quoted) type
 	ty = string(types)
-	rest = []byte{}
+	rest = ""
 	return
 }
 

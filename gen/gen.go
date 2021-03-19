@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 
 	"github.com/opendoor-labs/pggen/gen/internal/config"
 	"github.com/opendoor-labs/pggen/gen/internal/log"
@@ -83,7 +83,7 @@ func FromConfig(config Config) (*Generator, error) {
 			connStr = os.Getenv(connStr[1:])
 		}
 
-		db, err = sql.Open("postgres", connStr)
+		db, err = sql.Open("pgx", connStr)
 		if err != nil {
 			db = nil
 			continue
