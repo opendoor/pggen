@@ -58,28 +58,30 @@ func TestSplitType(t *testing.T) {
 	}
 
 	for i, v := range testVecs {
-		inputBytes := []byte(v.input)
+		t.Run(v.input, func(t *testing.T) {
+			t.Parallel()
 
-		var actual RegTypeArray
-		err := actual.Scan(inputBytes)
-		if err != nil &&
-			(!strings.Contains(err.Error(), v.expectedErr) ||
-				len(v.expectedErr) == 0) {
-			t.Errorf(
-				"\n(case %d) Error: %s\n       Expected Error: %s\n",
-				i,
-				err.Error(),
-				v.expectedErr,
-			)
-		}
+			var actual RegTypeArray
+			err := actual.Scan(v.input)
+			if err != nil &&
+				(!strings.Contains(err.Error(), v.expectedErr) ||
+					len(v.expectedErr) == 0) {
+				t.Errorf(
+					"\n(case %d) Error: %s\n       Expected Error: %s\n",
+					i,
+					err.Error(),
+					v.expectedErr,
+				)
+			}
 
-		if !reflect.DeepEqual(actual.pgTypes, v.expected) {
-			t.Errorf(
-				"\n(case %d) Actual: %#v\n       Expected: %#v\n",
-				i,
-				actual.pgTypes,
-				v.expected,
-			)
-		}
+			if !reflect.DeepEqual(actual.pgTypes, v.expected) {
+				t.Errorf(
+					"\n(case %d) Actual: %#v\n       Expected: %#v\n",
+					i,
+					actual.pgTypes,
+					v.expected,
+				)
+			}
+		})
 	}
 }
