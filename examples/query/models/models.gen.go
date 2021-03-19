@@ -185,7 +185,7 @@ func (p *pgClientImpl) listUser(
 		return []User{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM users WHERE "id" = ANY($1)`,
 		pq.Array(ids),
@@ -357,7 +357,7 @@ func (p *pgClientImpl) bulkInsertUser(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -687,7 +687,7 @@ func (p *pgClientImpl) bulkUpsertUser(
 		}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -989,7 +989,7 @@ func (p *pgClientImpl) GetUserNicknameAndEmailQuery(
 	ctx context.Context,
 	arg1 int64,
 ) (*sql.Rows, error) {
-	return p.db.QueryContext(
+	return p.queryContext(
 		ctx,
 		`SELECT nickname, email FROM users WHERE id = $1`,
 		arg1,
@@ -1107,7 +1107,7 @@ func (p *pgClientImpl) MyGetUserQuery(
 	ctx context.Context,
 	arg1 int64,
 ) (*sql.Rows, error) {
-	return p.db.QueryContext(
+	return p.queryContext(
 		ctx,
 		`SELECT * FROM users WHERE id = $1`,
 		arg1,

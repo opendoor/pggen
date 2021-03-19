@@ -2,7 +2,6 @@ package test
 
 import (
 	"database/sql"
-	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -1120,12 +1119,6 @@ func TestNotFoundList(t *testing.T) {
 }
 
 func TestDroppingColumnOnTheFly(t *testing.T) {
-	if os.Getenv("DB_DRIVER") == "pgx" {
-		// disable this test for jackc/pgx
-		// TODO: re-enable once https://github.com/jackc/pgx/issues/841 is resolved
-		return
-	}
-
 	// make sure we always start in a consistant state
 	_, err := pgClient.Handle().ExecContext(ctx, `
 		DROP TABLE drop_cols;

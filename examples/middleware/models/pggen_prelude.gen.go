@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/jackc/pgconn"
 	uuid "github.com/satori/go.uuid"
 	"strings"
 	"sync"
@@ -198,6 +199,31 @@ func (p *PGClient) fillColPosTab(
 	return nil
 }
 
+func (p *pgClientImpl) queryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	rows, err := p.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		if isInvalidCachedPlanError(err) {
+			// pgx will have flushed its cache as it bubbled this error up, so
+			// let's retry the query once
+			return p.db.QueryContext(ctx, query, args...)
+		}
+
+		return rows, err
+	}
+	return rows, err
+}
+
+func isInvalidCachedPlanError(err error) bool {
+	pgxErr, isPgxErr := err.(*pgconn.PgError)
+	if !isPgxErr {
+		return false
+	}
+
+	return pgxErr.Code == "0A000" &&
+		pgxErr.Severity == "ERROR" &&
+		pgxErr.Message == "cached plan must not change result type"
+}
+
 func convertNullString(s sql.NullString) *string {
 	if s.Valid {
 		return &s.String
@@ -212,7 +238,7 @@ func convertNullBool(b sql.NullBool) *bool {
 	return nil
 }
 
-// a type that will accept SQL result and just throw it away
+// a type that will accept an SQL result and just throw it away
 type pggenSinkScanner struct{}
 
 func (s *pggenSinkScanner) Scan(value interface{}) error {

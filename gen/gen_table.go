@@ -152,7 +152,7 @@ func (p *pgClientImpl) list{{ .GoName }}(
 		return []{{ .GoName }}{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		` + "`" + `SELECT * FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)
 		{{- if .Meta.HasDeletedAtField }} AND "{{ .Meta.PgDeletedAtField }}" IS NULL {{ end }}` + "`" + `,
@@ -371,7 +371,7 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -762,7 +762,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		{{- end }}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1073,7 +1073,7 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 		childIDToRecord = map[{{ .PointsFrom.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.Info.GoName }}{}
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		` + "`" +
 	`SELECT * FROM {{ .PointsFrom.Info.PgName }}
@@ -1200,7 +1200,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 
 	// fetch any outstanding parent records
 	if len(ids) > 0 {
-		rows, err := p.db.QueryContext(
+		rows, err := p.queryContext(
 			ctx,
 		` + "`" +
 	`SELECT * FROM {{ .PointsTo.Info.PgName }}

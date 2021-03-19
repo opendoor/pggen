@@ -185,7 +185,7 @@ func (p *pgClientImpl) listGrandparent(
 		return []Grandparent{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM grandparents WHERE "id" = ANY($1)`,
 		pq.Array(ids),
@@ -357,7 +357,7 @@ func (p *pgClientImpl) bulkInsertGrandparent(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -687,7 +687,7 @@ func (p *pgClientImpl) bulkUpsertGrandparent(
 		}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -949,7 +949,7 @@ func (p *pgClientImpl) privateGrandparentFillParents(
 		childIDToRecord = map[int64]*Parent{}
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM parents
 		 WHERE "grandparent_id" = ANY($1)
@@ -1047,7 +1047,7 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 
 	// fetch any outstanding parent records
 	if len(ids) > 0 {
-		rows, err := p.db.QueryContext(
+		rows, err := p.queryContext(
 			ctx,
 			`SELECT * FROM children
 			WHERE id = ANY($1)`,
@@ -1145,7 +1145,7 @@ func (p *pgClientImpl) listParent(
 		return []Parent{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM parents WHERE "id" = ANY($1)`,
 		pq.Array(ids),
@@ -1317,7 +1317,7 @@ func (p *pgClientImpl) bulkInsertParent(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1647,7 +1647,7 @@ func (p *pgClientImpl) bulkUpsertParent(
 		}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1909,7 +1909,7 @@ func (p *pgClientImpl) privateParentFillChildren(
 		childIDToRecord = map[int64]*Child{}
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM children
 		 WHERE "parent_id" = ANY($1)
@@ -2001,7 +2001,7 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 
 	// fetch any outstanding parent records
 	if len(ids) > 0 {
-		rows, err := p.db.QueryContext(
+		rows, err := p.queryContext(
 			ctx,
 			`SELECT * FROM grandparents
 			WHERE id = ANY($1)`,
@@ -2099,7 +2099,7 @@ func (p *pgClientImpl) listChild(
 		return []Child{}, nil
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM children WHERE "id" = ANY($1)`,
 		pq.Array(ids),
@@ -2271,7 +2271,7 @@ func (p *pgClientImpl) bulkInsertChild(
 		defaultFields,
 	)
 
-	rows, err := p.db.QueryContext(ctx, bulkInsertQuery, args...)
+	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -2601,7 +2601,7 @@ func (p *pgClientImpl) bulkUpsertChild(
 		}
 	}
 
-	rows, err := p.db.QueryContext(ctx, stmt.String(), args...)
+	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -2866,7 +2866,7 @@ func (p *pgClientImpl) privateChildFillDarlingGrandparents(
 		childIDToRecord = map[int64]*Grandparent{}
 	}
 
-	rows, err := p.db.QueryContext(
+	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM grandparents
 		 WHERE "favorite_grandkid_id" = ANY($1)
@@ -2959,7 +2959,7 @@ func (p *pgClientImpl) privateChildFillParentParent(
 
 	// fetch any outstanding parent records
 	if len(ids) > 0 {
-		rows, err := p.db.QueryContext(
+		rows, err := p.queryContext(
 			ctx,
 			`SELECT * FROM parents
 			WHERE id = ANY($1)`,

@@ -37,10 +37,10 @@ if [[ -n "${LINT+x}" ]] ; then
 elif go version | grep '1.13' 2>&1 >/dev/null ; then
     # for some reason the race detector acts weird with go 1.13
     go test -p 1 ./...
-    DB_DRIVER=pgx go test -p 1 ./cmd/pggen/test # re-run using jackc/pgx as the driver
+    DB_DRIVER=postgres go test -p 1 ./cmd/pggen/test # re-run using lib/pq as the driver
 else
     # We have to serialize the tests because the example tests will re-write the database
     # schema dynamically. We could fix this by creating a dedicated database for the example tests.
     go test -race -p 1 ./...
-    DB_DRIVER=pgx go test -race -p 1 ./cmd/pggen/test # re-run using jackc/pgx as the driver
+    DB_DRIVER=postgres go test -race -p 1 ./cmd/pggen/test # re-run using lib/pq as the driver
 fi

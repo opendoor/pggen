@@ -205,7 +205,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	// method though.
 	var rows *sql.Rows
 	{{- /* We can't call out to *Query method because this is in the SingleResult block. */}}
-	rows, err = p.db.QueryContext(
+	rows, err = p.queryContext(
 		ctx,
 		` + "`" +
 	`{{ .ConfigData.Body }}` +
@@ -440,7 +440,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}Query(
 	{{- end }}
 	{{- end }}
 ) (*sql.Rows, error) {
-	return p.db.QueryContext(
+	return p.queryContext(
 		ctx,
 		` + "`" +
 	`{{ .ConfigData.Body }}` +
