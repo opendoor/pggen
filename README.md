@@ -121,23 +121,28 @@ the key to processing the result types of multiple queries with the
 same code. In the above example, this would allow you to override
 the name of `GetIdAndCreatedRow`.
 
-#### Null Flags
+#### Not Null Fields
 
 Postgres does not perform inference about the nullability of the fields
 returned via a query, so by default `pggen` will generate boxed fields
 for the return struct. If you know for sure that certain query result
-fields cannot ever be null, you may use the `null_flags`
+fields cannot ever be null, you may use the `not_null_fields`
 configuration option to tell `pggen` not to box the fields in question.
-Be sure to apply this flag consistently when dealing with columns that appear
-in multiple `pggen` queries, as both the field names and their nullability
-values must match up in order for the generated type to be reused.
+If you are re-using a return type between queries, be sure to apply this
+flag consistently when dealing with columns that appear in multiple `pggen`
+queries, as both the field names and their nullability values must match up
+in order for the generated type to be reused.
 
-The value of the null flags configuration option, if it is provided, should
-be a string that is exactly as long as the number of fields that the query
-returns. For each field in the return type, the character at the corresponding
-position in the null flags string indicates the nullability of the field, with
-'-' meaning that the field is NOT NULL and 'n' indicating that the field is
-nullable.
+Instead of providing a list of `NOT NULL` fields, you can also provide a more
+compact specification of the nullability of the result rows with the `null_flags`
+configuration option. In general it is better to use the `not_null_fields`
+configuration option, as it is more explicit, but `null_flags` can be more
+useful when a return column does not have a clear name. The value of the null
+flags configuration option, if it is provided, should be a string that is exactly
+as long as the number of fields that the query returns. For each field in the return
+type, the character at the corresponding position in the null flags string
+indicates the nullability of the field, with '-' meaning that the field is
+NOT NULL and 'n' indicating that the field is nullable.
 
 When returning a type generated from a table, you do not need to set the
 null flags, as `pggen` will automatically infer the nullness of the fields
@@ -155,7 +160,7 @@ in the above example, you could modify your toml entry to read
     WHERE ID = $1
     ORDER BY created_at
     '''
-    null_flags = "--"
+    not_null_fields = ["id", "created_at"]
 ```
 
 or equivalently
@@ -169,7 +174,7 @@ or equivalently
     WHERE ID = $1
     ORDER BY created_at
     '''
-    not_null_fields = ["id", "created_at"]
+    null_flags = "--"
 ```
 
 which would cause the result type
