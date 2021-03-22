@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	_ "github.com/lib/pq" // load postgres driver
+	_ "github.com/jackc/pgx/v4/stdlib" // load postgres driver
 )
 
 // PopulateDB runs `schemaFilePath` against `$DB_URL`
@@ -29,7 +29,7 @@ func PopulateDB(schemaFilePath string) error {
 	if !inEnv {
 		return fmt.Errorf("populateDB: DB_URL must be present in the environment")
 	}
-	db, err := sql.Open("postgres", dbURL)
+	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		return fmt.Errorf("populateDB: opening connection to database: %s", err.Error())
 	}

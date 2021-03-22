@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
+	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
@@ -188,7 +188,7 @@ func (p *pgClientImpl) listGrandparent(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM grandparents WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -765,7 +765,7 @@ func (p *pgClientImpl) bulkDeleteGrandparent(
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM grandparents WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -954,7 +954,7 @@ func (p *pgClientImpl) privateGrandparentFillParents(
 		`SELECT * FROM parents
 		 WHERE "grandparent_id" = ANY($1)
 		 `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -1051,7 +1051,7 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 			ctx,
 			`SELECT * FROM children
 			WHERE id = ANY($1)`,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 		if err != nil {
 			return err
@@ -1148,7 +1148,7 @@ func (p *pgClientImpl) listParent(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM parents WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -1725,7 +1725,7 @@ func (p *pgClientImpl) bulkDeleteParent(
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM parents WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -1914,7 +1914,7 @@ func (p *pgClientImpl) privateParentFillChildren(
 		`SELECT * FROM children
 		 WHERE "parent_id" = ANY($1)
 		 `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -2005,7 +2005,7 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 			ctx,
 			`SELECT * FROM grandparents
 			WHERE id = ANY($1)`,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 		if err != nil {
 			return err
@@ -2102,7 +2102,7 @@ func (p *pgClientImpl) listChild(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM children WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -2679,7 +2679,7 @@ func (p *pgClientImpl) bulkDeleteChild(
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM children WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -2871,7 +2871,7 @@ func (p *pgClientImpl) privateChildFillDarlingGrandparents(
 		`SELECT * FROM grandparents
 		 WHERE "favorite_grandkid_id" = ANY($1)
 		 `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -2963,7 +2963,7 @@ func (p *pgClientImpl) privateChildFillParentParent(
 			ctx,
 			`SELECT * FROM parents
 			WHERE id = ANY($1)`,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 		if err != nil {
 			return err

@@ -22,7 +22,7 @@ func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error
 	g.imports[`"fmt"`] = true
 	g.imports[`"strings"`] = true
 	g.imports[`"sync"`] = true
-	g.imports[`"github.com/lib/pq"`] = true
+	g.imports[`"github.com/ethanpailes/pgtypes"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen/include"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
 	g.imports[`"github.com/opendoor-labs/pggen"`] = true
@@ -156,7 +156,7 @@ func (p *pgClientImpl) list{{ .GoName }}(
 		ctx,
 		` + "`" + `SELECT * FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)
 		{{- if .Meta.HasDeletedAtField }} AND "{{ .Meta.PgDeletedAtField }}" IS NULL {{ end }}` + "`" + `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -852,21 +852,21 @@ func (p *pgClientImpl) bulkDelete{{ .GoName }}(
 		res, err = p.db.ExecContext(
 			ctx,
 			` + "`" + `DELETE FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)` + "`" + `,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 	} else {
 		res, err = p.db.ExecContext(
 			ctx,
 			` + "`" + `UPDATE {{ .PgName }} SET "{{ .Meta.PgDeletedAtField }}" = $1 WHERE "{{ .PkeyCol.PgName }}" = ANY($2)` + "`" + `,
 			now,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 	}
 	{{- else }}
 	res, err := p.db.ExecContext(
 		ctx,
 		` + "`" + `DELETE FROM {{ .PgName }} WHERE "{{ .PkeyCol.PgName }}" = ANY($1)` + "`" + `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	{{- end }}
 	if err != nil {
@@ -1081,7 +1081,7 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 		 {{- if .PointsFrom.HasDeletedAtField }} AND "{{ .PointsFrom.PgDeletedAtField }}" IS NULL {{- end }}
 		 ` +
 	"`" + `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
@@ -1207,7 +1207,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 			WHERE {{ .PointsToField.PgName }} = ANY($1)
 		 {{- if .PointsTo.HasDeletedAtField }} AND "{{ .PointsTo.PgDeletedAtField }}" IS NULL {{- end -}}
 		 ` + "`" + `,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 		if err != nil {
 			return err

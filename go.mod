@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/BurntSushi/toml v0.3.1
+	github.com/ethanpailes/pgtypes v0.0.0-20210319175856-9f6ab13c3655
 	github.com/google/uuid v1.1.1
 	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgproto3/v2 v2.0.7 // indirect

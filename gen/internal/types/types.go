@@ -255,11 +255,11 @@ func refWrap(variable string) string {
 }
 
 func arrayWrap(variable string) string {
-	return fmt.Sprintf("pq.Array(%s)", variable)
+	return fmt.Sprintf("pgtypes.Array(%s)", variable)
 }
 
 func arrayRefWrap(variable string) string {
-	return fmt.Sprintf("pq.Array(&(%s))", variable)
+	return fmt.Sprintf("pgtypes.Array(&(%s))", variable)
 }
 
 func convertCall(fun string) func(string) string {

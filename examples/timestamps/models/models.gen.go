@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
+	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
@@ -187,7 +187,7 @@ func (p *pgClientImpl) listUser(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM users WHERE "id" = ANY($1) AND "deleted_at" IS NULL `,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -823,14 +823,14 @@ func (p *pgClientImpl) bulkDeleteUser(
 		res, err = p.db.ExecContext(
 			ctx,
 			`DELETE FROM users WHERE "id" = ANY($1)`,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 	} else {
 		res, err = p.db.ExecContext(
 			ctx,
 			`UPDATE users SET "deleted_at" = $1 WHERE "id" = ANY($2)`,
 			now,
-			pq.Array(ids),
+			pgtypes.Array(ids),
 		)
 	}
 	if err != nil {

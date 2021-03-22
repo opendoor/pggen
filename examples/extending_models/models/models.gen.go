@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/lib/pq"
+	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
@@ -185,7 +185,7 @@ func (p *pgClientImpl) listDog(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM dogs WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -777,7 +777,7 @@ func (p *pgClientImpl) bulkDeleteDog(
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM dogs WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err

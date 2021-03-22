@@ -15,7 +15,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	conn, err := sql.Open("postgres", os.Getenv("DB_URL"))
+	conn, err := sql.Open("pgx", os.Getenv("DB_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}

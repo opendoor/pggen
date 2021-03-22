@@ -96,17 +96,14 @@ so that we can share the source between the host and the container during local 
 
 ## Testing Non-Default Drivers
 
-`pggen` supports using both `github.com/lib/pq` and `github.com/jackc/pgx/stdlib` as
-database drivers. For the moment `lib/pq` is recommended because `jackc/pgx` contains
-a [nasty bug](https://github.com/jackc/pgx/issues/841) that prevents our test suite
-from passing fully. Going forward we do want to switch to recommending `jackc/pgx`,
-as it is more actively maintained than `lib/pq`.
+`pggen` supports using both `github.com/lib/pq` and `github.com/jackc/pgx/v4/stdlib` as
+database drivers. `jackc/pgx` is recommended because `lib/pq` is unmaintained.
 
-The example tests all use the recommended driver (`lib/pq`) for testing to keep the example code
+The example tests all use the recommended driver (`jackc/pgx`) for testing to keep the example code
 simple. The main test suite `cmd/pggen/test` is parameterized over the driver though. It
 allows you to you set the driver name via the `DB_DRIVER` environment variable. You can
 either set this variable to `postgres` (to use `lib/pq`) or `pgx` (to use
-`github.com/jackc/pgx/stdlib`).
+`github.com/jackc/pgx/v4/stdlib`).
 
 The `tools/test.bash` script runs the test suite both ways.
 
