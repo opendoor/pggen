@@ -1,0 +1,16 @@
+[[type_override]]
+    postgres_type_name = "uuid"
+    pkg = "\"github.com/gofrs/uuid\""
+    type_name = "uuid.UUID"
+    nullable_type_name = "uuid.NullUUID"
+    nullable_to_boxed = '''
+        func(u uuid.NullUUID) *uuid.UUID {
+            if u.Valid {
+                return &u.UUID
+            }
+            return nil
+        }({{ .Value }})
+    '''
+
+[[table]]
+    name = "users"

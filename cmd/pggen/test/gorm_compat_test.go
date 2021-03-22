@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
 )

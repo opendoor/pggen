@@ -102,7 +102,13 @@ types and `json` or `jsonb` types in postgres.
 
 ### [Example: nullable_query_arguments](nullable_query_arguments)
 
-This example show how to ask pggen to generate code which allows nils to be passed into
+This example shows how to ask pggen to generate code which allows nils to be passed into
 queries. By default, you can only pass concrete types like `string` and `int` into a
 pggen query.
 
+### [Example: uuid](uuid)
+
+This example shows how to work postgres's `uuid` type using the `github.com/gofrs/uuid`
+library. There is no uuid type in the go standard library, so you must use a third party
+type. `pggen` does not want to force a hard dependency on any particular uuid library, so
+you must explicitly configure a type override in order to work with uuids.
