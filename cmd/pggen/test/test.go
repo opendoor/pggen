@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	_ "github.com/jackc/pgx/v4/stdlib" // load driver
+	_ "github.com/lib/pq"              // load driver (we still test against lib/pq)
 	"log"
 	"os"
 	"os/exec"

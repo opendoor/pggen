@@ -8,7 +8,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"github.com/lib/pq"
+	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/examples/json_columns/config"
 	"github.com/opendoor-labs/pggen/include"
@@ -187,7 +187,7 @@ func (p *pgClientImpl) listUser(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM users WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -794,7 +794,7 @@ func (p *pgClientImpl) bulkDeleteUser(
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM users WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err

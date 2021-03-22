@@ -7,8 +7,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/ethanpailes/pgtypes"
 	"github.com/jinzhu/inflection"
-	"github.com/lib/pq"
 
 	"github.com/opendoor-labs/pggen/gen/internal/config"
 	"github.com/opendoor-labs/pggen/gen/internal/log"
@@ -835,8 +835,8 @@ func (tr *tableResolver) fillTableReferences(meta *PgTableInfo) error {
 		)
 
 		err = rows.Scan(
-			&pgPointsToSchema, &pgPointsToTable, pq.Array(&pointsToIdxs),
-			&pgPointsFromSchema, &pgPointsFromTable, pq.Array(&pointsFromIdxs),
+			&pgPointsToSchema, &pgPointsToTable, pgtypes.Array(&pointsToIdxs),
+			&pgPointsFromSchema, &pgPointsFromTable, pgtypes.Array(&pointsFromIdxs),
 		)
 		if err != nil {
 			return err

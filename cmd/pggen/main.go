@@ -6,8 +6,6 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/lib/pq"
-
 	"github.com/opendoor-labs/pggen/gen"
 )
 

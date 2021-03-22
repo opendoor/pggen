@@ -103,7 +103,7 @@ func stringizeArrayWrap(variable string) string {
 			for _, e := range %s {
 				ret = append(ret, e.String())
 			}
-			return pq.Array(ret)
+			return pgtypes.Array(ret)
 		}()`, variable, variable)
 }
 

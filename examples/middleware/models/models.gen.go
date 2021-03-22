@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
+	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/include"
 	"github.com/opendoor-labs/pggen/unstable"
@@ -184,7 +184,7 @@ func (p *pgClientImpl) listFoo(
 	rows, err := p.queryContext(
 		ctx,
 		`SELECT * FROM foos WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -746,7 +746,7 @@ func (p *pgClientImpl) bulkDeleteFoo(
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM foos WHERE "id" = ANY($1)`,
-		pq.Array(ids),
+		pgtypes.Array(ids),
 	)
 	if err != nil {
 		return err
