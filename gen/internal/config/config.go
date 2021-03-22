@@ -179,6 +179,27 @@ type TypeOverride struct {
 	NullPkg string `toml:"nullable_pkg"`
 	// The name of a go type which might be null (often Null<TypeName>)
 	NullableTypeName string `toml:"nullable_type_name"`
+	// This should contain a golang template that expands to a go expressions of type
+	// `type_name`. The template can expect a context which includes key `.Value` which
+	// will be an expression which evaluates to a value of type `nullable_type_name`.
+	// It `pkg` and `nullable_pkg` will have been imported, so you can use them in the
+	// expression if needed.
+	//
+	// For example, the nullable_to_boxed template for the binding the UUID type from the
+	// github.com/gofrs/uuid package to postgres' `uuid` type might look like:
+	//
+	// ```
+	// func(u uuid.NullUUID) *uuid.UUID {
+	// 	if u.Valid {
+	// 		return &u.UUID
+	// 	}
+	// 	return nil
+	// }({{ .Value }})
+	// ```
+	//
+	// If no template expression is provided, `.Value` will be assumed to be directly
+	// assignable to a boxed version of `type_name`.
+	NullableToBoxed string `toml:"nullable_to_boxed"`
 }
 
 // Give a user provided configuration, runs some santity checks on the provided values

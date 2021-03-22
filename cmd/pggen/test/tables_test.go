@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
@@ -247,7 +245,7 @@ func TestFillAll(t *testing.T) {
 		t.Fatalf("len attachments = %d, expected 2", len(e.Attachments))
 	}
 	for _, a := range e.Attachments {
-		if !(uuid.Equal(a.Id, attachmentID1) || uuid.Equal(a.Id, attachmentID2)) {
+		if !((a.Id.String() == attachmentID1.String()) || (a.Id.String() == attachmentID2.String())) {
 			t.Fatalf(
 				"a.Id = %s, expected %s or %s",
 				a.Id.String(),

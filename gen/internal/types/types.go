@@ -166,15 +166,29 @@ func (r *Resolver) initTypeTable(overrides []config.TypeOverride) (err error) {
 			r.registerImport(override.NullPkg)
 		}
 
+		convertFunc := identityConvert
+		if override.NullableToBoxed != "" {
+			tmpl, err := template.New("nullable_to_boxed_" + override.TypeName).
+				Parse(override.NullableToBoxed)
+			if err != nil {
+				return fmt.Errorf(
+					"bad 'nullable_to_boxed' template for '%s': %s",
+					override.TypeName,
+					err.Error(),
+				)
+			}
+			convertFunc = convertUserTmpl(tmpl)
+		}
+
 		info, inMap := r.pgType2GoType[override.PgTypeName]
 		if inMap {
 			if len(override.TypeName) > 0 {
 				info.Name = override.TypeName
 			}
 			if len(override.NullableTypeName) > 0 {
-				info.NullName = override.NullableTypeName
+				info.NullName = "*" + override.TypeName
 				info.ScanNullName = override.NullableTypeName
-				info.NullConvertFunc = identityConvert
+				info.NullConvertFunc = convertFunc
 			}
 			if len(override.Pkg) > 0 {
 				info.Pkg = override.Pkg
@@ -194,13 +208,14 @@ func (r *Resolver) initTypeTable(overrides []config.TypeOverride) (err error) {
 			r.pgType2GoType[override.PgTypeName] = &Info{
 				Name:            override.TypeName,
 				Pkg:             override.Pkg,
-				NullName:        override.NullableTypeName,
+				NullName:        "*" + override.TypeName,
 				ScanNullName:    override.NullableTypeName,
-				NullConvertFunc: identityConvert,
+				NullConvertFunc: convertFunc,
 				NullPkg:         override.NullPkg,
 				SqlReceiver:     refWrap,
 				NullSqlReceiver: refWrap,
 				SqlArgument:     idWrap,
+				NullSqlArgument: idWrap,
 			}
 		}
 	}
@@ -272,6 +287,25 @@ func identityConvert(v string) string {
 	return v
 }
 
+func convertUserTmpl(tmpl *template.Template) func(string) string {
+	return func(v string) string {
+		type tmplCtx struct {
+			Value string
+		}
+		c := tmplCtx{Value: v}
+
+		var out strings.Builder
+		err := tmpl.Execute(&out, c)
+		if err != nil {
+			// This routine will get executed by the code generator template,
+			// so there is no really great way to cleanly report this error.
+			// We'll just have to panic.
+			panic("bad template '" + tmpl.Name() + "': " + err.Error())
+		}
+		return out.String()
+	}
+}
+
 func arrayConvert(
 	elemConvert func(string) string,
 	nullName string,
@@ -283,7 +317,7 @@ func arrayConvert(
 	}
 	tmpl := template.Must(template.New("array-convert-tmpl").Parse(
 		`func() []{{ .NullName }} {
-		out := make([]{{ .NullName }}, len({{ .InputArrayName }}))[:0]
+		out := make([]{{ .NullName }}, 0, len({{ .InputArrayName }}))
 		for _, elem := range {{ .InputArrayName }} {
 			out = append(out, {{ call .ElemConvert "elem" }})
 		}
@@ -384,18 +418,6 @@ var float64GoTypeInfo Info = Info{
 	NullSqlArgument: idWrap,
 }
 
-var uuidGoTypeInfo Info = Info{
-	Pkg:             `uuid "github.com/satori/go.uuid"`,
-	Name:            "uuid.UUID",
-	NullName:        "*uuid.UUID",
-	ScanNullName:    "uuid.NullUUID",
-	NullConvertFunc: convertCall("convertNullUUID"),
-	SqlReceiver:     refWrap,
-	NullSqlReceiver: refWrap,
-	SqlArgument:     idWrap,
-	NullSqlArgument: idWrap,
-}
-
 var byteArrayGoTypeInfo Info = Info{
 	Name:            "[]byte",
 	NullName:        "*[]byte",
@@ -437,8 +459,6 @@ var defaultPgType2GoType = map[string]*Info{
 	"date":                        &timeGoTypeInfo,
 
 	"boolean": &boolGoTypeInfo,
-
-	"uuid": &uuidGoTypeInfo,
 
 	"bigint":   &int64GoTypeInfo,
 	"int4":     &int64GoTypeInfo,

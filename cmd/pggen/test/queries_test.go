@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 
 	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"

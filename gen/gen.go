@@ -205,7 +205,7 @@ import (
 	if err != nil {
 		return err
 	}
-	sortedPkgs := make([]string, len(g.imports))[:0]
+	sortedPkgs := make([]string, 0, len(g.imports))
 	for pkg := range g.imports {
 		if len(pkg) > 0 {
 			sortedPkgs = append(sortedPkgs, pkg)

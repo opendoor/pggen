@@ -18,6 +18,11 @@
     body = "SELECT uuid_field, uuid_field_not_null FROM type_rainbow"
 
 [[query]]
+    name = "SelectJustUuid"
+    null_flags = "n"
+    body = "SELECT uuid_field FROM type_rainbow"
+
+[[query]]
     name = "GetTimes"
     body = '''
     SELECT ts_field_not_null, ts_field FROM type_rainbow

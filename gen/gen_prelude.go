@@ -40,7 +40,6 @@ import (
 	"sync"
 	"time"
 	"github.com/jackc/pgconn"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/opendoor-labs/pggen"
 )
@@ -333,13 +332,6 @@ func convertNullFloat64(f sql.NullFloat64) *float64 {
 func convertNullInt64(i sql.NullInt64) *int64 {
 	if i.Valid {
 		return &i.Int64
-	}
-	return nil
-}
-
-func convertNullUUID(u uuid.NullUUID) *uuid.UUID {
-	if u.Valid {
-		return &u.UUID
 	}
 	return nil
 }
