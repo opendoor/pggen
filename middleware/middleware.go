@@ -1,3 +1,5 @@
+// (c) 2021 Opendoor Labs Inc.
+// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 // The middleware package is used in pggen to add middleware to be executed
 // surrounding the DB calls execution. The intent is to have the ability to add cutom
 // logging, metrics, tracing, side effects ...

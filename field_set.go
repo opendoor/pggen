@@ -1,3 +1,5 @@
+// (c) 2021 Opendoor Labs Inc.
+// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 package pggen
 
 // field_set.go defines a bitset used for specifying subsets of fields

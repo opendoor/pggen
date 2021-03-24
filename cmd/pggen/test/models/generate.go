@@ -1,3 +1,5 @@
+// (c) 2021 Opendoor Labs Inc.
+// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 package models
 
 // make sure that the schema is in place
