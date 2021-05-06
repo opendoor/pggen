@@ -1333,3 +1333,38 @@ func TestJSONColumnConversion(t *testing.T) {
 		t.Fatal("expected 'another value'")
 	}
 }
+
+func TestMultiRef(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	se1ID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
+		Anint: 1,
+	})
+	chkErr(t, err)
+
+	se2ID, err := txClient.InsertSmallEntity(ctx, &models.SmallEntity{
+		Anint: 2,
+	})
+	chkErr(t, err)
+
+	doubleRefID, err := txClient.InsertDoubleReference(ctx, &models.DoubleReference{
+		Sekey1: se1ID,
+		Sekey2: se2ID,
+	})
+	chkErr(t, err)
+	doubleRef, err := txClient.GetDoubleReference(ctx, doubleRefID)
+	chkErr(t, err)
+	err = txClient.DoubleReferenceFillIncludes(ctx, doubleRef, models.DoubleReferenceAllIncludes)
+	chkErr(t, err)
+
+	if doubleRef.SmallEntityViaSekey1.Anint != 1 {
+		t.Fatal("expected 1")
+	}
+	if doubleRef.SmallEntityViaSekey2.Anint != 2 {
+		t.Fatal("expected 2")
+	}
+}

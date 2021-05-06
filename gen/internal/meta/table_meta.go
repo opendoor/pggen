@@ -367,6 +367,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 		}
 	}
 
+	// the explicitly configured referneces
 	for _, table := range tables {
 		quotedName := mustConfigPgNameToQuoted(table.Name)
 		pointsFromTable := tr.meta.tableInfo[quotedName]
@@ -445,7 +446,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 	}
 
 	// fill in with infered references that have not been overridden by an
-	// explicit config
+	// explicit config, and disambiguate the final reflist.
 	for _, table := range tables {
 		quotedName := mustConfigPgNameToQuoted(table.Name)
 		meta := infoTab[quotedName]
@@ -455,9 +456,42 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 				meta.AllIncomingReferences = append(meta.AllIncomingReferences, ref)
 			}
 		}
+
+		disambiguateIncomingReflist(meta.AllIncomingReferences)
 	}
 
 	return nil
+}
+
+// disambiguateIncomingReflist iterates the given list and ensures that all
+// `GoPointsFromFieldName`s are unique within the list by appending the
+// name of the `PointsFromField` for any colliding names.
+func disambiguateIncomingReflist(incomingRefs []RefMeta) {
+	incomingFieldCounts := make(map[string]int, len(incomingRefs))
+	for _, ref := range incomingRefs {
+		incomingFieldCounts[ref.GoPointsFromFieldName]++
+	}
+	for pointsFromFieldName, count := range incomingFieldCounts {
+		if count <= 1 {
+			continue
+		}
+
+		// at this point we know that this GoPointsFromFieldName is duplicate,
+		// so we need to iterate the incoming refs again and mutate them to
+		// disambiguate.
+		for i, ref := range incomingRefs {
+			if ref.GoPointsFromFieldName != pointsFromFieldName {
+				// don't mangle unrelated fields
+				continue
+			}
+
+			// The field names on both the parent and the child struct will be colliding.
+			// We add "Via" since I think "<Table>Via<Reference Field>" reads
+			// a little better than "<Table><Reference Field>".
+			incomingRefs[i].GoPointsFromFieldName += "Via" + ref.PointsFromField.GoName
+			incomingRefs[i].GoPointsToFieldName += "Via" + ref.PointsFromField.GoName
+		}
+	}
 }
 
 // Fill in all the outgoing references to a table. MUST be called after the
@@ -469,7 +503,6 @@ func populateOutgoingReferencesMapping(infoTab map[string]*TableMeta) {
 	outgoingRefMap := make(map[string][]RefMeta, len(infoTab))
 	for _, meta := range infoTab {
 		for i, ref := range meta.AllIncomingReferences {
-
 			slice, inMap := outgoingRefMap[ref.PointsFrom.Info.PgName]
 			if inMap {
 				slice = append(slice, meta.AllIncomingReferences[i])
@@ -508,6 +541,10 @@ func populateOutgoingReferencesMapping(infoTab map[string]*TableMeta) {
 			}
 		}
 	}
+
+	// NOTE: we don't need to worry about reference disambiguation here because we're deriving the
+	//       mapping from the incoming reference mapping, which has already performed reference
+	//       disambiguation.
 }
 
 //
