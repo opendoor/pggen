@@ -100,7 +100,6 @@ CREATE TABLE type_rainbow (
     -- TODO: bit string types
     -- TODO: text search types
     -- TODO: XML type
-    -- TODO: arrays
     -- TODO: composite types
     -- TODO: range types
     -- TODO: object identifier types
@@ -387,6 +386,12 @@ CREATE TABLE json_values (
     json_field_not_null json NOT NULL,
     jsonb_field jsonb,
     jsonb_field_not_null jsonb NOT NULL
+);
+
+CREATE TABLE double_references (
+    id SERIAL PRIMARY KEY,
+    sekey1 int NOT NULL REFERENCES small_entities(id) ON UPDATE CASCADE,
+    sekey2 int NOT NULL REFERENCES small_entities(id) ON UPDATE CASCADE
 );
 
 --

@@ -558,6 +558,9 @@
 [[table]]
     name = "simple_enums"
 
+[[table]]
+    name = "double_references"
+
 ####################################################################################
 #                                                                                  #
 #                                     otherschema                                  #
