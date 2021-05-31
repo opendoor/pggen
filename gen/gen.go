@@ -74,6 +74,23 @@ func FromConfig(config Config) (*Generator, error) {
 		return &Generator{log: logger, disabledByEnableVar: true}, nil
 	}
 
+	// make sure the output file name is there and of the right form
+	if len(config.OutputFileName) == 0 {
+		config.OutputFileName = "./pg_generated.go"
+	}
+	if strings.HasSuffix(config.OutputFileName, ".go") &&
+		!strings.HasSuffix(config.OutputFileName, ".gen.go") {
+		config.OutputFileName = config.OutputFileName[:len(config.OutputFileName)-3] + ".gen.go"
+	}
+
+	// check that we have at least one connection string, and if not, fall back on DB_URL
+	if len(config.ConnectionStrings) == 0 {
+		config.ConnectionStrings = []string{os.Getenv("DB_URL")}
+		if len(config.ConnectionStrings[0]) == 0 {
+			return nil, fmt.Errorf("No connection string. Either pass '-c' or set DB_URL in the environment.")
+		}
+	}
+
 	var err error
 	var db *sql.DB
 	for _, connStr := range config.ConnectionStrings {

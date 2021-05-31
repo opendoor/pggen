@@ -4,9 +4,7 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"strings"
 
 	"github.com/opendoor-labs/pggen/gen"
 )
@@ -60,7 +58,6 @@ Options:
 
 func main() {
 	var config gen.Config
-	config.OutputFileName = "./pg_generated.go"
 
 	func() {
 		// While parsing args we will might panic on out-of-bounds array
@@ -100,18 +97,6 @@ func main() {
 			}
 		}
 	}()
-
-	if len(config.ConnectionStrings) == 0 {
-		config.ConnectionStrings = []string{os.Getenv("DB_URL")}
-		if len(config.ConnectionStrings[0]) == 0 {
-			log.Fatal("No connection string. Either pass '-c' or set DB_URL in the environment.")
-		}
-	}
-
-	if strings.HasSuffix(config.OutputFileName, ".go") &&
-		!strings.HasSuffix(config.OutputFileName, ".gen.go") {
-		config.OutputFileName = config.OutputFileName[:len(config.OutputFileName)-3] + ".gen.go"
-	}
 
 	//
 	// Create the codegenerator and invoke it

@@ -100,7 +100,6 @@ CREATE TABLE type_rainbow (
     -- TODO: bit string types
     -- TODO: text search types
     -- TODO: XML type
-    -- TODO: arrays
     -- TODO: composite types
     -- TODO: range types
     -- TODO: object identifier types
