@@ -221,24 +221,25 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 		{{- end }}
 	)
 	if err != nil {
-		return zero, err
+		return zero, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = zero
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
 
 	if !rows.Next() {
-		return zero, &unstable.NotFoundError{ Msg: "{{ .ConfigData.Name }}: no results" }
+		return zero, p.client.errorConverter(&unstable.NotFoundError{ Msg: "{{ .ConfigData.Name }}: no results" })
 	}
 
 	{{- if .MultiReturn }}
@@ -249,13 +250,13 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
 	err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.NullSqlReceiver "scanTgt" }})
 	if err != nil {
-		return zero, err
+		return zero, p.client.errorConverter(err)
 	}
 	ret = {{ call (index .ReturnCols 0).TypeInfo.NullConvertFunc "scanTgt" }}
 	{{- else }}
 	err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "ret" }})
 	if err != nil {
-		return zero, err
+		return zero, p.client.errorConverter(err)
 	}
 	{{- end }}
 	{{- end }}
@@ -337,18 +338,19 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 		{{- end}}
 	)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = nil
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
@@ -362,13 +364,13 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 		var scanTgt {{ (index .ReturnCols 0).TypeInfo.ScanNullName }}
 		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.NullSqlReceiver "scanTgt" }})
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		row = {{ call (index .ReturnCols 0).TypeInfo.NullConvertFunc "scanTgt" }}
 		{{- else }}
 		err = rows.Scan({{ call (index .ReturnCols 0).TypeInfo.SqlReceiver "row" }})
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		{{- end }}
 		{{- end }}

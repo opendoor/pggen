@@ -161,18 +161,19 @@ func (p *pgClientImpl) list{{ .GoName }}(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = nil
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
@@ -182,24 +183,24 @@ func (p *pgClientImpl) list{{ .GoName }}(
 		var value {{ .GoName }}
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ret = append(ret, value)
 	}
 
 	if len(ret) != len(ids) {
 		if isGet {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "Get{{ .GoName }}: record not found",
-			}
+			})
 		} else {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"List{{ .GoName }}: asked for %d records, found %d",
 					len(ids),
 					len(ret),
 				),
-			}
+			})
 		}
 	}
 
@@ -243,12 +244,11 @@ func (p *pgClientImpl) insert{{ .GoName }}(
 	var ids []{{ .PkeyCol.TypeInfo.Name }}
 	ids, err = p.bulkInsert{{ .GoName }}(ctx, []{{ .GoName }}{*value}, opts...)
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	if len(ids) != 1 {
-		err = fmt.Errorf("inserting a {{ .GoName }}: %d ids (expected 1)", len(ids))
-		return
+		return ret, p.client.errorConverter(fmt.Errorf("inserting a {{ .GoName }}: %d ids (expected 1)", len(ids)))
 	}
 
 	ret = ids[0]
@@ -375,7 +375,7 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 
 	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -384,7 +384,7 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 		var id {{ .PkeyCol.TypeInfo.Name }}
 		err = rows.Scan({{ call .PkeyCol.TypeInfo.SqlReceiver "id" }})
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -466,8 +466,7 @@ func (p *pgClientImpl) update{{ .GoName }}(
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
 	if !fieldMask.Test({{ .GoName }}{{ .PkeyCol.GoName }}FieldIndex) {
-		err = fmt.Errorf(` + "`" + `primary key required for updates to '{{ .PgName }}'` + "`" + `)
-		return
+		return ret, p.client.errorConverter(fmt.Errorf(` + "`" + `primary key required for updates to '{{ .PgName }}'` + "`" + `))
 	}
 
 	{{- if .Meta.HasUpdatedAtField }}
@@ -511,7 +510,7 @@ func (p *pgClientImpl) update{{ .GoName }}(
 	err = p.db.QueryRowContext(ctx, updateStmt, args...).
                 Scan({{ call .PkeyCol.TypeInfo.SqlReceiver "id" }})
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	return id, nil
@@ -766,7 +765,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 
 	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -775,7 +774,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		var id {{ .PkeyCol.TypeInfo.Name }}
 		err = rows.Scan({{ call .PkeyCol.TypeInfo.SqlReceiver "id" }})
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -872,20 +871,20 @@ func (p *pgClientImpl) bulkDelete{{ .GoName }}(
 	)
 	{{- end }}
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	nrows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	if nrows != int64(len(ids)) {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			"BulkDelete{{ .GoName }}: %d rows deleted, expected %d",
 			nrows,
 			len(ids),
-		)
+		))
 	}
 
 	return err
@@ -962,10 +961,10 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 	loadedRecordTab map[string]interface{},
 ) (err error) {
 	if includes.TableName != ` + "`" + `{{ .PgName }}` + "`" + ` {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			` + "`" + `expected includes for '{{ .PgName }}', got '%s'` + "`" + `,
 			includes.TableName,
-		)
+		))
 	}
 
 	loadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PgName }}` + "`" + `]
@@ -996,7 +995,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 	if inIncludeSet {
 		err = p.private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*{{ .PointsFrom.Info.GoName }}, 0, len(recs))
@@ -1019,7 +1018,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 
 		err = p.impl{{ .PointsFrom.Info.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 	{{- end }}
@@ -1029,7 +1028,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 	if inIncludeSet {
 		err = p.private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*{{ .PointsTo.Info.GoName }}, 0, len(recs))
@@ -1041,7 +1040,7 @@ func (p *pgClientImpl) impl{{ .GoName }}BulkFillIncludes(
 
 		err = p.impl{{ .PointsTo.Info.GoName }}BulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 	{{- end }}
@@ -1086,7 +1085,7 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -1096,7 +1095,7 @@ func (p *pgClientImpl) private{{ $.GoName }}Fill{{ .GoPointsFromFieldName }}(
 		var scannedChildRec {{ .PointsFrom.Info.GoName }}
 		err = scannedChildRec.Scan(ctx, p.client, rows)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 
 		var childRec *{{ .PointsFrom.Info.GoName }}
@@ -1144,7 +1143,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 	// lookup the table of child records
 	childLoadedTab, inMap := loadedRecordTab[` + "`" + `{{ .PointsFrom.Info.PgName }}` + "`" + `]
 	if !inMap {
-		return fmt.Errorf("internal pggen error: table not pre-loaded")
+		return p.client.errorConverter(fmt.Errorf("internal pggen error: table not pre-loaded"))
 	}
 	childIDToRecord := childLoadedTab.(map[{{ .PointsFrom.Info.PkeyCol.TypeInfo.Name }}]*{{ .PointsFrom.Info.GoName }})
 
@@ -1212,7 +1211,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 			pgtypes.Array(ids),
 		)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 		defer rows.Close()
 
@@ -1220,7 +1219,7 @@ func (p *pgClientImpl) private{{ $.GoName }}FillParent{{ .GoPointsToFieldName }}
 			var parentRec {{ .PointsTo.Info.GoName }}
 			err = parentRec.Scan(ctx, p.client, rows)
 			if err != nil {
-				return fmt.Errorf("scanning parent record: %s", err.Error())
+				return p.client.errorConverter(fmt.Errorf("scanning parent record: %s", err.Error()))
 			}
 
 			childRecs := parentIDToChildren[parentRec.{{ .PointsTo.Info.PkeyCol.GoName }}]

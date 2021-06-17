@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/opendoor-labs/pggen"
 	"github.com/opendoor-labs/pggen/examples/id_in_set/models"
 	"github.com/opendoor-labs/pggen/middleware"
 )
@@ -47,10 +48,18 @@ func main() {
 		}
 	}
 
-	wrappedConn := middleware.NewDBConnWrapper(conn)
-	wrappedConn = wrappedConn.WithExecMiddleware(execLoggingMiddleware)
-	wrappedConn = wrappedConn.WithQueryMiddleware(queryLoggingMiddleware)
-	wrappedConn = wrappedConn.WithQueryRowMiddleware(queryRowLoggingMiddleware)
+	errorConverter := func(err error) error {
+		if pggen.IsNotFoundError(err) {
+			return fmt.Errorf("My Not Found Error")
+		}
+		return err
+	}
+
+	wrappedConn := middleware.NewDBConnWrapper(conn).
+		WithExecMiddleware(execLoggingMiddleware).
+		WithQueryMiddleware(queryLoggingMiddleware).
+		WithQueryRowMiddleware(queryRowLoggingMiddleware).
+		WithErrorConverter(errorConverter)
 
 	pgClient := models.NewPGClient(wrappedConn)
 
@@ -110,4 +119,7 @@ func main() {
 	for _, foo := range foos {
 		fmt.Printf("%s\n", *foo.Value)
 	}
+
+	_, err = pgClient.GetFoo(ctx, foo3ID+100)
+	fmt.Println("GetErr: " + err.Error())
 }
