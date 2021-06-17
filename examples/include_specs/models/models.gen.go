@@ -20,6 +20,8 @@ type PGClient struct {
 	impl       pgClientImpl
 	topLevelDB pggen.DBConn
 
+	errorConverter func(error) error
+
 	// These column indexes are used at run time to enable us to 'SELECT *' against
 	// a table that has the same columns in a different order from the ones that we
 	// saw in the table we used to generate code. This means that you don't have to worry
@@ -42,6 +44,12 @@ var _ = sync.RWMutex{}
 // If you provide your own wrapper around a '*sql.DB' for logging or
 // custom tracing, you MUST forward all calls to an underlying '*sql.DB'
 // member of your wrapper.
+//
+// If the DBConn passed into NewPGClient implements an ErrorConverter
+// method which returns a func(error) error, the result of calling the
+// ErrorConverter method will be called on every error that the generated
+// code returns right before the error is returned. If ErrorConverter
+// returns nil or is not present, it will default to the identity function.
 func NewPGClient(conn pggen.DBConn) *PGClient {
 	client := PGClient{
 		topLevelDB: conn,
@@ -49,6 +57,17 @@ func NewPGClient(conn pggen.DBConn) *PGClient {
 	client.impl = pgClientImpl{
 		db:     conn,
 		client: &client,
+	}
+
+	// extract the optional error converter routine
+	ec, ok := conn.(interface {
+		ErrorConverter() func(error) error
+	})
+	if ok {
+		client.errorConverter = ec.ErrorConverter()
+	}
+	if client.errorConverter == nil {
+		client.errorConverter = func(err error) error { return err }
 	}
 
 	return &client
@@ -61,7 +80,7 @@ func (p *PGClient) Handle() pggen.DBHandle {
 func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClient, error) {
 	tx, err := p.topLevelDB.BeginTx(ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, p.errorConverter(err)
 	}
 
 	return &TxPGClient{
@@ -75,7 +94,7 @@ func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClien
 func (p *PGClient) Conn(ctx context.Context) (*ConnPGClient, error) {
 	conn, err := p.topLevelDB.Conn(ctx)
 	if err != nil {
-		return nil, err
+		return nil, p.errorConverter(err)
 	}
 
 	return &ConnPGClient{impl: pgClientImpl{db: conn, client: p}}, nil
@@ -191,18 +210,19 @@ func (p *pgClientImpl) listGrandparent(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = nil
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
@@ -212,24 +232,24 @@ func (p *pgClientImpl) listGrandparent(
 		var value Grandparent
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ret = append(ret, value)
 	}
 
 	if len(ret) != len(ids) {
 		if isGet {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetGrandparent: record not found",
-			}
+			})
 		} else {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListGrandparent: asked for %d records, found %d",
 					len(ids),
 					len(ret),
 				),
-			}
+			})
 		}
 	}
 
@@ -276,12 +296,11 @@ func (p *pgClientImpl) insertGrandparent(
 	var ids []int64
 	ids, err = p.bulkInsertGrandparent(ctx, []Grandparent{*value}, opts...)
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	if len(ids) != 1 {
-		err = fmt.Errorf("inserting a Grandparent: %d ids (expected 1)", len(ids))
-		return
+		return ret, p.client.errorConverter(fmt.Errorf("inserting a Grandparent: %d ids (expected 1)", len(ids)))
 	}
 
 	ret = ids[0]
@@ -359,7 +378,7 @@ func (p *pgClientImpl) bulkInsertGrandparent(
 
 	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -368,7 +387,7 @@ func (p *pgClientImpl) bulkInsertGrandparent(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -448,8 +467,7 @@ func (p *pgClientImpl) updateGrandparent(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(GrandparentIdFieldIndex) {
-		err = fmt.Errorf(`primary key required for updates to 'grandparents'`)
-		return
+		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'grandparents'`))
 	}
 
 	updateStmt := genUpdateStmt(
@@ -478,7 +496,7 @@ func (p *pgClientImpl) updateGrandparent(
 	err = p.db.QueryRowContext(ctx, updateStmt, args...).
 		Scan(&(id))
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	return id, nil
@@ -689,7 +707,7 @@ func (p *pgClientImpl) bulkUpsertGrandparent(
 
 	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -698,7 +716,7 @@ func (p *pgClientImpl) bulkUpsertGrandparent(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -768,20 +786,20 @@ func (p *pgClientImpl) bulkDeleteGrandparent(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	nrows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	if nrows != int64(len(ids)) {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			"BulkDeleteGrandparent: %d rows deleted, expected %d",
 			nrows,
 			len(ids),
-		)
+		))
 	}
 
 	return err
@@ -858,10 +876,10 @@ func (p *pgClientImpl) implGrandparentBulkFillIncludes(
 	loadedRecordTab map[string]interface{},
 ) (err error) {
 	if includes.TableName != `grandparents` {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			`expected includes for 'grandparents', got '%s'`,
 			includes.TableName,
-		)
+		))
 	}
 
 	loadedTab, inMap := loadedRecordTab[`grandparents`]
@@ -887,7 +905,7 @@ func (p *pgClientImpl) implGrandparentBulkFillIncludes(
 	if inIncludeSet {
 		err = p.privateGrandparentFillParents(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*Parent, 0, len(recs))
@@ -899,14 +917,14 @@ func (p *pgClientImpl) implGrandparentBulkFillIncludes(
 
 		err = p.implParentBulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 	subSpec, inIncludeSet = includes.Includes[`favorite_grandkid`]
 	if inIncludeSet {
 		err = p.privateGrandparentFillParentFavoriteGrandkid(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*Child, 0, len(recs))
@@ -918,7 +936,7 @@ func (p *pgClientImpl) implGrandparentBulkFillIncludes(
 
 		err = p.implChildBulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 
@@ -957,7 +975,7 @@ func (p *pgClientImpl) privateGrandparentFillParents(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -967,7 +985,7 @@ func (p *pgClientImpl) privateGrandparentFillParents(
 		var scannedChildRec Parent
 		err = scannedChildRec.Scan(ctx, p.client, rows)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 
 		var childRec *Parent
@@ -997,7 +1015,7 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 	// lookup the table of child records
 	childLoadedTab, inMap := loadedRecordTab[`grandparents`]
 	if !inMap {
-		return fmt.Errorf("internal pggen error: table not pre-loaded")
+		return p.client.errorConverter(fmt.Errorf("internal pggen error: table not pre-loaded"))
 	}
 	childIDToRecord := childLoadedTab.(map[int64]*Grandparent)
 
@@ -1054,7 +1072,7 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 			pgtypes.Array(ids),
 		)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 		defer rows.Close()
 
@@ -1062,7 +1080,7 @@ func (p *pgClientImpl) privateGrandparentFillParentFavoriteGrandkid(
 			var parentRec Child
 			err = parentRec.Scan(ctx, p.client, rows)
 			if err != nil {
-				return fmt.Errorf("scanning parent record: %s", err.Error())
+				return p.client.errorConverter(fmt.Errorf("scanning parent record: %s", err.Error()))
 			}
 
 			childRecs := parentIDToChildren[parentRec.Id]
@@ -1151,18 +1169,19 @@ func (p *pgClientImpl) listParent(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = nil
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
@@ -1172,24 +1191,24 @@ func (p *pgClientImpl) listParent(
 		var value Parent
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ret = append(ret, value)
 	}
 
 	if len(ret) != len(ids) {
 		if isGet {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetParent: record not found",
-			}
+			})
 		} else {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListParent: asked for %d records, found %d",
 					len(ids),
 					len(ret),
 				),
-			}
+			})
 		}
 	}
 
@@ -1236,12 +1255,11 @@ func (p *pgClientImpl) insertParent(
 	var ids []int64
 	ids, err = p.bulkInsertParent(ctx, []Parent{*value}, opts...)
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	if len(ids) != 1 {
-		err = fmt.Errorf("inserting a Parent: %d ids (expected 1)", len(ids))
-		return
+		return ret, p.client.errorConverter(fmt.Errorf("inserting a Parent: %d ids (expected 1)", len(ids)))
 	}
 
 	ret = ids[0]
@@ -1319,7 +1337,7 @@ func (p *pgClientImpl) bulkInsertParent(
 
 	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -1328,7 +1346,7 @@ func (p *pgClientImpl) bulkInsertParent(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -1408,8 +1426,7 @@ func (p *pgClientImpl) updateParent(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(ParentIdFieldIndex) {
-		err = fmt.Errorf(`primary key required for updates to 'parents'`)
-		return
+		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'parents'`))
 	}
 
 	updateStmt := genUpdateStmt(
@@ -1438,7 +1455,7 @@ func (p *pgClientImpl) updateParent(
 	err = p.db.QueryRowContext(ctx, updateStmt, args...).
 		Scan(&(id))
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	return id, nil
@@ -1649,7 +1666,7 @@ func (p *pgClientImpl) bulkUpsertParent(
 
 	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -1658,7 +1675,7 @@ func (p *pgClientImpl) bulkUpsertParent(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -1728,20 +1745,20 @@ func (p *pgClientImpl) bulkDeleteParent(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	nrows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	if nrows != int64(len(ids)) {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			"BulkDeleteParent: %d rows deleted, expected %d",
 			nrows,
 			len(ids),
-		)
+		))
 	}
 
 	return err
@@ -1818,10 +1835,10 @@ func (p *pgClientImpl) implParentBulkFillIncludes(
 	loadedRecordTab map[string]interface{},
 ) (err error) {
 	if includes.TableName != `parents` {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			`expected includes for 'parents', got '%s'`,
 			includes.TableName,
-		)
+		))
 	}
 
 	loadedTab, inMap := loadedRecordTab[`parents`]
@@ -1847,7 +1864,7 @@ func (p *pgClientImpl) implParentBulkFillIncludes(
 	if inIncludeSet {
 		err = p.privateParentFillChildren(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*Child, 0, len(recs))
@@ -1859,14 +1876,14 @@ func (p *pgClientImpl) implParentBulkFillIncludes(
 
 		err = p.implChildBulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 	subSpec, inIncludeSet = includes.Includes[`grandparents`]
 	if inIncludeSet {
 		err = p.privateParentFillParentGrandparent(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*Grandparent, 0, len(recs))
@@ -1878,7 +1895,7 @@ func (p *pgClientImpl) implParentBulkFillIncludes(
 
 		err = p.implGrandparentBulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 
@@ -1917,7 +1934,7 @@ func (p *pgClientImpl) privateParentFillChildren(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -1927,7 +1944,7 @@ func (p *pgClientImpl) privateParentFillChildren(
 		var scannedChildRec Child
 		err = scannedChildRec.Scan(ctx, p.client, rows)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 
 		var childRec *Child
@@ -1957,7 +1974,7 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 	// lookup the table of child records
 	childLoadedTab, inMap := loadedRecordTab[`parents`]
 	if !inMap {
-		return fmt.Errorf("internal pggen error: table not pre-loaded")
+		return p.client.errorConverter(fmt.Errorf("internal pggen error: table not pre-loaded"))
 	}
 	childIDToRecord := childLoadedTab.(map[int64]*Parent)
 
@@ -2008,7 +2025,7 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 			pgtypes.Array(ids),
 		)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 		defer rows.Close()
 
@@ -2016,7 +2033,7 @@ func (p *pgClientImpl) privateParentFillParentGrandparent(
 			var parentRec Grandparent
 			err = parentRec.Scan(ctx, p.client, rows)
 			if err != nil {
-				return fmt.Errorf("scanning parent record: %s", err.Error())
+				return p.client.errorConverter(fmt.Errorf("scanning parent record: %s", err.Error()))
 			}
 
 			childRecs := parentIDToChildren[parentRec.Id]
@@ -2105,18 +2122,19 @@ func (p *pgClientImpl) listChild(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = nil
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
@@ -2126,24 +2144,24 @@ func (p *pgClientImpl) listChild(
 		var value Child
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ret = append(ret, value)
 	}
 
 	if len(ret) != len(ids) {
 		if isGet {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetChild: record not found",
-			}
+			})
 		} else {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListChild: asked for %d records, found %d",
 					len(ids),
 					len(ret),
 				),
-			}
+			})
 		}
 	}
 
@@ -2190,12 +2208,11 @@ func (p *pgClientImpl) insertChild(
 	var ids []int64
 	ids, err = p.bulkInsertChild(ctx, []Child{*value}, opts...)
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	if len(ids) != 1 {
-		err = fmt.Errorf("inserting a Child: %d ids (expected 1)", len(ids))
-		return
+		return ret, p.client.errorConverter(fmt.Errorf("inserting a Child: %d ids (expected 1)", len(ids)))
 	}
 
 	ret = ids[0]
@@ -2273,7 +2290,7 @@ func (p *pgClientImpl) bulkInsertChild(
 
 	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -2282,7 +2299,7 @@ func (p *pgClientImpl) bulkInsertChild(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -2362,8 +2379,7 @@ func (p *pgClientImpl) updateChild(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(ChildIdFieldIndex) {
-		err = fmt.Errorf(`primary key required for updates to 'children'`)
-		return
+		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'children'`))
 	}
 
 	updateStmt := genUpdateStmt(
@@ -2392,7 +2408,7 @@ func (p *pgClientImpl) updateChild(
 	err = p.db.QueryRowContext(ctx, updateStmt, args...).
 		Scan(&(id))
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	return id, nil
@@ -2603,7 +2619,7 @@ func (p *pgClientImpl) bulkUpsertChild(
 
 	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -2612,7 +2628,7 @@ func (p *pgClientImpl) bulkUpsertChild(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -2682,20 +2698,20 @@ func (p *pgClientImpl) bulkDeleteChild(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	nrows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	if nrows != int64(len(ids)) {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			"BulkDeleteChild: %d rows deleted, expected %d",
 			nrows,
 			len(ids),
-		)
+		))
 	}
 
 	return err
@@ -2772,10 +2788,10 @@ func (p *pgClientImpl) implChildBulkFillIncludes(
 	loadedRecordTab map[string]interface{},
 ) (err error) {
 	if includes.TableName != `children` {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			`expected includes for 'children', got '%s'`,
 			includes.TableName,
-		)
+		))
 	}
 
 	loadedTab, inMap := loadedRecordTab[`children`]
@@ -2801,7 +2817,7 @@ func (p *pgClientImpl) implChildBulkFillIncludes(
 	if inIncludeSet {
 		err = p.privateChildFillDarlingGrandparents(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*Grandparent, 0, len(recs))
@@ -2816,14 +2832,14 @@ func (p *pgClientImpl) implChildBulkFillIncludes(
 
 		err = p.implGrandparentBulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 	subSpec, inIncludeSet = includes.Includes[`parents`]
 	if inIncludeSet {
 		err = p.privateChildFillParentParent(ctx, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 
 		subRecs := make([]*Parent, 0, len(recs))
@@ -2835,7 +2851,7 @@ func (p *pgClientImpl) implChildBulkFillIncludes(
 
 		err = p.implParentBulkFillIncludes(ctx, subRecs, subSpec, loadedRecordTab)
 		if err != nil {
-			return
+			return p.client.errorConverter(err)
 		}
 	}
 
@@ -2874,7 +2890,7 @@ func (p *pgClientImpl) privateChildFillDarlingGrandparents(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -2884,7 +2900,7 @@ func (p *pgClientImpl) privateChildFillDarlingGrandparents(
 		var scannedChildRec Grandparent
 		err = scannedChildRec.Scan(ctx, p.client, rows)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 
 		var childRec *Grandparent
@@ -2915,7 +2931,7 @@ func (p *pgClientImpl) privateChildFillParentParent(
 	// lookup the table of child records
 	childLoadedTab, inMap := loadedRecordTab[`children`]
 	if !inMap {
-		return fmt.Errorf("internal pggen error: table not pre-loaded")
+		return p.client.errorConverter(fmt.Errorf("internal pggen error: table not pre-loaded"))
 	}
 	childIDToRecord := childLoadedTab.(map[int64]*Child)
 
@@ -2966,7 +2982,7 @@ func (p *pgClientImpl) privateChildFillParentParent(
 			pgtypes.Array(ids),
 		)
 		if err != nil {
-			return err
+			return p.client.errorConverter(err)
 		}
 		defer rows.Close()
 
@@ -2974,7 +2990,7 @@ func (p *pgClientImpl) privateChildFillParentParent(
 			var parentRec Parent
 			err = parentRec.Scan(ctx, p.client, rows)
 			if err != nil {
-				return fmt.Errorf("scanning parent record: %s", err.Error())
+				return p.client.errorConverter(fmt.Errorf("scanning parent record: %s", err.Error()))
 			}
 
 			childRecs := parentIDToChildren[parentRec.Id]

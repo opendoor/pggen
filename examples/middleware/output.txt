@@ -9,3 +9,5 @@ ExecContext query: DELETE FROM foos WHERE "id" = ANY($1)
 QueryContext query: SELECT * FROM foos WHERE "id" = ANY($1)
 bax
 lish
+QueryContext query: SELECT * FROM foos WHERE "id" = ANY($1)
+GetErr: My Not Found Error

@@ -89,7 +89,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end}}
 ) (sql.Result, error) {
-	return p.db.ExecContext(
+	res, err := p.db.ExecContext(
 		ctx,
 		` + "`" +
 	`{{ .ConfigData.Body }}` +
@@ -98,6 +98,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 		{{ call .TypeInfo.SqlArgument .GoName }},
 		{{- end }}
 	)
+	return res, p.client.errorConverter(err)
 }
 
 `))

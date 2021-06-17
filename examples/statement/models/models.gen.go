@@ -20,6 +20,8 @@ type PGClient struct {
 	impl       pgClientImpl
 	topLevelDB pggen.DBConn
 
+	errorConverter func(error) error
+
 	// These column indexes are used at run time to enable us to 'SELECT *' against
 	// a table that has the same columns in a different order from the ones that we
 	// saw in the table we used to generate code. This means that you don't have to worry
@@ -38,6 +40,12 @@ var _ = sync.RWMutex{}
 // If you provide your own wrapper around a '*sql.DB' for logging or
 // custom tracing, you MUST forward all calls to an underlying '*sql.DB'
 // member of your wrapper.
+//
+// If the DBConn passed into NewPGClient implements an ErrorConverter
+// method which returns a func(error) error, the result of calling the
+// ErrorConverter method will be called on every error that the generated
+// code returns right before the error is returned. If ErrorConverter
+// returns nil or is not present, it will default to the identity function.
 func NewPGClient(conn pggen.DBConn) *PGClient {
 	client := PGClient{
 		topLevelDB: conn,
@@ -45,6 +53,17 @@ func NewPGClient(conn pggen.DBConn) *PGClient {
 	client.impl = pgClientImpl{
 		db:     conn,
 		client: &client,
+	}
+
+	// extract the optional error converter routine
+	ec, ok := conn.(interface {
+		ErrorConverter() func(error) error
+	})
+	if ok {
+		client.errorConverter = ec.ErrorConverter()
+	}
+	if client.errorConverter == nil {
+		client.errorConverter = func(err error) error { return err }
 	}
 
 	return &client
@@ -57,7 +76,7 @@ func (p *PGClient) Handle() pggen.DBHandle {
 func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClient, error) {
 	tx, err := p.topLevelDB.BeginTx(ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, p.errorConverter(err)
 	}
 
 	return &TxPGClient{
@@ -71,7 +90,7 @@ func (p *PGClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TxPGClien
 func (p *PGClient) Conn(ctx context.Context) (*ConnPGClient, error) {
 	conn, err := p.topLevelDB.Conn(ctx)
 	if err != nil {
-		return nil, err
+		return nil, p.errorConverter(err)
 	}
 
 	return &ConnPGClient{impl: pgClientImpl{db: conn, client: p}}, nil
@@ -187,18 +206,19 @@ func (p *pgClientImpl) listUser(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer func() {
 		if err == nil {
 			err = rows.Close()
 			if err != nil {
 				ret = nil
+				err = p.client.errorConverter(err)
 			}
 		} else {
 			rowErr := rows.Close()
 			if rowErr != nil {
-				err = fmt.Errorf("%s AND %s", err.Error(), rowErr.Error())
+				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
 			}
 		}
 	}()
@@ -208,24 +228,24 @@ func (p *pgClientImpl) listUser(
 		var value User
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ret = append(ret, value)
 	}
 
 	if len(ret) != len(ids) {
 		if isGet {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetUser: record not found",
-			}
+			})
 		} else {
-			return nil, &unstable.NotFoundError{
+			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListUser: asked for %d records, found %d",
 					len(ids),
 					len(ret),
 				),
-			}
+			})
 		}
 	}
 
@@ -272,12 +292,11 @@ func (p *pgClientImpl) insertUser(
 	var ids []int64
 	ids, err = p.bulkInsertUser(ctx, []User{*value}, opts...)
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	if len(ids) != 1 {
-		err = fmt.Errorf("inserting a User: %d ids (expected 1)", len(ids))
-		return
+		return ret, p.client.errorConverter(fmt.Errorf("inserting a User: %d ids (expected 1)", len(ids)))
 	}
 
 	ret = ids[0]
@@ -355,7 +374,7 @@ func (p *pgClientImpl) bulkInsertUser(
 
 	rows, err := p.queryContext(ctx, bulkInsertQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -364,7 +383,7 @@ func (p *pgClientImpl) bulkInsertUser(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -444,8 +463,7 @@ func (p *pgClientImpl) updateUser(
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
 	if !fieldMask.Test(UserIdFieldIndex) {
-		err = fmt.Errorf(`primary key required for updates to 'users'`)
-		return
+		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'users'`))
 	}
 
 	updateStmt := genUpdateStmt(
@@ -474,7 +492,7 @@ func (p *pgClientImpl) updateUser(
 	err = p.db.QueryRowContext(ctx, updateStmt, args...).
 		Scan(&(id))
 	if err != nil {
-		return
+		return ret, p.client.errorConverter(err)
 	}
 
 	return id, nil
@@ -685,7 +703,7 @@ func (p *pgClientImpl) bulkUpsertUser(
 
 	rows, err := p.queryContext(ctx, stmt.String(), args...)
 	if err != nil {
-		return nil, err
+		return nil, p.client.errorConverter(err)
 	}
 	defer rows.Close()
 
@@ -694,7 +712,7 @@ func (p *pgClientImpl) bulkUpsertUser(
 		var id int64
 		err = rows.Scan(&(id))
 		if err != nil {
-			return nil, err
+			return nil, p.client.errorConverter(err)
 		}
 		ids = append(ids, id)
 	}
@@ -764,20 +782,20 @@ func (p *pgClientImpl) bulkDeleteUser(
 		pgtypes.Array(ids),
 	)
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	nrows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return p.client.errorConverter(err)
 	}
 
 	if nrows != int64(len(ids)) {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			"BulkDeleteUser: %d rows deleted, expected %d",
 			nrows,
 			len(ids),
-		)
+		))
 	}
 
 	return err
@@ -854,10 +872,10 @@ func (p *pgClientImpl) implUserBulkFillIncludes(
 	loadedRecordTab map[string]interface{},
 ) (err error) {
 	if includes.TableName != `users` {
-		return fmt.Errorf(
+		return p.client.errorConverter(fmt.Errorf(
 			`expected includes for 'users', got '%s'`,
 			includes.TableName,
-		)
+		))
 	}
 
 	loadedTab, inMap := loadedRecordTab[`users`]
@@ -911,11 +929,12 @@ func (p *pgClientImpl) DeleteUsersByNickname(
 	ctx context.Context,
 	arg1 string,
 ) (sql.Result, error) {
-	return p.db.ExecContext(
+	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM users WHERE nickname = $1`,
 		arg1,
 	)
+	return res, p.client.errorConverter(err)
 }
 
 type DBQueries interface {
