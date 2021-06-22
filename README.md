@@ -423,14 +423,57 @@ in the issue tracker.
 
 # Stability
 
-So long as `pggen` is an Opendoor internal project `pggen` may make breaking changes
-at any time provided that the `pggen` maintainers update all callsites within our
-internal codebase to use the new API. When/if `pggen` is publicly released, it will
-follow semver.
+`pggen` follows semver. Any breaking change will be indicated by an appropriate bump
+of the version number as defined by the semver spec.
 
 The minimum supported go language version of pggen is 1.11. `pggen` will not consider
-an msgv bump breaking for the purposes of semver, but it will only bump the msgv for a
-good reason (such as that language version reaching end of life or a very significant
-language feature). The msgv version will never accidentally change, and if a
-previously supported go version breaks without some indication that it was
+a msgv (minimum supported go version) bump breaking for the purposes of semver, but it
+will only bump the msgv for a good reason (such as that language version reaching end
+of life or a very significant language feature). The msgv version will never accidentally
+change, and if a previously supported go version breaks without some indication that it was
 intentional, you should file a bug report.
+
+# Comparison with Similar Tools
+
+`pggen` is no the only database first code generator for go that works with postgres out
+there.
+
+## pggen vs [xo](https://github.com/xo/xo)
+
+`pggen` and `xo` are similar in many ways. Both are command line tools which connect directly
+to the database to read its schema and generate code to wrap both tables and queries.
+Beyond the high level similarities there are a number of differences in features and
+design philosophy outlined in the table below.
+
+## pggen vs [sqlc](https://github.com/kyleconroy/sqlc)
+
+`sqlc` is fairly unique among database first code generators in that it understands a
+database schema by parsing DDL statements rather than by connecting to the database and
+interrogating it. This allows sqlc to offer a simpler build system integration story than
+any other database first code generator we are aware of, including pggen. The tradeoff
+for implementing schema parsing this way is that sqlc needs to maintain a mirror
+implementation of the type inference algorithm of each of the RDBMSs that it supports,
+with all the compatibility bugs that implies.
+
+## Database First Code Generator Feature Comparison Matrix
+
+|            | `pggen` | `xo` | `sqlc` | notes |
+|------------|---------|------|--------|-------|
+| Multiple RDBMS support | no | yes | yes | We trapped ourselves with the name here a bit, but if we did want to support another RDBMS we would be able to re-use much of the `pggen` internals in new binaries. |
+| Configuration | toml file | command line flags | magic comments in sql files | File based configuration like `sqlc` and `pggen` use can mean faster code generation. |
+| Supports custom code generation templates | no | yes | no | |
+| Tries to generate idiomatic code | no (prefers correct code) | yes | yes | A big difference here is the way that the different libraries scan results sets. Both `xo` and `sqlc` generate straight line “obvious” code that is easy to read, but `pggen` generates more complex code which is harder to understand but will not error unexpectedly when a database migration is run while the application is running. |
+| Infers relationships between tables | yes | no | no | `pggen` will automatically add pointer and slice fields connecting tables associated with one another via foreign keys. These tables can be filled in with `pggen`'s includes system. |
+| Transaction/Connection Support | Yes (explicit calls on the generated client) | Yes (via a wrapper interface for the database handle) | Yes (via a wrapper interface for the database handle) | Both `xo` and `sqlc` accept interfaces containing a subset of the methods on `*sql.DB` which allows the same code to be used for connection pools, connections, and transactions. `pggen` provides a specific wrapper struct for each of the different database connection handle types. |
+| Style of Generated Query Routine | methods | free functions | methods | `xo` generates free functions which accept the database connection interface as well as the parameters, while `pggen` and `sqlc` attach queries to a single handle struct that contains all operations |
+| Lifecycle timestamp support | yes | no | no | `pggen` can be configured to automatically fill in `created_at` and `deleted_at` timestamps. |
+| Soft deletion support | yes | no | no | `pggen` can be configured to respect and fill in life cycle timestamps with its default CRUD methods, though custom queries still need to manually account for these soft deletion timestamps.|
+| Can be called as a library in addition to a CLI | yes | no | no | Opendoor internally uses the library interface to better integrate with a bazel based build system. |
+| Volume of generated code | high | medium | medium | If a small generated database access layer is important to you, `pggen` may not yet be the best choice for you |
+| Default update allows partial updates | yes | no | n/a | `pggen`'s update CRUD routines allow you to configure which fields are updated with a bitset. Both `sqlc` and `xo` can use custom statements to handle granular updates, but they cannot deal with dynamically choosing which fields to update at runtime quite as easily. |
+| Default upsert support | yes | yes | no | `pggen`'s upsert is more flexible but not as simple to use, while `xo`'s upsert is a little simpler to work with. You must use a custom statement for upsert with `sqlc`. |
+| Infers good names for query arguments | no | no | yes | `sqlc` can automatically infer names for query arguments in the generated go code by noticing which fields the arguments are compared with. This type of feature is possible due to `sqlc`'s unique approach to getting database schema metadata. With `pggen`, you must explicitly configure names if you want them to be better than arg0. |
+| Supports RETURNING | no | no | yes | Due to the way that `pggen` and `xo` get database metadata by creating temporary views, they are unable to support the RETURNING keyword in queries. Because `sqlc` parses the database schema, it can more easily support RETURNING. |
+| Representation of NULL values | pointers | `Null*` types from the `"database/sql"` package | `Null*` types from the `"database/sql"` package | Here `pggen` chooses to expose nullable values as boxed values, which is less efficient than using the `Null*` types from the `"database/sql"`, but we believe is more ergonomic. |
+| Generates code for all tables in schema | no | yes | yes | `pggen` only generates code for tables that you have explicitly asked it to generate code for. |
+
