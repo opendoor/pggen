@@ -435,7 +435,7 @@ intentional, you should file a bug report.
 
 # Comparison with Similar Tools
 
-`pggen` is no the only database first code generator for go that works with postgres out
+`pggen` is not the only database first code generator for go that works with postgres out
 there.
 
 ## pggen vs [xo](https://github.com/xo/xo)
