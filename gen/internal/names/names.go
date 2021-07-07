@@ -54,3 +54,25 @@ func PgToGoName(snakeName string) string {
 
 	return res.String()
 }
+
+// GoTypeNameToCamel converts a golang type identifier, possibly including the package
+// to a PascalCaseName. If there is a package, it is dropped. The type identifier is
+// assumed to be in PascalCase or camelCase.
+func GoTypeNameToPascal(typeName string) string {
+	// drop the package if there is one
+	parts := strings.Split(typeName, ".")
+	if len(parts) > 1 {
+		typeName = parts[len(parts) - 1]
+	}
+
+	var res strings.Builder
+	for i, r := range typeName {
+		if i == 0 {
+			res.WriteRune(unicode.ToUpper(r))
+		} else {
+			res.WriteRune(r)
+		}
+	}
+
+	return res.String()
+}

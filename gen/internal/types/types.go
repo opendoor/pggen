@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/opendoor-labs/pggen/gen/internal/config"
+	"github.com/opendoor-labs/pggen/gen/internal/names"
 )
 
 type Resolver struct {
@@ -96,12 +97,29 @@ type Info struct {
 	// If this is a timestamp type, it has a time zone, otherwise this field
 	// is meaningless.
 	IsTimestampWithZone bool
-	// A flag indicating that this TypeInfo is for an enum. Not for use by
+	// A flag indicating that this Info is for an enum. Not for use by
 	// templates, only for handling arrays of enums.
 	isEnum bool
+	// A flag indicating that this Info is for a range type. Not used by templates,
+	// only to help us know when we need to emit the type into the pool of types
+	// to be dumped at the end.
+	isRangeType bool
+	// The element type that this type wraps. Only defined for ranges.
+	elem *Info
 }
 
 func (r *Resolver) TypeInfoOf(pgTypeName string) (*Info, error) {
+	info, err := r.typeInfoOf(pgTypeName)
+	if err == nil && info.isRangeType {
+		err := info.emitRangeTypesInto(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return info, err
+}
+
+func (r *Resolver) typeInfoOf(pgTypeName string) (*Info, error) {
 	arrayType, err := parsePgArray(pgTypeName)
 	if err == nil {
 		switch innerTy := arrayType.inner.(type) {
@@ -338,6 +356,156 @@ func arrayConvert(
 	}
 }
 
+// rangeOf converts a primitive type info into a wrapper range struct
+func rangeOf(element *Info) *Info {
+	name := names.GoTypeNameToPascal(element.Name) + "Range"
+
+	// a struct will get automatically generated to handle nulls and all
+	// database conversions (we'll use it as a wrapper for non-null values
+	// as well to re-use a bit of code).
+	nullWrapperName := "null" + name
+
+	toNullWrapper := func(v string) string {
+		return fmt.Sprintf("&%s{valid: true, value: &%s}", nullWrapperName, v)
+	}
+	nullToNullWrapper := func(v string) string {
+		return fmt.Sprintf("&%s{valid: true, value: %s}", nullWrapperName, v)
+	}
+
+	return &Info{
+		Name: name, // a struct will get automatically generated
+		Pkg: "", // it will be in models.gen.go, no need to qualify
+		NullName: "*" + name,
+		NullPkg: "",
+		ScanNullName: nullWrapperName,
+		ScanNullPkg: "", // no need to qualify generated types
+		NullConvertFunc: convertCall("convertNull" + name), // will get generated
+		SqlReceiver: toNullWrapper,
+		NullSqlReceiver: func(v string) string { return "&" + v }, // will already be a null wrapper
+		SqlArgument: toNullWrapper,
+		NullSqlArgument: nullToNullWrapper,
+		isRangeType: true,
+		elem: element,
+	}
+
+	// TODO(ethan): what about when range names collide? I'll probably have to solve that with a global
+	//              pass that runs after all of the range types have been emitted.
+}
+
+func (i *Info) emitRangeTypesInto(r *Resolver) error {
+	if !i.isRangeType {
+		return nil
+	}
+
+	type tmplCtx struct {
+		RangeTyName string
+		Elem *Info
+	}
+	genCtx := tmplCtx{
+		RangeTyName: i.Name,
+		Elem: i.elem,
+	}
+
+	var tyBody strings.Builder
+	err := rangeTypeTmpl.Execute(&tyBody, genCtx)
+	if err != nil {
+		return fmt.Errorf("generating range type: %s", err.Error())
+	}
+	err = r.EmitType(i.Name, tyBody.String(), tyBody.String())
+	if err != nil {
+		return fmt.Errorf("emitting range type: %s", err.Error())
+	}
+
+	r.registerImport(`"database/sql/driver"`)
+	r.registerImport(`"fmt"`)
+
+	var nullTyBody strings.Builder
+	err = nullRangeTypeTmpl.Execute(&nullTyBody, genCtx)
+	if err != nil {
+		return fmt.Errorf("generating null range type: %s", err.Error())
+	}
+	err = r.EmitType("null" + i.Name, nullTyBody.String(), nullTyBody.String())
+	if err != nil {
+		return fmt.Errorf("emitting null wrapper for range type: %s", err.Error())
+	}
+
+	// we'll also abuse the type emitting machinery a little bit to spit out
+	// our conversion routine
+
+	return nil
+}
+
+var rangeTypeTmpl = template.Must(template.New("range-type-tmpl").Parse(`
+type {{ .RangeTyName }} struct {
+	Start {{ .Elem.Name }}
+	End {{ .Elem.Name }}
+}
+`))
+
+var nullRangeTypeTmpl = template.Must(template.New("null-range-type-tmpl").Parse(`
+type null{{ .RangeTyName }} struct {
+	valid bool
+	value *{{ .RangeTyName }}
+}
+
+func convertNull{{ .RangeTyName }}(nv null{{ .RangeTyName }}) *{{ .RangeTyName }} {
+	if nv.valid {
+		return nv.value
+	}
+	return nil
+}
+
+func (nv *null{{ .RangeTyName }}) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		// TODO(ethan): this parsing logic is horribly broken, and I'm not accounting
+		//              for all the different types of ranges.
+		//
+		//              I need to lift the parsing code from here https://github.com/jackc/pgtype/blob/3eceab0f382295901243f9b43973108c36ee4d1a/range.go#L29
+		//              and then probably pull some of the logic out of the stdlib database/sql
+		//              code in order to handle primitives or something.
+
+		inner := v[1:len(v)-1]
+		parts := strings.Split(inner, ",")
+		if len(parts) != 2 {
+			return fmt.Errorf("unexpected range format form db: '%s'", v)
+		}
+
+		var left {{ .Elem.Name }}
+		leftReceiver := {{ call .Elem.SqlReceiver "left" }}
+		err := tryScanInto(leftReceiver, parts[0])
+		if err != nil {
+			return fmt.Errorf("scanning left range value: %s", err.Error())
+		}
+
+		var right {{ .Elem.Name }}
+		rightReceiver := {{ call .Elem.SqlReceiver "right" }}
+		err = tryScanInto(rightReceiver, parts[1])
+		if err != nil {
+			return fmt.Errorf("scanning right range value: %s", err.Error())
+		}
+
+		if nv.value == nil {
+			var zero {{ .RangeTyName }}
+			nv.value = &zero
+		}
+
+		nv.value.Start = left
+		nv.value.End = right
+	case nil:
+		nv.valid = false
+		return nil
+	default:
+		return fmt.Errorf("expecting string or nil type for range, got %T", value)
+	}
+
+	return nil
+}
+
+func (nv *null{{ .RangeTyName }}) Value() (driver.Value, error) {
+}
+`))
+
 //
 // Generation Tables
 //
@@ -474,6 +642,14 @@ var defaultPgType2GoType = map[string]*Info{
 	// stuff into.
 	"json":  &byteArrayGoTypeInfo,
 	"jsonb": &byteArrayGoTypeInfo,
+
+	// builtin range types
+	"int4range": rangeOf(&int64GoTypeInfo),
+	// TODO(ethan): tests that cover int8range
+	// TODO(ethan): tests that cover numrange
+	// TODO(ethan): tests that cover tsrange
+	// TODO(ethan): tests that cover tstzrange
+	// TODO(ethan): tests that cover daterange
 
 	// numeric types are returned as strings for the same reason that
 	// money types are.

@@ -35,11 +35,14 @@ func TestPgToGoName(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
-		actual := PgToGoName(c.src)
-		if actual != c.expected {
-			t.Fatalf("case %d: expected '%s', got '%s'", i, c.expected, actual)
-		}
+	for i := range cases {
+		c := cases[i]
+		t.Run(c.src, func(t *testing.T) {
+			actual := PgToGoName(c.src)
+			if actual != c.expected {
+				t.Fatalf("case %d: expected '%s', got '%s'", i, c.expected, actual)
+			}
+		})
 	}
 }
 
@@ -60,10 +63,53 @@ func TestPgTableToGoModel(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
-		actual := PgTableToGoModel(c.src)
-		if actual != c.expected {
-			t.Fatalf("%d: expected '%s', got '%s'", i, c.expected, actual)
-		}
+	for i := range cases {
+		c := cases[i]
+		t.Run(c.src, func(t *testing.T) {
+			actual := PgTableToGoModel(c.src)
+			if actual != c.expected {
+				t.Fatalf("%d: expected '%s', got '%s'", i, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGoTypeNameToPascal(t *testing.T) {
+	type testCase struct {
+		src string
+		expected string
+	}
+
+	cases := []testCase{
+		{
+			src: "int64",
+			expected: "Int64",
+		},
+		{
+			src: "doesntmatter.int64",
+			expected: "Int64",
+		},
+		{
+			src: "doesntmatter.myType",
+			expected: "MyType",
+		},
+		{
+			src: "myType",
+			expected: "MyType",
+		},
+		{ // this one is weird, but I think this is a somewhat reasonable thing to do
+			src: "wut.do.myType",
+			expected: "MyType",
+		},
+	}
+
+	for i := range cases {
+		c := cases[i]
+		t.Run(c.src, func(t *testing.T) {
+			actual := GoTypeNameToPascal(c.src)
+			if actual != c.expected {
+				t.Fatalf("expected '%s', got '%s'", c.expected, actual)
+			}
+		})
 	}
 }

@@ -83,6 +83,13 @@
     '''
 
 [[query]]
+    name = "select_int4range"
+    not_null_fields = ["int4range_field_not_null"]
+    body = '''
+    SELECT int4range_field, int4range_field_not_null FROM type_rainbow
+    '''
+
+[[query]]
     name = "select_bool"
     body = "SELECT bool_field, bool_field_not_null FROM type_rainbow"
 

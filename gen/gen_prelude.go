@@ -38,6 +38,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -336,5 +337,35 @@ func convertNullInt64(i sql.NullInt64) *int64 {
 		return &i.Int64
 	}
 	return nil
+}
+
+func tryScanInto(into interface{}, value interface{}) error {
+	switch tgt := into.(type) {
+	case sql.Scanner:
+		return tgt.Scan(value)
+	// TODO(ethan): handle other primitive types
+	case *int64:
+		switch v := value.(type) {
+		case int64:
+			*tgt = v
+		case string:
+			i, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return fmt.Errorf("tryScanInto: scan *int64: %s", err.Error())
+			}
+			*tgt = i
+		default:
+			return fmt.Errorf("tryScanInto: scan *int64: unknown value type %T", value)
+		}
+	default:
+		return fmt.Errorf("tryScanInto: target is not scannable")
+	}
+
+	return nil
+}
+
+// tryValueString converts the given value into
+func tryValueString(value interface{}) (string, error) {
+	// TODO(ethan): I need a real wrapper for this
 }
 `))

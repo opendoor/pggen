@@ -310,3 +310,14 @@ func TestIntervalEcho(t *testing.T) {
 		t.Fatalf("bad result, actual = %s", res)
 	}
 }
+
+func TestReadPrimRanges(t *testing.T) {
+	res, err := pgClient.SelectInt4range(ctx)
+	chkErr(t, err)
+	if res[0].Int4rangeFieldNotNull.Start != 10 {
+		t.Fatal("expected 10")
+	}
+	if res[0].Int4rangeFieldNotNull.End != 20 {
+		t.Fatal("expected 20")
+	}
+}

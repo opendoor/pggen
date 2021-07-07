@@ -92,7 +92,10 @@ CREATE TABLE type_rainbow (
     json_field json,
     json_field_not_null json NOT NULL,
     jsonb_field jsonb,
-    jsonb_field_not_null jsonb NOT NULL
+    jsonb_field_not_null jsonb NOT NULL,
+
+    int4range_field int4range,
+    int4range_field_not_null int4range NOT NULL
 
     -- TODO: postgis types
     -- TODO: geometric types
@@ -101,7 +104,6 @@ CREATE TABLE type_rainbow (
     -- TODO: text search types
     -- TODO: XML type
     -- TODO: composite types
-    -- TODO: range types
     -- TODO: object identifier types
 );
 
@@ -430,7 +432,10 @@ INSERT INTO type_rainbow (
     -- serial fields are left to auto-increment
 
     -- json types
-    json_field, json_field_not_null, jsonb_field, jsonb_field_not_null
+    json_field, json_field_not_null, jsonb_field, jsonb_field_not_null,
+
+    -- range types
+    int4range_field, int4range_field_not_null
 ) VALUES (
     'foo', 'foo', 'foo', 'foo', 'foo', 'foo',
 
@@ -468,7 +473,10 @@ INSERT INTO type_rainbow (
 
     -- json types
     '5'::json, '[1, 2, "foo", null]'::json,
-    '{"bar": "baz"}'::json, '{"foo": ["bar", 1]}'::json
+    '{"bar": "baz"}'::json, '{"foo": ["bar", 1]}'::json,
+
+    -- range types
+    int4range(10, 20), int4range(10, 20)
 );
 
 INSERT INTO type_rainbow (
@@ -503,7 +511,10 @@ INSERT INTO type_rainbow (
     -- serial fields are left to auto-increment
 
     -- json types
-    json_field_not_null, jsonb_field_not_null
+    json_field_not_null, jsonb_field_not_null,
+
+    -- range types
+    int4range_field_not_null
 ) VALUES (
     'foo', 'foo', 'foo',
 
@@ -534,7 +545,10 @@ INSERT INTO type_rainbow (
     1, 2, 3, 15.4, 16.4, 999, 19.99, 2.3, 9.3,
 
     -- json types
-    '[1, 2, "foo", null]'::json, '{"foo": ["bar", 1]}'::json
+    '[1, 2, "foo", null]'::json, '{"foo": ["bar", 1]}'::json,
+
+    -- range types
+    int4range(10, 20)
 );
 
 INSERT INTO small_entities (anint) VALUES (17);

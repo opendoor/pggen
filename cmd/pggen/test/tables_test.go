@@ -1368,3 +1368,29 @@ func TestMultiRef(t *testing.T) {
 		t.Fatal("expected 2")
 	}
 }
+
+func TestPrimitiveRanges(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	rainbowID, err := txClient.InsertTypeRainbow(ctx, &models.TypeRainbow{
+		Int4rangeField: &models.Int64Range{
+			Start: -1,
+			End: 6,
+		},
+		Int4rangeFieldNotNull: models.Int64Range{
+			Start: 0,
+			End: 7,
+		},
+	})
+	chkErr(t, err)
+
+	rainbow, err := txClient.GetTypeRainbow(ctx, rainbowID)
+	chkErr(t, err)
+	if rainbow.Int4rangeField.Start != -1 {
+		t.Fatal("expected -1")
+	}
+}
