@@ -1,6 +1,7 @@
 # pggen
 
 ![example workflow](https://github.com/opendoor/pggen/actions/workflows/ci.yaml/badge.svg)
+[![Go Reference](https://pkg.go.dev/badge/github.com/opendoor/pggen.svg)](https://pkg.go.dev/github.com/opendoor/pggen)
 
 `pggen` consists of 3 main packages:
   - `github.com/opendoor/pggen/cmd/pggen` is a command line tool to be
