@@ -1,7 +1,5 @@
 # pggen
 
-[![CircleCI](https://circleci.com/gh/opendoor/pggen.svg?style=svg&circle-token=36f0b47fd6bc10bc883c8831488fa0dcf5dd2b8b)](https://circleci.com/gh/opendoor/pggen)
-
 `pggen` consists of 3 main packages:
   - `github.com/opendoor/pggen/cmd/pggen` is a command line tool to be
      invoked in `go:generate` directives.
