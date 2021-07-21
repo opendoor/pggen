@@ -477,3 +477,5 @@ with all the compatibility bugs that implies.
 | Representation of NULL values | pointers | `Null*` types from the `"database/sql"` package | `Null*` types from the `"database/sql"` package | Here `pggen` chooses to expose nullable values as boxed values, which is less efficient than using the `Null*` types from the `"database/sql"`, but we believe is more ergonomic. |
 | Generates code for all tables in schema | no | yes | yes | `pggen` only generates code for tables that you have explicitly asked it to generate code for. |
 
+
+fake test PR
