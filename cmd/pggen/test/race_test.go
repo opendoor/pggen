@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
+	"github.com/opendoor/pggen/cmd/pggen/test/models"
 )
 
 // file: race_test.go

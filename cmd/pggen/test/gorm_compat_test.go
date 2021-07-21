@@ -11,7 +11,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
+	"github.com/opendoor/pggen/cmd/pggen/test/models"
 )
 
 var gormDB *gorm.DB

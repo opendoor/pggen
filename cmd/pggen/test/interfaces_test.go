@@ -3,7 +3,7 @@
 package test
 
 import (
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
+	"github.com/opendoor/pggen/cmd/pggen/test/models"
 )
 
 // type assertions that the PGClient and TxPGClient types satisfy the DBQueries

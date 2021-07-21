@@ -14,8 +14,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
-	ensureSchema "github.com/opendoor-labs/pggen/tools/ensure-schema/lib"
+	"github.com/opendoor/pggen/cmd/pggen/test/models"
+	ensureSchema "github.com/opendoor/pggen/tools/ensure-schema/lib"
 )
 
 var (

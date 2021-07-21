@@ -11,8 +11,8 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/examples/timestamps/models"
+	"github.com/opendoor/pggen"
+	"github.com/opendoor/pggen/examples/timestamps/models"
 )
 
 func main() {

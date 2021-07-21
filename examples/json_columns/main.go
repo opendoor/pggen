@@ -10,8 +10,8 @@ import (
 	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/opendoor-labs/pggen/examples/json_columns/config"
-	"github.com/opendoor-labs/pggen/examples/json_columns/models"
+	"github.com/opendoor/pggen/examples/json_columns/config"
+	"github.com/opendoor/pggen/examples/json_columns/models"
 )
 
 func main() {

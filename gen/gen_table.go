@@ -7,8 +7,8 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/meta"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/meta"
 )
 
 // Generate code for all of the tables
@@ -25,9 +25,9 @@ func (g *Generator) genTables(into io.Writer, tables []config.TableConfig) error
 	g.imports[`"strings"`] = true
 	g.imports[`"sync"`] = true
 	g.imports[`"github.com/ethanpailes/pgtypes"`] = true
-	g.imports[`"github.com/opendoor-labs/pggen/include"`] = true
-	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
-	g.imports[`"github.com/opendoor-labs/pggen"`] = true
+	g.imports[`"github.com/opendoor/pggen/include"`] = true
+	g.imports[`"github.com/opendoor/pggen/unstable"`] = true
+	g.imports[`"github.com/opendoor/pggen"`] = true
 
 	for i := range tables {
 		err := g.genTable(into, &tables[i])

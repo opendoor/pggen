@@ -7,11 +7,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/log"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
-	"github.com/opendoor-labs/pggen/gen/internal/types"
-	"github.com/opendoor-labs/pggen/gen/internal/utils"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/log"
+	"github.com/opendoor/pggen/gen/internal/names"
+	"github.com/opendoor/pggen/gen/internal/types"
+	"github.com/opendoor/pggen/gen/internal/utils"
 )
 
 //

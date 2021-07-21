@@ -6,8 +6,8 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/names"
 )
 
 func (g *Generator) genStmts(into io.Writer, stmts []config.StmtConfig) error {

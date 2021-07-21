@@ -10,8 +10,8 @@ import (
 	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/examples/statement/models"
+	"github.com/opendoor/pggen"
+	"github.com/opendoor/pggen/examples/statement/models"
 )
 
 func main() {

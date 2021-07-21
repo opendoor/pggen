@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/opendoor-labs/pggen/gen"
+	"github.com/opendoor/pggen/gen"
 )
 
 func usage(ok bool) {

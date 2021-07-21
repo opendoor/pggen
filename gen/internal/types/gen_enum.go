@@ -9,7 +9,7 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/opendoor-labs/pggen/gen/internal/names"
+	"github.com/opendoor/pggen/gen/internal/names"
 )
 
 func (r *Resolver) maybeEmitEnumType(

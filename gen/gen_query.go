@@ -7,9 +7,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/meta"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/meta"
+	"github.com/opendoor/pggen/gen/internal/names"
 )
 
 func (g *Generator) genQueries(
@@ -27,7 +27,7 @@ func (g *Generator) genQueries(
 	g.imports[`"context"`] = true
 	g.imports[`"fmt"`] = true
 
-	g.imports[`"github.com/opendoor-labs/pggen/unstable"`] = true
+	g.imports[`"github.com/opendoor/pggen/unstable"`] = true
 	// HACK: not really a type, but the type resolver can be used to ensure that
 	//       exactly one copy of this declaration makes it into the final output.
 	err := g.typeResolver.EmitType("ensure-unstable-used", "sig", "var _ = unstable.NotFoundError{}")
