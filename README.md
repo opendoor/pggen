@@ -1,5 +1,7 @@
 # pggen
 
+![example workflow](https://github.com/opendoor/pggen/actions/workflows/ci.yaml/badge.svg)
+
 `pggen` consists of 3 main packages:
   - `github.com/opendoor/pggen/cmd/pggen` is a command line tool to be
      invoked in `go:generate` directives.
