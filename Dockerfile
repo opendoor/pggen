@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine
+FROM golang:1.16-alpine
 
 # we need postgresql-client so we can set up our database with psql
 # for testing and `go` uses `git` to fetch deps for us. musl-dev
