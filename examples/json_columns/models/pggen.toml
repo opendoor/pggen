@@ -13,7 +13,7 @@
         # the package.
         type_name = "config.Config"
         # We can also ask pggen to import and use a type from an arbitrary package.
-        pkg = '"github.com/opendoor-labs/pggen/examples/json_columns/config"'
+        pkg = '"github.com/opendoor/pggen/examples/json_columns/config"'
     # Note that even though the `homepage` column has the type `jsonb`, we are not
     # going to configure it to connect to a go type. Instead, pggen will just use a
     # []byte and allow user code to manipulate the data in any way desired.

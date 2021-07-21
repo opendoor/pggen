@@ -11,9 +11,9 @@ import (
 	"sort"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/examples/id_in_set/models"
-	"github.com/opendoor-labs/pggen/middleware"
+	"github.com/opendoor/pggen"
+	"github.com/opendoor/pggen/examples/id_in_set/models"
+	"github.com/opendoor/pggen/middleware"
 )
 
 func main() {

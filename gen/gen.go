@@ -13,11 +13,11 @@ import (
 	"github.com/BurntSushi/toml"
 	_ "github.com/jackc/pgx/v4/stdlib"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/log"
-	"github.com/opendoor-labs/pggen/gen/internal/meta"
-	"github.com/opendoor-labs/pggen/gen/internal/types"
-	"github.com/opendoor-labs/pggen/gen/internal/utils"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/log"
+	"github.com/opendoor/pggen/gen/internal/meta"
+	"github.com/opendoor/pggen/gen/internal/types"
+	"github.com/opendoor/pggen/gen/internal/utils"
 )
 
 // `pggen.Config` contains a collection of configuration options for the

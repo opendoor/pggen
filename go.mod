@@ -1,4 +1,4 @@
-module github.com/opendoor-labs/pggen
+module github.com/opendoor/pggen
 
 go 1.13
 

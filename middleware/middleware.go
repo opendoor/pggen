@@ -22,7 +22,7 @@ import (
 	"database/sql/driver"
 	"time"
 
-	"github.com/opendoor-labs/pggen"
+	"github.com/opendoor/pggen"
 )
 
 type ExecFunc func(ctx context.Context, query string, args ...interface{}) (sql.Result, error)

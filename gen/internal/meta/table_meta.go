@@ -12,11 +12,11 @@ import (
 	"github.com/ethanpailes/pgtypes"
 	"github.com/jinzhu/inflection"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/log"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
-	"github.com/opendoor-labs/pggen/gen/internal/types"
-	"github.com/opendoor-labs/pggen/include"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/log"
+	"github.com/opendoor/pggen/gen/internal/names"
+	"github.com/opendoor/pggen/gen/internal/types"
+	"github.com/opendoor/pggen/include"
 )
 
 // tablesMeta contains information _all_ of the tables that pggen is awair of

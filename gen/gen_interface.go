@@ -7,8 +7,8 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/meta"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/meta"
 )
 
 // genInterfaces emits the DBQueries interface shared between the generated PGClient

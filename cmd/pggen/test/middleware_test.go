@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/middleware"
+	"github.com/opendoor/pggen"
+	"github.com/opendoor/pggen/middleware"
 )
 
 func TestExecMiddleware(t *testing.T) {

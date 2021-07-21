@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/gen/internal/utils"
+	"github.com/opendoor/pggen/gen/internal/utils"
 )
 
 func (g *Generator) genPrelude() error {
@@ -43,7 +43,7 @@ import (
 	"time"
 	"github.com/jackc/pgconn"
 
-	"github.com/opendoor-labs/pggen"
+	"github.com/opendoor/pggen"
 )
 
 type fieldNameAndIdx struct {

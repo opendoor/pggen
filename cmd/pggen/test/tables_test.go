@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"
-	"github.com/opendoor-labs/pggen/cmd/pggen/test/models"
-	"github.com/opendoor-labs/pggen/include"
+	"github.com/opendoor/pggen"
+	"github.com/opendoor/pggen/cmd/pggen/test/jsontypes"
+	"github.com/opendoor/pggen/cmd/pggen/test/models"
+	"github.com/opendoor/pggen/include"
 )
 
 func TestInsertSmallEntity(t *testing.T) {

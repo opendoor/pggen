@@ -12,7 +12,7 @@ import (
 	"github.com/gofrs/uuid"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/opendoor-labs/pggen/examples/uuid/models"
+	"github.com/opendoor/pggen/examples/uuid/models"
 )
 
 func main() {

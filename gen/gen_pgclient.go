@@ -6,12 +6,12 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/opendoor-labs/pggen/gen/internal/config"
-	"github.com/opendoor-labs/pggen/gen/internal/names"
+	"github.com/opendoor/pggen/gen/internal/config"
+	"github.com/opendoor/pggen/gen/internal/names"
 )
 
 func (g *Generator) genPGClient(into io.Writer, conf *config.DbConfig) error {
-	g.imports[`"github.com/opendoor-labs/pggen"`] = true
+	g.imports[`"github.com/opendoor/pggen"`] = true
 	g.imports[`"database/sql"`] = true
 	g.imports[`"sync"`] = true
 

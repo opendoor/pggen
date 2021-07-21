@@ -540,7 +540,7 @@
     [[table.json_type]]
         column_name = "json_field"
         type_name = "jsontypes.SomeData"
-        pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
+        pkg = '"github.com/opendoor/pggen/cmd/pggen/test/jsontypes"'
     [[table.json_type]]
         column_name = "json_field_not_null"
         type_name = "JsonData"
@@ -549,11 +549,11 @@
     [[table.json_type]]
         column_name = "jsonb_field"
         type_name = "jsontypes.SomeData"
-        pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
+        pkg = '"github.com/opendoor/pggen/cmd/pggen/test/jsontypes"'
     [[table.json_type]]
         column_name = "jsonb_field_not_null"
         type_name = "jsontypes.SomeData"
-        pkg = '"github.com/opendoor-labs/pggen/cmd/pggen/test/jsontypes"'
+        pkg = '"github.com/opendoor/pggen/cmd/pggen/test/jsontypes"'
 
 [[table]]
     name = "simple_enums"

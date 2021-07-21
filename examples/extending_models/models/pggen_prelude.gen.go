@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opendoor-labs/pggen"
+	"github.com/opendoor/pggen"
 )
 
 type fieldNameAndIdx struct {

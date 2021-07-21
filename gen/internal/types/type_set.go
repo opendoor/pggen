@@ -7,7 +7,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/opendoor-labs/pggen/gen/internal/utils"
+	"github.com/opendoor/pggen/gen/internal/utils"
 )
 
 // set is a set of types that pggen wants to emit. Each type

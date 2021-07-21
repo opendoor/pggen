@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/opendoor-labs/pggen/unstable"
+	"github.com/opendoor/pggen/unstable"
 )
 
 func TestIsNotFoundError(t *testing.T) {

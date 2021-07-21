@@ -10,7 +10,7 @@ import (
 	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/opendoor-labs/pggen/examples/extending_models/models"
+	"github.com/opendoor/pggen/examples/extending_models/models"
 )
 
 func main() {

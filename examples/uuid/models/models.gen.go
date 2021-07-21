@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"github.com/ethanpailes/pgtypes"
 	"github.com/gofrs/uuid"
-	"github.com/opendoor-labs/pggen"
-	"github.com/opendoor-labs/pggen/include"
-	"github.com/opendoor-labs/pggen/unstable"
+	"github.com/opendoor/pggen"
+	"github.com/opendoor/pggen/include"
+	"github.com/opendoor/pggen/unstable"
 	"strings"
 	"sync"
 )
