@@ -1,5 +1,3 @@
-// (c) 2021 Opendoor Labs Inc.
-// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 package pggen
 
 // db_handle.go defines the common interface shared by *sql.Tx and *sql.DB

@@ -1,5 +1,3 @@
-// (c) 2021 Opendoor Labs Inc.
-// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 // package log provides some simple information level print helpers wrapped
 // up in a lightweight struct that can be embedded in other objects
 package log
