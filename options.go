@@ -1,5 +1,3 @@
-// (c) 2021 Opendoor Labs Inc.
-// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 package pggen
 
 // options.go contains functional options that can be passed to generated code.

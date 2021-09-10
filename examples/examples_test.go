@@ -1,5 +1,3 @@
-// (c) 2021 Opendoor Labs Inc.
-// This code is licenced under the MIT licence (see the LICENCE file in the repo root).
 // package examples_test runs each example as a test.
 //
 // In order to be tested by this driver, examples must follow a special pattern. The
