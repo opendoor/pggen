@@ -8,7 +8,7 @@
      invoked in `go:generate` directives.
   - `github.com/opendoor/pggen/gen` is the back end for the
     `github.com/opendoor/pggen/cmd/pggen` tool. All the command line
-    flags exposed by the command line tool have corrisponding fields in
+    flags exposed by the command line tool have corresponding fields in
     the `Config` struct exposed by this package, so pggen can be used
     as a library as well as a command line tool.
   - `github.com/opendoor/pggen` and its subpackages (besides `cmd` and `gen`)
