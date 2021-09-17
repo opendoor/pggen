@@ -296,11 +296,11 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 		o(&opt)
 	}
 
-	{{- if (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) }}
+	{{- if and (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) (not opt.DisableTimestamps) }}
 	now := time.Now()
 	{{- end }}
 
-	{{- if .Meta.HasCreatedAtField }}
+	{{- if and .Meta.HasCreatedAtField (not opt.DisableTimestamps) }}
 	for i := range values {
 		{{- if .Meta.CreatedAtHasTimezone }}
 		createdAt := now
@@ -318,9 +318,9 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 	}
 	{{- end }}
 
-	{{- if .Meta.HasUpdatedAtField }}
+	{{- if and .Meta.HasUpdatedAtField (not opt.DisableTimestamps)}}
 	for i := range values {
-		{{- if .Meta.CreatedAtHasTimezone }}
+		{{- if .Meta.UpdatedAtHasTimezone }}
 		updatedAt := now
 		{{- else }}
 		updatedAt := now.UTC()
@@ -463,11 +463,17 @@ func (p *pgClientImpl) update{{ .GoName }}(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}	
+
 	if !fieldMask.Test({{ .GoName }}{{ .PkeyCol.GoName }}FieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(` + "`" + `primary key required for updates to '{{ .PgName }}'` + "`" + `))
 	}
 
-	{{- if .Meta.HasUpdatedAtField }}
+	{{- if and .Meta.HasUpdatedAtField (not opt.DisableTimestamps) }}
 	{{- if .Meta.UpdatedAtHasTimezone }}
 	now := time.Now()
 	{{- else }}
@@ -644,10 +650,10 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		constraintNames = []string{` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `}
 	}
 
-	{{ if (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) }}
+	{{ if and (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) (not options.DisableTimestamps) }}
 	now := time.Now()
 
-	{{- if .Meta.HasCreatedAtField }}
+	{{- if and .Meta.HasCreatedAtField (not options.DisableTimestamps) }}
 	{{- if .Meta.CreatedAtHasTimezone }}
 	createdAt := now
 	{{- else }}
@@ -662,7 +668,7 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 	}
 	{{- end}}
 
-	{{- if .Meta.HasUpdatedAtField }}
+	{{- if and .Meta.HasUpdatedAtField (not options.DisableTimestamps) }}
 	{{- if .Meta.UpdatedAtHasTimezone }}
 	updatedAt := now
 	{{- else }}
