@@ -296,42 +296,44 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 		o(&opt)
 	}
 
-	{{- if and (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) (not opt.DisableTimestamps) }}
-	now := time.Now()
-	{{- end }}
-
-	{{- if and .Meta.HasCreatedAtField (not opt.DisableTimestamps) }}
-	for i := range values {
-		{{- if .Meta.CreatedAtHasTimezone }}
-		createdAt := now
-		{{- else }}
-		createdAt := now.UTC()
-		{{- end }}
+	{{- if (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) }}
+	if !opt.DisableTimestamps {
+		now := time.Now()
 
 		{{- if .Meta.HasCreatedAtField }}
-		{{- if .Meta.CreatedAtFieldIsNullable }}
-		values[i].{{ .Meta.GoCreatedAtField }} = &createdAt
-		{{- else }}
-		values[i].{{ .Meta.GoCreatedAtField }} = createdAt
+		for i := range values {
+			{{- if .Meta.CreatedAtHasTimezone }}
+			createdAt := now
+			{{- else }}
+			createdAt := now.UTC()
+			{{- end }}
+	
+			{{- if .Meta.HasCreatedAtField }}
+			{{- if .Meta.CreatedAtFieldIsNullable }}
+			values[i].{{ .Meta.GoCreatedAtField }} = &createdAt
+			{{- else }}
+			values[i].{{ .Meta.GoCreatedAtField }} = createdAt
+			{{- end }}
+			{{- end }}
+		}
 		{{- end }}
-		{{- end }}
-	}
-	{{- end }}
-
-	{{- if and .Meta.HasUpdatedAtField (not opt.DisableTimestamps)}}
-	for i := range values {
-		{{- if .Meta.UpdatedAtHasTimezone }}
-		updatedAt := now
-		{{- else }}
-		updatedAt := now.UTC()
-		{{- end }}
-
+	
 		{{- if .Meta.HasUpdatedAtField }}
-		{{- if .Meta.UpdatedAtFieldIsNullable }}
-		values[i].{{ .Meta.GoUpdatedAtField }} = &updatedAt
-		{{- else }}
-		values[i].{{ .Meta.GoUpdatedAtField }} = updatedAt
-		{{- end }}
+		for i := range values {
+			{{- if .Meta.UpdatedAtHasTimezone }}
+			updatedAt := now
+			{{- else }}
+			updatedAt := now.UTC()
+			{{- end }}
+	
+			{{- if .Meta.HasUpdatedAtField }}
+			{{- if .Meta.UpdatedAtFieldIsNullable }}
+			values[i].{{ .Meta.GoUpdatedAtField }} = &updatedAt
+			{{- else }}
+			values[i].{{ .Meta.GoUpdatedAtField }} = updatedAt
+			{{- end }}
+			{{- end }}
+		}
 		{{- end }}
 	}
 	{{- end }}
@@ -429,7 +431,7 @@ func (p *PGClient) Update{{ .GoName }}(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
-	return p.impl.update{{ .GoName }}(ctx, value, fieldMask)
+	return p.impl.update{{ .GoName }}(ctx, value, fieldMask, opts...)
 }
 // Update a {{ .GoName }}. 'value' must at the least have
 // a primary key set. The 'fieldMask' field set indicates which fields
@@ -442,7 +444,7 @@ func (tx *TxPGClient) Update{{ .GoName }}(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
-	return tx.impl.update{{ .GoName }}(ctx, value, fieldMask)
+	return tx.impl.update{{ .GoName }}(ctx, value, fieldMask, opts...)
 }
 // Update a {{ .GoName }}. 'value' must at the least have
 // a primary key set. The 'fieldMask' field set indicates which fields
@@ -455,7 +457,7 @@ func (conn *ConnPGClient) Update{{ .GoName }}(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
-	return conn.impl.update{{ .GoName }}(ctx, value, fieldMask)
+	return conn.impl.update{{ .GoName }}(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) update{{ .GoName }}(
 	ctx context.Context,
@@ -473,18 +475,20 @@ func (p *pgClientImpl) update{{ .GoName }}(
 		return ret, p.client.errorConverter(fmt.Errorf(` + "`" + `primary key required for updates to '{{ .PgName }}'` + "`" + `))
 	}
 
-	{{- if and .Meta.HasUpdatedAtField (not opt.DisableTimestamps) }}
-	{{- if .Meta.UpdatedAtHasTimezone }}
-	now := time.Now()
-	{{- else }}
-	now := time.Now().UTC()
-	{{- end }}
-	{{- if .Meta.UpdatedAtFieldIsNullable }}
-	value.{{ .Meta.GoUpdatedAtField }} = &now
-	{{- else }}
-	value.{{ .Meta.GoUpdatedAtField }} = now
-	{{- end }}
-	fieldMask.Set({{ .GoName }}{{ .Meta.GoUpdatedAtField }}FieldIndex, true)
+	{{- if .Meta.HasUpdatedAtField }}
+	if !opt.DisableTimestamps {
+		{{- if .Meta.UpdatedAtHasTimezone }}
+		now := time.Now()
+		{{- else }}
+		now := time.Now().UTC()
+		{{- end }}
+		{{- if .Meta.UpdatedAtFieldIsNullable }}
+		value.{{ .Meta.GoUpdatedAtField }} = &now
+		{{- else }}
+		value.{{ .Meta.GoUpdatedAtField }} = now
+		{{- end }}
+		fieldMask.Set({{ .GoName }}{{ .Meta.GoUpdatedAtField }}FieldIndex, true)
+	}
 	{{- end }}
 
 	updateStmt := genUpdateStmt(
@@ -650,39 +654,41 @@ func (p *pgClientImpl) bulkUpsert{{ .GoName }}(
 		constraintNames = []string{` + "`" + `{{ .PkeyCol.PgName }}` + "`" + `}
 	}
 
-	{{ if and (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) (not options.DisableTimestamps) }}
-	now := time.Now()
-
-	{{- if and .Meta.HasCreatedAtField (not options.DisableTimestamps) }}
-	{{- if .Meta.CreatedAtHasTimezone }}
-	createdAt := now
-	{{- else }}
-	createdAt := now.UTC()
-	{{- end }}
-	for i := range values {
-		{{- if .Meta.CreatedAtFieldIsNullable }}
-		values[i].{{ .Meta.GoCreatedAtField }} = &createdAt
+	{{ if (or .Meta.HasCreatedAtField .Meta.HasUpdatedAtField) }}
+	if !options.DisableTimestamps {
+		now := time.Now()
+	
+		{{- if .Meta.HasCreatedAtField }}
+		{{- if .Meta.CreatedAtHasTimezone }}
+		createdAt := now
 		{{- else }}
-		values[i].{{ .Meta.GoCreatedAtField }} = createdAt
+		createdAt := now.UTC()
+		{{- end }}
+		for i := range values {
+			{{- if .Meta.CreatedAtFieldIsNullable }}
+			values[i].{{ .Meta.GoCreatedAtField }} = &createdAt
+			{{- else }}
+			values[i].{{ .Meta.GoCreatedAtField }} = createdAt
+			{{- end }}
+		}
+		{{- end}}
+	
+		{{- if .Meta.HasUpdatedAtField }}
+		{{- if .Meta.UpdatedAtHasTimezone }}
+		updatedAt := now
+		{{- else }}
+		updatedAt := now.UTC()
+		{{- end }}
+		for i := range values {
+			{{- if .Meta.UpdatedAtFieldIsNullable }}
+			values[i].{{ .Meta.GoUpdatedAtField }} = &updatedAt
+			{{- else }}
+			values[i].{{ .Meta.GoUpdatedAtField }} = updatedAt
+			{{- end }}
+		}
+		fieldMask.Set({{ .GoName }}{{ .Meta.GoUpdatedAtField }}FieldIndex, true)
 		{{- end }}
 	}
-	{{- end}}
-
-	{{- if and .Meta.HasUpdatedAtField (not options.DisableTimestamps) }}
-	{{- if .Meta.UpdatedAtHasTimezone }}
-	updatedAt := now
-	{{- else }}
-	updatedAt := now.UTC()
-	{{- end }}
-	for i := range values {
-		{{- if .Meta.UpdatedAtFieldIsNullable }}
-		values[i].{{ .Meta.GoUpdatedAtField }} = &updatedAt
-		{{- else }}
-		values[i].{{ .Meta.GoUpdatedAtField }} = updatedAt
-		{{- end }}
-	}
-	fieldMask.Set({{ .GoName }}{{ .Meta.GoUpdatedAtField }}FieldIndex, true)
-	{{- end }}
 	{{- end }}
 
 	defaultFields := options.DefaultFields.Intersection(defaultableColsFor{{ .GoName }})

@@ -42,7 +42,7 @@ func TestTimestampsBoth(t *testing.T) {
 
 	oldUpdatedAt := fetched.UpdatedAt
 
-	mask := pggen.NewFieldSet(10)
+	mask := pggen.NewFieldSet(models.TimestampsBothMaxFieldIndex)
 	mask.Set(models.TimestampsBothIdFieldIndex, true)
 	mask.Set(models.TimestampsBothPayloadFieldIndex, true)
 	id, err = txClient.UpdateTimestampsBoth(ctx, fetched, mask)
@@ -68,6 +68,52 @@ func TestTimestampsBoth(t *testing.T) {
 			oldUpdatedAt.String(),
 			fetched.UpdatedAt.String(),
 		)
+	}
+}
+
+func TestDisableTimestamps(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	date := time.Date(2020, 1, 23, 15, 1, 11, 0, time.UTC)
+	blah := "blah"
+	id, err := txClient.InsertTimestampsBoth(ctx, &models.TimestampsBoth{
+		Payload: &blah,
+		CreatedAt: &date,
+		UpdatedAt: date,
+	}, pggen.InsertDisableTimestamps)
+	chkErr(t, err)
+
+	fetched, err := txClient.GetTimestampsBoth(ctx, id)
+	chkErr(t, err)
+
+	if !fetched.UpdatedAt.Equal(date) {
+		t.Fatalf("expeced updated at to be the date we set")
+	}
+
+	if !fetched.CreatedAt.Equal(date) {
+		t.Fatalf("expeced created at to be the date we set")
+	}
+
+	mask := pggen.NewFieldSet(models.TimestampsBothMaxFieldIndex)
+	mask.Set(models.TimestampsBothIdFieldIndex, true)
+	mask.Set(models.TimestampsBothPayloadFieldIndex, true)
+	newPayload := "blah blah"
+	model := &models.TimestampsBoth{
+		Id: id,
+		Payload: &newPayload,
+	}
+	id, err = txClient.UpdateTimestampsBoth(ctx, model, mask, pggen.UpdateDisableTimestamps)
+	chkErr(t, err)
+
+	fetched, err = txClient.GetTimestampsBoth(ctx, id)
+	chkErr(t, err)
+
+	if !fetched.UpdatedAt.Equal(date) {
+		t.Fatalf("expeced updated at not to be updated")
 	}
 }
 
