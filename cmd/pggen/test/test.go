@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	_ "github.com/jackc/pgx/v4/stdlib" // load driver
-	_ "github.com/lib/pq"              // load driver (we still test against lib/pq)
 	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"testing"
+
+	_ "github.com/jackc/pgx/v4/stdlib" // load driver
+	_ "github.com/lib/pq"              // load driver (we still test against lib/pq)
 
 	"github.com/opendoor/pggen/cmd/pggen/test/models"
 	ensureSchema "github.com/opendoor/pggen/tools/ensure-schema/lib"

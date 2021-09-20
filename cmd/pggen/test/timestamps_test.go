@@ -81,7 +81,7 @@ func TestDisableTimestamps(t *testing.T) {
 	date := time.Date(2020, 1, 23, 15, 1, 11, 0, time.UTC)
 	blah := "blah"
 	id, err := txClient.InsertTimestampsBoth(ctx, &models.TimestampsBoth{
-		Payload: &blah,
+		Payload:   &blah,
 		CreatedAt: &date,
 		UpdatedAt: date,
 	}, pggen.InsertDisableTimestamps)
@@ -103,7 +103,7 @@ func TestDisableTimestamps(t *testing.T) {
 	mask.Set(models.TimestampsBothPayloadFieldIndex, true)
 	newPayload := "blah blah"
 	model := &models.TimestampsBoth{
-		Id: id,
+		Id:      id,
 		Payload: &newPayload,
 	}
 	id, err = txClient.UpdateTimestampsBoth(ctx, model, mask, pggen.UpdateDisableTimestamps)

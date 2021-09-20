@@ -4,8 +4,8 @@ package pggen
 
 type InsertOpt func(opts *InsertOptions)
 type InsertOptions struct {
-	UsePkey       bool
-	DefaultFields FieldSet
+	UsePkey           bool
+	DefaultFields     FieldSet
 	DisableTimestamps bool
 }
 
@@ -34,8 +34,8 @@ func InsertDefaultFields(fieldSet FieldSet) InsertOpt {
 
 type UpsertOpt func(opts *UpsertOptions)
 type UpsertOptions struct {
-	UsePkey       bool
-	DefaultFields FieldSet
+	UsePkey           bool
+	DefaultFields     FieldSet
 	DisableTimestamps bool
 }
 
