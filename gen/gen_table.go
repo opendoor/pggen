@@ -465,7 +465,6 @@ func (p *pgClientImpl) update{{ .GoName }}(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret {{ .PkeyCol.TypeInfo.Name }}, err error) {
-
 	opt := pggen.UpdateOptions{}
 	for _, o := range opts {
 		o(&opt)
