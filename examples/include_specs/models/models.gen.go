@@ -6,12 +6,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
-	"strings"
-	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -430,7 +431,7 @@ func (p *PGClient) UpdateGrandparent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateGrandparent(ctx, value, fieldMask)
+	return p.impl.updateGrandparent(ctx, value, fieldMask, opts...)
 }
 
 // Update a Grandparent. 'value' must at the least have
@@ -444,7 +445,7 @@ func (tx *TxPGClient) UpdateGrandparent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateGrandparent(ctx, value, fieldMask)
+	return tx.impl.updateGrandparent(ctx, value, fieldMask, opts...)
 }
 
 // Update a Grandparent. 'value' must at the least have
@@ -458,7 +459,7 @@ func (conn *ConnPGClient) UpdateGrandparent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return conn.impl.updateGrandparent(ctx, value, fieldMask)
+	return conn.impl.updateGrandparent(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) updateGrandparent(
 	ctx context.Context,
@@ -466,6 +467,12 @@ func (p *pgClientImpl) updateGrandparent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	if !fieldMask.Test(GrandparentIdFieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'grandparents'`))
 	}
@@ -1389,7 +1396,7 @@ func (p *PGClient) UpdateParent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateParent(ctx, value, fieldMask)
+	return p.impl.updateParent(ctx, value, fieldMask, opts...)
 }
 
 // Update a Parent. 'value' must at the least have
@@ -1403,7 +1410,7 @@ func (tx *TxPGClient) UpdateParent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateParent(ctx, value, fieldMask)
+	return tx.impl.updateParent(ctx, value, fieldMask, opts...)
 }
 
 // Update a Parent. 'value' must at the least have
@@ -1417,7 +1424,7 @@ func (conn *ConnPGClient) UpdateParent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return conn.impl.updateParent(ctx, value, fieldMask)
+	return conn.impl.updateParent(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) updateParent(
 	ctx context.Context,
@@ -1425,6 +1432,12 @@ func (p *pgClientImpl) updateParent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	if !fieldMask.Test(ParentIdFieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'parents'`))
 	}
@@ -2342,7 +2355,7 @@ func (p *PGClient) UpdateChild(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateChild(ctx, value, fieldMask)
+	return p.impl.updateChild(ctx, value, fieldMask, opts...)
 }
 
 // Update a Child. 'value' must at the least have
@@ -2356,7 +2369,7 @@ func (tx *TxPGClient) UpdateChild(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateChild(ctx, value, fieldMask)
+	return tx.impl.updateChild(ctx, value, fieldMask, opts...)
 }
 
 // Update a Child. 'value' must at the least have
@@ -2370,7 +2383,7 @@ func (conn *ConnPGClient) UpdateChild(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return conn.impl.updateChild(ctx, value, fieldMask)
+	return conn.impl.updateChild(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) updateChild(
 	ctx context.Context,
@@ -2378,6 +2391,12 @@ func (p *pgClientImpl) updateChild(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	if !fieldMask.Test(ChildIdFieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'children'`))
 	}

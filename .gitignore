@@ -1,2 +1,6 @@
 *.test
 main
+
+# IntelliJ
+.idea/
+*.iml

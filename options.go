@@ -4,8 +4,15 @@ package pggen
 
 type InsertOpt func(opts *InsertOptions)
 type InsertOptions struct {
-	UsePkey       bool
-	DefaultFields FieldSet
+	UsePkey           bool
+	DefaultFields     FieldSet
+	DisableTimestamps bool
+}
+
+// InsertDisableTimestamps tells an insert method to not
+// set the timestamp fields
+func InsertDisableTimestamps(opts *InsertOptions) {
+	opts.DisableTimestamps = true
 }
 
 // InsertUsePkey tells an insert method to insert the primary key into the database
@@ -27,8 +34,15 @@ func InsertDefaultFields(fieldSet FieldSet) InsertOpt {
 
 type UpsertOpt func(opts *UpsertOptions)
 type UpsertOptions struct {
-	UsePkey       bool
-	DefaultFields FieldSet
+	UsePkey           bool
+	DefaultFields     FieldSet
+	DisableTimestamps bool
+}
+
+// UpsertDisableTimestamps tells an upsert method to not
+// set the timestamp fields
+func UpsertDisableTimestamps(opts *UpsertOptions) {
+	opts.DisableTimestamps = true
 }
 
 // UpsertUsePkey tells an upsert method to insert the primary key into the database
@@ -71,6 +85,13 @@ func DeleteDoHardDelete(opts *DeleteOptions) {
 
 type UpdateOpt func(opts *UpdateOptions)
 type UpdateOptions struct {
+	DisableTimestamps bool
+}
+
+// UpdateDisableTimestamps tells an update method to not
+// set the timestamp fields
+func UpdateDisableTimestamps(opts *UpdateOptions) {
+	opts.DisableTimestamps = true
 }
 
 type IncludeOpt func(opts *IncludeOptions)

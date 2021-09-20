@@ -8,13 +8,14 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/examples/json_columns/config"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
-	"strings"
-	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -439,7 +440,7 @@ func (p *PGClient) UpdateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateUser(ctx, value, fieldMask)
+	return p.impl.updateUser(ctx, value, fieldMask, opts...)
 }
 
 // Update a User. 'value' must at the least have
@@ -453,7 +454,7 @@ func (tx *TxPGClient) UpdateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateUser(ctx, value, fieldMask)
+	return tx.impl.updateUser(ctx, value, fieldMask, opts...)
 }
 
 // Update a User. 'value' must at the least have
@@ -467,7 +468,7 @@ func (conn *ConnPGClient) UpdateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return conn.impl.updateUser(ctx, value, fieldMask)
+	return conn.impl.updateUser(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) updateUser(
 	ctx context.Context,
@@ -475,6 +476,12 @@ func (p *pgClientImpl) updateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	if !fieldMask.Test(UserIdFieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'users'`))
 	}

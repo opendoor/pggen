@@ -6,12 +6,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
-	"strings"
-	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -423,7 +424,7 @@ func (p *PGClient) UpdateFoo(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateFoo(ctx, value, fieldMask)
+	return p.impl.updateFoo(ctx, value, fieldMask, opts...)
 }
 
 // Update a Foo. 'value' must at the least have
@@ -437,7 +438,7 @@ func (tx *TxPGClient) UpdateFoo(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateFoo(ctx, value, fieldMask)
+	return tx.impl.updateFoo(ctx, value, fieldMask, opts...)
 }
 
 // Update a Foo. 'value' must at the least have
@@ -451,7 +452,7 @@ func (conn *ConnPGClient) UpdateFoo(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return conn.impl.updateFoo(ctx, value, fieldMask)
+	return conn.impl.updateFoo(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) updateFoo(
 	ctx context.Context,
@@ -459,6 +460,12 @@ func (p *pgClientImpl) updateFoo(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	if !fieldMask.Test(FooIdFieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'foos'`))
 	}

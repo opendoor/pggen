@@ -7,10 +7,11 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/jackc/pgconn"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgconn"
 
 	"github.com/opendoor/pggen"
 )

@@ -1,8 +1,9 @@
 package test
 
 import (
-	"github.com/opendoor/pggen/cmd/pggen/test/models"
 	"testing"
+
+	"github.com/opendoor/pggen/cmd/pggen/test/models"
 )
 
 func TestConnSmoke(t *testing.T) {

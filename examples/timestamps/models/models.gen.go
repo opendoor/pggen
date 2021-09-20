@@ -6,13 +6,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
-	"strings"
-	"sync"
-	"time"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -351,14 +352,16 @@ func (p *pgClientImpl) bulkInsertUser(
 	for _, o := range opts {
 		o(&opt)
 	}
-	now := time.Now()
-	for i := range values {
-		createdAt := now.UTC()
-		values[i].CreatedAt = createdAt
-	}
-	for i := range values {
-		updatedAt := now.UTC()
-		values[i].UpdatedAt = updatedAt
+	if !opt.DisableTimestamps {
+		now := time.Now()
+		for i := range values {
+			createdAt := now.UTC()
+			values[i].CreatedAt = createdAt
+		}
+		for i := range values {
+			updatedAt := now.UTC()
+			values[i].UpdatedAt = updatedAt
+		}
 	}
 
 	defaultFields := opt.DefaultFields.Intersection(defaultableColsForUser)
@@ -448,7 +451,7 @@ func (p *PGClient) UpdateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return p.impl.updateUser(ctx, value, fieldMask)
+	return p.impl.updateUser(ctx, value, fieldMask, opts...)
 }
 
 // Update a User. 'value' must at the least have
@@ -462,7 +465,7 @@ func (tx *TxPGClient) UpdateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return tx.impl.updateUser(ctx, value, fieldMask)
+	return tx.impl.updateUser(ctx, value, fieldMask, opts...)
 }
 
 // Update a User. 'value' must at the least have
@@ -476,7 +479,7 @@ func (conn *ConnPGClient) UpdateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-	return conn.impl.updateUser(ctx, value, fieldMask)
+	return conn.impl.updateUser(ctx, value, fieldMask, opts...)
 }
 func (p *pgClientImpl) updateUser(
 	ctx context.Context,
@@ -484,12 +487,20 @@ func (p *pgClientImpl) updateUser(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
+
+	opt := pggen.UpdateOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
+
 	if !fieldMask.Test(UserIdFieldIndex) {
 		return ret, p.client.errorConverter(fmt.Errorf(`primary key required for updates to 'users'`))
 	}
-	now := time.Now().UTC()
-	value.UpdatedAt = now
-	fieldMask.Set(UserUpdatedAtFieldIndex, true)
+	if !opt.DisableTimestamps {
+		now := time.Now().UTC()
+		value.UpdatedAt = now
+		fieldMask.Set(UserUpdatedAtFieldIndex, true)
+	}
 
 	updateStmt := genUpdateStmt(
 		`users`,
@@ -662,16 +673,18 @@ func (p *pgClientImpl) bulkUpsertUser(
 		constraintNames = []string{`id`}
 	}
 
-	now := time.Now()
-	createdAt := now.UTC()
-	for i := range values {
-		values[i].CreatedAt = createdAt
+	if !options.DisableTimestamps {
+		now := time.Now()
+		createdAt := now.UTC()
+		for i := range values {
+			values[i].CreatedAt = createdAt
+		}
+		updatedAt := now.UTC()
+		for i := range values {
+			values[i].UpdatedAt = updatedAt
+		}
+		fieldMask.Set(UserUpdatedAtFieldIndex, true)
 	}
-	updatedAt := now.UTC()
-	for i := range values {
-		values[i].UpdatedAt = updatedAt
-	}
-	fieldMask.Set(UserUpdatedAtFieldIndex, true)
 
 	defaultFields := options.DefaultFields.Intersection(defaultableColsForUser)
 	var stmt strings.Builder
