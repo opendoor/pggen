@@ -6,13 +6,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
+	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -179,21 +178,21 @@ func (p *PGClient) ListGrandparent(
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
-	return p.impl.listGrandparent(ctx, ids, false /* isGet */)
+	return p.impl.listGrandparent(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) ListGrandparent(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
-	return tx.impl.listGrandparent(ctx, ids, false /* isGet */)
+	return tx.impl.listGrandparent(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) ListGrandparent(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
-	return conn.impl.listGrandparent(ctx, ids, false /* isGet */)
+	return conn.impl.listGrandparent(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) listGrandparent(
 	ctx context.Context,
@@ -201,6 +200,10 @@ func (p *pgClientImpl) listGrandparent(
 	isGet bool,
 	opts ...pggen.ListOpt,
 ) (ret []Grandparent, err error) {
+	opt := pggen.ListOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	if len(ids) == 0 {
 		return []Grandparent{}, nil
 	}
@@ -243,7 +246,7 @@ func (p *pgClientImpl) listGrandparent(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetGrandparent: record not found",
 			})
-		} else {
+		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListGrandparent: asked for %d records, found %d",
@@ -467,7 +470,6 @@ func (p *pgClientImpl) updateGrandparent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-
 	opt := pggen.UpdateOptions{}
 	for _, o := range opts {
 		o(&opt)
@@ -1144,21 +1146,21 @@ func (p *PGClient) ListParent(
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
-	return p.impl.listParent(ctx, ids, false /* isGet */)
+	return p.impl.listParent(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) ListParent(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
-	return tx.impl.listParent(ctx, ids, false /* isGet */)
+	return tx.impl.listParent(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) ListParent(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
-	return conn.impl.listParent(ctx, ids, false /* isGet */)
+	return conn.impl.listParent(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) listParent(
 	ctx context.Context,
@@ -1166,6 +1168,10 @@ func (p *pgClientImpl) listParent(
 	isGet bool,
 	opts ...pggen.ListOpt,
 ) (ret []Parent, err error) {
+	opt := pggen.ListOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	if len(ids) == 0 {
 		return []Parent{}, nil
 	}
@@ -1208,7 +1214,7 @@ func (p *pgClientImpl) listParent(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetParent: record not found",
 			})
-		} else {
+		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListParent: asked for %d records, found %d",
@@ -1432,7 +1438,6 @@ func (p *pgClientImpl) updateParent(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-
 	opt := pggen.UpdateOptions{}
 	for _, o := range opts {
 		o(&opt)
@@ -2103,21 +2108,21 @@ func (p *PGClient) ListChild(
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
-	return p.impl.listChild(ctx, ids, false /* isGet */)
+	return p.impl.listChild(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) ListChild(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
-	return tx.impl.listChild(ctx, ids, false /* isGet */)
+	return tx.impl.listChild(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) ListChild(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
-	return conn.impl.listChild(ctx, ids, false /* isGet */)
+	return conn.impl.listChild(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) listChild(
 	ctx context.Context,
@@ -2125,6 +2130,10 @@ func (p *pgClientImpl) listChild(
 	isGet bool,
 	opts ...pggen.ListOpt,
 ) (ret []Child, err error) {
+	opt := pggen.ListOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	if len(ids) == 0 {
 		return []Child{}, nil
 	}
@@ -2167,7 +2176,7 @@ func (p *pgClientImpl) listChild(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetChild: record not found",
 			})
-		} else {
+		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListChild: asked for %d records, found %d",
@@ -2391,7 +2400,6 @@ func (p *pgClientImpl) updateChild(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-
 	opt := pggen.UpdateOptions{}
 	for _, o := range opts {
 		o(&opt)

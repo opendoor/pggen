@@ -7,13 +7,12 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
+	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -176,21 +175,21 @@ func (p *PGClient) ListDog(
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
-	return p.impl.listDog(ctx, ids, false /* isGet */)
+	return p.impl.listDog(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) ListDog(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
-	return tx.impl.listDog(ctx, ids, false /* isGet */)
+	return tx.impl.listDog(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) ListDog(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
-	return conn.impl.listDog(ctx, ids, false /* isGet */)
+	return conn.impl.listDog(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) listDog(
 	ctx context.Context,
@@ -198,6 +197,10 @@ func (p *pgClientImpl) listDog(
 	isGet bool,
 	opts ...pggen.ListOpt,
 ) (ret []Dog, err error) {
+	opt := pggen.ListOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	if len(ids) == 0 {
 		return []Dog{}, nil
 	}
@@ -240,7 +243,7 @@ func (p *pgClientImpl) listDog(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetDog: record not found",
 			})
-		} else {
+		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListDog: asked for %d records, found %d",
@@ -469,7 +472,6 @@ func (p *pgClientImpl) updateDog(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-
 	opt := pggen.UpdateOptions{}
 	for _, o := range opts {
 		o(&opt)

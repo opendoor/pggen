@@ -6,13 +6,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/ethanpailes/pgtypes"
 	"github.com/opendoor/pggen"
 	"github.com/opendoor/pggen/include"
 	"github.com/opendoor/pggen/unstable"
+	"strings"
+	"sync"
 )
 
 // PGClient wraps either a 'sql.DB' or a 'sql.Tx'. All pggen-generated
@@ -175,21 +174,21 @@ func (p *PGClient) ListFoo(
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Foo, err error) {
-	return p.impl.listFoo(ctx, ids, false /* isGet */)
+	return p.impl.listFoo(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) ListFoo(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Foo, err error) {
-	return tx.impl.listFoo(ctx, ids, false /* isGet */)
+	return tx.impl.listFoo(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) ListFoo(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
 ) (ret []Foo, err error) {
-	return conn.impl.listFoo(ctx, ids, false /* isGet */)
+	return conn.impl.listFoo(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) listFoo(
 	ctx context.Context,
@@ -197,6 +196,10 @@ func (p *pgClientImpl) listFoo(
 	isGet bool,
 	opts ...pggen.ListOpt,
 ) (ret []Foo, err error) {
+	opt := pggen.ListOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	if len(ids) == 0 {
 		return []Foo{}, nil
 	}
@@ -239,7 +242,7 @@ func (p *pgClientImpl) listFoo(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetFoo: record not found",
 			})
-		} else {
+		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListFoo: asked for %d records, found %d",
@@ -458,7 +461,6 @@ func (p *pgClientImpl) updateFoo(
 	fieldMask pggen.FieldSet,
 	opts ...pggen.UpdateOpt,
 ) (ret int64, err error) {
-
 	opt := pggen.UpdateOptions{}
 	for _, o := range opts {
 		o(&opt)
