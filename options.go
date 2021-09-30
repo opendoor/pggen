@@ -68,6 +68,13 @@ type GetOptions struct {
 
 type ListOpt func(opts *ListOptions)
 type ListOptions struct {
+	SucceedOnPartialResults bool
+}
+
+// ListSucceedOnPartialResults tells a list method to not
+// fail if not all requested results are returned
+func ListSucceedOnPartialResults(opts *ListOptions) {
+	opts.SucceedOnPartialResults = true
 }
 
 type DeleteOpt func(opts *DeleteOptions)

@@ -1116,6 +1116,34 @@ func TestNotFoundList(t *testing.T) {
 	}
 }
 
+func TestListSucceedOnPartial(t *testing.T) {
+	txClient, err := pgClient.BeginTx(ctx, nil)
+	chkErr(t, err)
+	defer func() {
+		_ = txClient.Rollback()
+	}()
+
+	entity := models.SmallEntity{
+		Anint: 1893,
+	}
+	smallEntityID, err := txClient.InsertSmallEntity(ctx, &entity)
+	chkErr(t, err)
+
+	params := [][]int64{
+		{23423, smallEntityID}, // partial match
+		{23423},                // just completely missing
+	}
+
+	for _, p := range params {
+		entities, err := pgClient.ListSmallEntity(ctx, p, pggen.ListSucceedOnPartialResults)
+		if err != nil {
+			t.Fatal("expected err to not have occurred")
+		} else if len(entities) > 0 && entities[0].Id != smallEntityID {
+			t.Fatal("expected correct SmallEntity to return")
+		}
+	}
+}
+
 func TestDroppingColumnOnTheFly(t *testing.T) {
 	// make sure we always start in a consistant state
 	_, err := pgClient.Handle().ExecContext(ctx, `

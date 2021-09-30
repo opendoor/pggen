@@ -126,21 +126,21 @@ func (p *PGClient) List{{ .GoName }}(
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.ListOpt,
 ) (ret []{{ .GoName }}, err error) {
-	return p.impl.list{{ .GoName }}(ctx, ids, false /* isGet */)
+	return p.impl.list{{ .GoName }}(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.ListOpt,
 ) (ret []{{ .GoName }}, err error) {
-	return tx.impl.list{{ .GoName }}(ctx, ids, false /* isGet */)
+	return tx.impl.list{{ .GoName }}(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.ListOpt,
 ) (ret []{{ .GoName }}, err error) {
-	return conn.impl.list{{ .GoName }}(ctx, ids, false /* isGet */)
+	return conn.impl.list{{ .GoName }}(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) list{{ .GoName }}(
 	ctx context.Context,
@@ -148,6 +148,10 @@ func (p *pgClientImpl) list{{ .GoName }}(
 	isGet bool,
 	opts ...pggen.ListOpt,
 ) (ret []{{ .GoName }}, err error) {
+	opt := pggen.ListOptions{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	if len(ids) == 0 {
 		return []{{ .GoName }}{}, nil
 	}
@@ -191,7 +195,7 @@ func (p *pgClientImpl) list{{ .GoName }}(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "Get{{ .GoName }}: record not found",
 			})
-		} else {
+		} else if !opt.SucceedOnPartialResults {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"List{{ .GoName }}: asked for %d records, found %d",
