@@ -242,7 +242,7 @@ func (p *pgClientImpl) listUser(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetUser: record not found",
 			})
-		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
+		} else if !opt.SucceedOnPartialResults {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListUser: asked for %d records, found %d",

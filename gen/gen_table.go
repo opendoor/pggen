@@ -195,7 +195,7 @@ func (p *pgClientImpl) list{{ .GoName }}(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "Get{{ .GoName }}: record not found",
 			})
-		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
+		} else if !opt.SucceedOnPartialResults {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"List{{ .GoName }}: asked for %d records, found %d",

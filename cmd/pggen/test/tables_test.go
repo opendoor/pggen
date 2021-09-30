@@ -1124,7 +1124,7 @@ func TestListSucceedOnPartial(t *testing.T) {
 	}()
 
 	entity := models.SmallEntity{
-		Anint: 1892,
+		Anint: 1893,
 	}
 	smallEntityID, err := txClient.InsertSmallEntity(ctx, &entity)
 	chkErr(t, err)
@@ -1135,12 +1135,11 @@ func TestListSucceedOnPartial(t *testing.T) {
 	}
 
 	for _, p := range params {
-		// a partial match will be tagged with NotFoundError
-		entities, err := pgClient.ListSmallEntity(ctx, p)
-		if err == nil && entities[0].Id != smallEntityID {
-			t.Fatal("expected err")
-		} else if !pggen.IsNotFoundError(err) {
-			t.Fatal("expected NotFoundError")
+		entities, err := pgClient.ListSmallEntity(ctx, p, pggen.ListSucceedOnPartialResults)
+		if err != nil {
+			t.Fatal("expected err to not have occurred")
+		} else if len(entities) > 0 && entities[0].Id != smallEntityID {
+			t.Fatal("expected correct SmallEntity to return")
 		}
 	}
 }

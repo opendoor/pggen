@@ -246,7 +246,7 @@ func (p *pgClientImpl) listGrandparent(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetGrandparent: record not found",
 			})
-		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
+		} else if !opt.SucceedOnPartialResults {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListGrandparent: asked for %d records, found %d",
@@ -1214,7 +1214,7 @@ func (p *pgClientImpl) listParent(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetParent: record not found",
 			})
-		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
+		} else if !opt.SucceedOnPartialResults {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListParent: asked for %d records, found %d",
@@ -2176,7 +2176,7 @@ func (p *pgClientImpl) listChild(
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: "GetChild: record not found",
 			})
-		} else if !opt.SucceedOnPartialResults || len(ret) == 0 {
+		} else if !opt.SucceedOnPartialResults {
 			return nil, p.client.errorConverter(&unstable.NotFoundError{
 				Msg: fmt.Sprintf(
 					"ListChild: asked for %d records, found %d",
