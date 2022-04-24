@@ -112,3 +112,10 @@ This example shows how to work postgres's `uuid` type using the `github.com/gofr
 library. There is no uuid type in the go standard library, so you must use a third party
 type. `pggen` does not want to force a hard dependency on any particular uuid library, so
 you must explicitly configure a type override in order to work with uuids.
+
+### [Example: nullable_statement_arguments](nullable_statement_arguments)
+
+This example shows how to generate a statement with that accepts nullable arguments.
+By default, you can only pass in non NULL values to statements, since this is generally
+more convenient, but if you want you can explicitly ask pggen to allow you to pass
+in NULL values.

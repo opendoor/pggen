@@ -99,6 +99,14 @@ type StmtConfig struct {
 	// names like `arg0`, `arg1` and so on). An example mapping is
 	// `"1:foo 2:bar 3:baz"`.
 	ArgNames string `toml:"arg_names"`
+	// If true, allow nullable types to be passed in as arguments to the statement.
+	// Normally, statement arguments are always non-null so making every argument
+	// a pointer type would just be annoying for client code, but sometimes you
+	// do actually want nullable arguments.
+	NullableArguments bool `toml:"nullable_arguments"`
+	// A comment to place on the generated method so that IDEs can provide
+	// online documentation for the method.
+	Comment string `toml:"comment"`
 }
 
 type TableConfig struct {

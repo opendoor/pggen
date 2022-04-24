@@ -916,6 +916,7 @@ func (p *PGClient) DeleteUsersByNickname(
 		arg1,
 	)
 }
+
 func (tx *TxPGClient) DeleteUsersByNickname(
 	ctx context.Context,
 	arg1 string,
@@ -925,6 +926,7 @@ func (tx *TxPGClient) DeleteUsersByNickname(
 		arg1,
 	)
 }
+
 func (conn *ConnPGClient) DeleteUsersByNickname(
 	ctx context.Context,
 	arg1 string,

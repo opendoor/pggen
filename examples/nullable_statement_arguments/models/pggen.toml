@@ -1,0 +1,8 @@
+[[table]]
+    name = "users"
+
+[[statement]]
+    name = "DeleteUsersByNickname"
+    body = "DELETE FROM users WHERE nickname = $1"
+    comment = "This routine allows null arguments"
+    nullable_arguments = true
