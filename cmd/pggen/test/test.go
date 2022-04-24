@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -81,6 +82,12 @@ func chkErr(t *testing.T, err error) {
 
 // Grab root of git repo that we are currently in
 func getRepoRoot() (string, error) {
+	markSafeCmd := exec.Command("git", "config", "--global", "--add", "safe.directory", "/pggen")
+	err := markSafeCmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("disabling git ownership checks: %s", err)
+	}
+
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 
 	out, err := cmd.Output()
