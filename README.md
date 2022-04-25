@@ -289,63 +289,66 @@ Below is a list of the methods on `PGClient` which are generated for each table 
 in the configuration file
 
 - Methods
-    - Get<Entity>
-        - Given the primary key of an entity, Get<Entity> fetches the entity with that key.
-    - List<Entity>
-        - Given a list of primary keys, List<Entity> returns a unordered list of entities
-          with the given primary keys. List<Entity> always returns either exactly as many
+    - Get\<Entity\>
+        - Given the primary key of an entity, Get\<Entity\> fetches the entity with that key.
+    - List\<Entity\>
+        - Given a list of primary keys, List\<Entity\> returns a unordered list of entities
+          with the given primary keys. List\<Entity\> always returns either exactly as many
           entities as were requested or an error (i.e. partial successes are treated as failures).
-    - Insert<Entity>
-        - Given an entity struct, Insert<Entity> inserts it into the database and returns
+    - Insert\<Entity\>
+        - Given an entity struct, Insert\<Entity\> inserts it into the database and returns
           the primary key of the inserted struct, or an error if the insert operation failed.
-    - BulkInsert<Entity>
-        - Given a list of entity structs, BulkInsert<Entity> inserts them all and returns
+    - BulkInsert\<Entity\>
+        - Given a list of entity structs, BulkInsert\<Entity\> inserts them all and returns
           the primary keys of the inserted structs. Note that it is possible for only a subset
           of the rows to be inserted if inserting some rows would violate existing database constraints.
           If the insert needs to be fully atomic, you can wrap the call to BulkInsert in a transaction.
-    - Update<Entity>
-        - Given an entity struct and a bitset, Update<Entity> updates all the fields of the
+    - Update\<Entity\>
+        - Given an entity struct and a bitset, Update\<Entity\> updates all the fields of the
           given struct with their corresponding bit set in the database and returns the
           primary key of the updated record.
-    - Upsert<Entity>
-        - Given an entity, a list of conflict targets, and a bitset, Upsert<Entity> tries
+    - Upsert\<Entity\>
+        - Given an entity, a list of conflict targets, and a bitset, Upsert\<Entity\> tries
           to insert the given entity. A nil list of conflict targets will default to the primary
           key for the table. If the bit for the primary key is set in the bitset
           it will try to insert the primary key from the provided entity, otherwise it will
           let the database supply a new primary key. In the event of a conflict on any of the
-          provided conflict targets, Upsert<Entity> will update only those fields which are
+          provided conflict targets, Upsert\<Entity\> will update only those fields which are
           specified by the given bitset.
-    - BulkUpsert<Entity>
-        - BulkUpsert<Entity> behaves exactly like Upsert<Entity> except that it operates on
+    - BulkUpsert\<Entity\>
+        - BulkUpsert\<Entity\> behaves exactly like Upsert\<Entity\> except that it operates on
           whole a set of entities at once.
-    - Delete<Entity>
-        - Given the id of an entity, Delete<Entity> deletes it and returns an error on failure or
-          nil on success.
-    - BulkDelete<Entity>
-        - Given a list of entity ids, BulkDelete<Entity> deletes all of the entities
-          and returns an error on failure or nil on success.
-    - <Entity>FillIncludes
-        - Given a pointer to an entity and an include spec, <Entity>FillIncludes fills
+    - Delete\<Entity\>
+        - Given the id of an entity, Delete\<Entity\> deletes it and returns an error on failure or
+          nil on success. If soft deletes have been enabled for this entity by setting the
+          `deleted_at_field` configuration option, Delete\<Entity\> will just set the deleted_at
+          timestamp rather than actually removing the record from the database.
+    - BulkDelete\<Entity\>
+        - Given a list of entity ids, BulkDelete\<Entity\> deletes all of the entities
+          and returns an error on failure or nil on success. Just like Delete\<Entity\>,
+          BulkDelete\<Entity\> respects soft deletes.
+    - \<Entity\>FillIncludes
+        - Given a pointer to an entity and an include spec, \<Entity\>FillIncludes fills
           in all the decendant entities in the spec recursivly. This api allows finer grained
           control over which decendant entities are loaded from the database. For more infomation
           about include specs see [the README for that package](include/README.md).
           For entities without children, this routine is a no-op. It returns an error on failure and
           nil on success. It returns an error on failure and nil on success.
-    - <Entity>BulkFillIncludes
-        - Given a list of pointers to entities and an include spec, <Entity>BulkFillIncludes fills
+    - \<Entity\>BulkFillIncludes
+        - Given a list of pointers to entities and an include spec, \<Entity\>BulkFillIncludes fills
           in all the decendant entities in the spec recursivly. It returns an error on failure and
           nil on success.
 - Values (constant or variable definitions)
-    - <Entity><FieldName>FieldIndex
+    - \<Entity\><FieldName>FieldIndex
         - For each field in the entity, `pggen` generates a constant indicating the field's
           index (0-based). These constants are useful when working with the bitset that gets
-          passed to Update<Entity>.
-    - <Entity>MaxFieldIndex
+          passed to Update\<Entity\>.
+    - \<Entity\>MaxFieldIndex
         - The largest valid field index for the given entity.
-    - <Entity>AllFields
-        - A bitset with the bits for all the fields in <Entity> set
-    - <Entity>AllIncludes
-        - An include spec specifying all decendant tables for use with the <Entity>FillIncludes
+    - \<Entity\>AllFields
+        - A bitset with the bits for all the fields in \<Entity\> set
+    - \<Entity\>AllIncludes
+        - An include spec specifying all decendant tables for use with the \<Entity\>FillIncludes
           method.
 
 #### Special Fields
