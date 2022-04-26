@@ -42,10 +42,15 @@ func (g *Generator) genStmt(into io.Writer, stmt *config.StmtConfig) error {
 }
 
 var stmtShimTmpl *template.Template = template.Must(template.New("stmt-shim").Parse(`
+{{ if .ConfigData.Comment}}// {{ .ConfigData.Comment }}{{ end }}
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end}}
 ) (sql.Result, error) {
 	return p.impl.{{ .ConfigData.Name }}(
@@ -55,10 +60,15 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 		{{- end}}
 	)
 }
+{{ if .ConfigData.Comment}}// {{ .ConfigData.Comment }}{{ end }}
 func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end}}
 ) (sql.Result, error) {
 	return tx.impl.{{ .ConfigData.Name }}(
@@ -68,10 +78,15 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 		{{- end}}
 	)
 }
+{{ if .ConfigData.Comment}}// {{ .ConfigData.Comment }}{{ end }}
 func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end}}
 ) (sql.Result, error) {
 	return conn.impl.{{ .ConfigData.Name }}(
@@ -84,7 +99,11 @@ func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
+	{{- if $.ConfigData.NullableArguments }}
+	{{ .GoName }} {{ .TypeInfo.NullName }},
+	{{- else }}
 	{{ .GoName }} {{ .TypeInfo.Name }},
+	{{- end }}
 	{{- end}}
 ) (sql.Result, error) {
 	res, err := p.db.ExecContext(
@@ -93,7 +112,11 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	`{{ .ConfigData.Body }}` +
 	"`" + `,
 		{{- range .Args }}
+		{{- if $.ConfigData.NullableArguments }}
+		{{ call .TypeInfo.NullSqlArgument .GoName }},
+		{{- else }}
 		{{ call .TypeInfo.SqlArgument .GoName }},
+		{{- end }}
 		{{- end }}
 	)
 	return res, p.client.errorConverter(err)

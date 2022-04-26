@@ -27,10 +27,8 @@ type PGClient struct {
 	// saw in the table we used to generate code. This means that you don't have to worry
 	// about migrations merging in a slightly different order than their timestamps have
 	// breaking 'SELECT *'.
-	rwlockForUser                           sync.RWMutex
-	colIdxTabForUser                        []int
-	rwlockForGetUserByEmailOrNicknameRow    sync.RWMutex
-	colIdxTabForGetUserByEmailOrNicknameRow []int
+	rwlockForUser    sync.RWMutex
+	colIdxTabForUser []int
 }
 
 // bogus usage so we can compile with no tables configured
@@ -909,166 +907,46 @@ func (p *pgClientImpl) implUserBulkFillIncludes(
 	return
 }
 
-func (p *PGClient) GetUserByEmailOrNickname(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (ret []User, err error) {
-	return p.impl.GetUserByEmailOrNickname(
-		ctx,
-		email,
-		nickname,
-	)
-}
-
-func (tx *TxPGClient) GetUserByEmailOrNickname(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (ret []User, err error) {
-	return tx.impl.GetUserByEmailOrNickname(
-		ctx,
-		email,
-		nickname,
-	)
-}
-
-func (conn *ConnPGClient) GetUserByEmailOrNickname(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (ret []User, err error) {
-	return conn.impl.GetUserByEmailOrNickname(
-		ctx,
-		email,
-		nickname,
-	)
-}
-func (p *pgClientImpl) GetUserByEmailOrNickname(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (ret []User, err error) {
-	ret = []User{}
-
-	var rows *sql.Rows
-	rows, err = p.GetUserByEmailOrNicknameQuery(
-		ctx,
-		email,
-		nickname,
-	)
-	if err != nil {
-		return nil, p.client.errorConverter(err)
-	}
-	defer func() {
-		if err == nil {
-			err = rows.Close()
-			if err != nil {
-				ret = nil
-				err = p.client.errorConverter(err)
-			}
-		} else {
-			rowErr := rows.Close()
-			if rowErr != nil {
-				err = p.client.errorConverter(fmt.Errorf("%s AND %s", err.Error(), rowErr.Error()))
-			}
-		}
-	}()
-
-	for rows.Next() {
-		var row User
-		err = row.Scan(ctx, p.client, rows)
-		ret = append(ret, row)
-	}
-
-	return
-}
-
-func (p *PGClient) GetUserByEmailOrNicknameQuery(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (*sql.Rows, error) {
-	return p.impl.GetUserByEmailOrNicknameQuery(
-		ctx,
-		email,
-		nickname,
-	)
-}
-
-func (tx *TxPGClient) GetUserByEmailOrNicknameQuery(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (*sql.Rows, error) {
-	return tx.impl.GetUserByEmailOrNicknameQuery(
-		ctx,
-		email,
-		nickname,
-	)
-}
-
-func (conn *ConnPGClient) GetUserByEmailOrNicknameQuery(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (*sql.Rows, error) {
-	return conn.impl.GetUserByEmailOrNicknameQuery(
-		ctx,
-		email,
-		nickname,
-	)
-}
-func (p *pgClientImpl) GetUserByEmailOrNicknameQuery(
-	ctx context.Context,
-	email string,
-	nickname string,
-) (*sql.Rows, error) {
-	return p.queryContext(
-		ctx,
-		`SELECT * FROM users WHERE email = $1 OR nickname = $2`,
-		email,
-		nickname,
-	)
-}
-
+// This routine allows null arguments
 func (p *PGClient) DeleteUsersByNickname(
 	ctx context.Context,
-	nickname string,
+	arg1 *string,
 ) (sql.Result, error) {
 	return p.impl.DeleteUsersByNickname(
 		ctx,
-		nickname,
+		arg1,
 	)
 }
 
+// This routine allows null arguments
 func (tx *TxPGClient) DeleteUsersByNickname(
 	ctx context.Context,
-	nickname string,
+	arg1 *string,
 ) (sql.Result, error) {
 	return tx.impl.DeleteUsersByNickname(
 		ctx,
-		nickname,
+		arg1,
 	)
 }
 
+// This routine allows null arguments
 func (conn *ConnPGClient) DeleteUsersByNickname(
 	ctx context.Context,
-	nickname string,
+	arg1 *string,
 ) (sql.Result, error) {
 	return conn.impl.DeleteUsersByNickname(
 		ctx,
-		nickname,
+		arg1,
 	)
 }
 func (p *pgClientImpl) DeleteUsersByNickname(
 	ctx context.Context,
-	nickname string,
+	arg1 *string,
 ) (sql.Result, error) {
 	res, err := p.db.ExecContext(
 		ctx,
 		`DELETE FROM users WHERE nickname = $1`,
-		nickname,
+		arg1,
 	)
 	return res, p.client.errorConverter(err)
 }
@@ -1095,18 +973,6 @@ type DBQueries interface {
 	// query methods
 	//
 
-	// GetUserByEmailOrNickname query
-	GetUserByEmailOrNickname(
-		ctx context.Context,
-		email string,
-		nickname string,
-	) ([]User, error)
-	GetUserByEmailOrNicknameQuery(
-		ctx context.Context,
-		email string,
-		nickname string,
-	) (*sql.Rows, error)
-
 	//
 	// stored function methods
 	//
@@ -1118,7 +984,7 @@ type DBQueries interface {
 	// DeleteUsersByNickname stmt
 	DeleteUsersByNickname(
 		ctx context.Context,
-		nickname string,
+		arg1 string,
 	) (sql.Result, error)
 }
 
@@ -1220,4 +1086,3 @@ var genTimeColIdxTabForUser map[string]int = map[string]int{
 	`email`:    1,
 	`nickname`: 2,
 }
-var _ = unstable.NotFoundError{}
