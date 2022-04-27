@@ -169,6 +169,8 @@ func (mc *Resolver) QueryMeta(
 type StmtMeta struct {
 	// The configuation data for this stmt from the .toml file
 	ConfigData config.StmtConfig
+	// The comment as it should be emitted in the generated code
+	Comment string
 	// The metadata for the arguments to this query
 	Args []Arg
 }
@@ -177,6 +179,8 @@ func (mc *Resolver) StmtMeta(
 	config *config.StmtConfig,
 ) (ret StmtMeta, err error) {
 	ret.ConfigData = *config
+
+	ret.Comment = configCommentToGoComment(config.Comment)
 
 	args, err := mc.argsOfStmt(config.Body, config.ArgNames)
 	if err != nil {

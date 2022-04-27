@@ -42,7 +42,7 @@ func (g *Generator) genStmt(into io.Writer, stmt *config.StmtConfig) error {
 }
 
 var stmtShimTmpl *template.Template = template.Must(template.New("stmt-shim").Parse(`
-{{ if .ConfigData.Comment}}// {{ .ConfigData.Comment }}{{ end }}
+{{ .Comment }}
 func (p *PGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
@@ -60,7 +60,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 		{{- end}}
 	)
 }
-{{ if .ConfigData.Comment}}// {{ .ConfigData.Comment }}{{ end }}
+{{ .Comment }}
 func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
@@ -78,7 +78,7 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 		{{- end}}
 	)
 }
-{{ if .ConfigData.Comment}}// {{ .ConfigData.Comment }}{{ end }}
+{{ .Comment }}
 func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 	ctx context.Context,
 	{{- range .Args}}
