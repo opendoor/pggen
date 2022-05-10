@@ -272,7 +272,7 @@ func (p *PGClient) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end }}
 	{{- end }}
-) (ret []{{ .ReturnTypeName }}, err error) {
+) (ret []{{- if $.ConfigData.BoxResults }}*{{- end }}{{ .ReturnTypeName }}, err error) {
 	return p.impl.{{ .ConfigData.Name }}(
 		ctx,
 		{{- range .Args }}
@@ -290,7 +290,7 @@ func (tx *TxPGClient) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end }}
 	{{- end }}
-) (ret []{{ .ReturnTypeName }}, err error) {
+) (ret []{{- if $.ConfigData.BoxResults }}*{{- end }}{{ .ReturnTypeName }}, err error) {
 	return tx.impl.{{ .ConfigData.Name }}(
 		ctx,
 		{{- range .Args }}
@@ -308,7 +308,7 @@ func (conn *ConnPGClient) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end }}
 	{{- end }}
-) (ret []{{ .ReturnTypeName }}, err error) {
+) (ret []{{- if $.ConfigData.BoxResults }}*{{- end }}{{ .ReturnTypeName }}, err error) {
 	return conn.impl.{{ .ConfigData.Name }}(
 		ctx,
 		{{- range .Args }}
@@ -325,8 +325,8 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	{{ .GoName }} {{ .TypeInfo.Name }},
 	{{- end }}
 	{{- end }}
-) (ret []{{ .ReturnTypeName }}, err error) {
-	ret = []{{ .ReturnTypeName }}{}
+) (ret []{{- if $.ConfigData.BoxResults }}*{{- end }}{{ .ReturnTypeName }}, err error) {
+	ret = []{{- if $.ConfigData.BoxResults }}*{{- end }}{{ .ReturnTypeName }}{}
 
 	var rows *sql.Rows
 	rows, err = p.{{ .ConfigData.Name }}Query(
@@ -372,7 +372,11 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 		}
 		{{- end }}
 		{{- end }}
+		{{- if $.ConfigData.BoxResults}}
+		ret = append(ret, &row)
+		{{- else }}
 		ret = append(ret, row)
+		{{- end }}
 	}
 
 	return

@@ -140,6 +140,12 @@
     body = "SELECT * FROM small_entities"
 
 [[query]]
+    name = "get_small_entity_boxed"
+    return_type = "SmallEntity"
+    body = "SELECT * FROM small_entities"
+    box_results = true
+
+[[query]]
     name = "NonNullText"
     body = '''
     SELECT text_field FROM type_rainbow WHERE text_field IS NOT NULL

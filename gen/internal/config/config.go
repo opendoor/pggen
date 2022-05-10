@@ -81,6 +81,8 @@ type QueryConfig struct {
 	// a pointer type would just be annoying for client code, but sometimes you
 	// do actually want nullable arguments.
 	NullableArguments bool `toml:"nullable_arguments"`
+	// If true, blah blah blah
+	BoxResults bool `toml:"box_results"`
 }
 
 // Statements are like queries but they are executed for side effects
