@@ -1,0 +1,12 @@
+[[table]]
+    name = "users"
+
+[[query]]
+    name = "GetUsersFromGmail"
+    not_null_fields = ["nickname"]
+    # The query to run against the database. For longer queries multi-line strings using
+    # ''' are often useful.
+    body = '''
+    SELECT * FROM users where email like '%gmail.com'
+    '''
+    box_results = true
