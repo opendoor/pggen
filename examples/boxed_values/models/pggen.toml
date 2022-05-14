@@ -1,0 +1,12 @@
+[[table]]
+    name = "users"
+
+[[query]]
+    name = "GetUsersFromGmail"
+    return_type = "User"
+    # The query to run against the database. For longer queries multi-line strings using
+    # ''' are often useful.
+    body = '''
+    SELECT * FROM users WHERE email LIKE '%gmail.com'
+    '''
+    box_results = true

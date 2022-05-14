@@ -120,7 +120,7 @@ type DBQueries interface {
 		{{ .GoName }} {{ .TypeInfo.Name }},
 		{{- end }}
 		{{- end }}
-	) ([]{{ .ReturnTypeName }}, error)
+	) ([]{{- if .ConfigData.BoxResults }}*{{- end }}{{ .ReturnTypeName }}, error)
 	{{ .ConfigData.Name }}Query(
 		ctx context.Context,
 		{{- range .Args }}
