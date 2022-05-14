@@ -911,7 +911,7 @@ func (p *pgClientImpl) implUserBulkFillIncludes(
 
 func (p *PGClient) GetUsersFromGmail(
 	ctx context.Context,
-) (ret []*GetUsersFromGmailRow, err error) {
+) (ret []*User, err error) {
 	return p.impl.GetUsersFromGmail(
 		ctx,
 	)
@@ -919,7 +919,7 @@ func (p *PGClient) GetUsersFromGmail(
 
 func (tx *TxPGClient) GetUsersFromGmail(
 	ctx context.Context,
-) (ret []*GetUsersFromGmailRow, err error) {
+) (ret []*User, err error) {
 	return tx.impl.GetUsersFromGmail(
 		ctx,
 	)
@@ -927,15 +927,15 @@ func (tx *TxPGClient) GetUsersFromGmail(
 
 func (conn *ConnPGClient) GetUsersFromGmail(
 	ctx context.Context,
-) (ret []*GetUsersFromGmailRow, err error) {
+) (ret []*User, err error) {
 	return conn.impl.GetUsersFromGmail(
 		ctx,
 	)
 }
 func (p *pgClientImpl) GetUsersFromGmail(
 	ctx context.Context,
-) (ret []*GetUsersFromGmailRow, err error) {
-	ret = []*GetUsersFromGmailRow{}
+) (ret []*User, err error) {
+	ret = []*User{}
 
 	var rows *sql.Rows
 	rows, err = p.GetUsersFromGmailQuery(
@@ -960,7 +960,7 @@ func (p *pgClientImpl) GetUsersFromGmail(
 	}()
 
 	for rows.Next() {
-		var row GetUsersFromGmailRow
+		var row User
 		err = row.Scan(ctx, p.client, rows)
 		ret = append(ret, &row)
 	}
@@ -996,7 +996,7 @@ func (p *pgClientImpl) GetUsersFromGmailQuery(
 ) (*sql.Rows, error) {
 	return p.queryContext(
 		ctx,
-		`SELECT * FROM users where email like '%gmail.com'`,
+		`SELECT * FROM users WHERE email LIKE '%gmail.com'`,
 	)
 }
 
@@ -1025,7 +1025,7 @@ type DBQueries interface {
 	// GetUsersFromGmail query
 	GetUsersFromGmail(
 		ctx context.Context,
-	) ([]*GetUsersFromGmailRow, error)
+	) ([]*User, error)
 	GetUsersFromGmailQuery(
 		ctx context.Context,
 	) (*sql.Rows, error)
@@ -1038,109 +1038,6 @@ type DBQueries interface {
 	// stmt methods
 	//
 
-}
-
-type GetUsersFromGmailRow struct {
-	Id       *int64  ``
-	Email    *string ``
-	Nickname string  ``
-}
-
-func (r *GetUsersFromGmailRow) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
-	client.rwlockForGetUsersFromGmailRow.RLock()
-	if client.colIdxTabForGetUsersFromGmailRow == nil {
-		client.rwlockForGetUsersFromGmailRow.RUnlock() // release the lock to allow the write lock to be aquired
-		err := client.fillColPosTab(
-			ctx,
-			genTimeColIdxTabForGetUsersFromGmailRow,
-			&client.rwlockForGetUsersFromGmailRow,
-			rs,
-			&client.colIdxTabForGetUsersFromGmailRow,
-		)
-		if err != nil {
-			return err
-		}
-		client.rwlockForGetUsersFromGmailRow.RLock() // get the lock back for the rest of the routine
-	}
-
-	var nullableTgts nullableScanTgtsForGetUsersFromGmailRow
-
-	scanTgts := make([]interface{}, len(client.colIdxTabForGetUsersFromGmailRow))
-	for runIdx, genIdx := range client.colIdxTabForGetUsersFromGmailRow {
-		if genIdx == -1 {
-			scanTgts[runIdx] = &pggenSinkScanner{}
-		} else {
-			scanTgts[runIdx] = scannerTabForGetUsersFromGmailRow[genIdx](r, &nullableTgts)
-		}
-	}
-	client.rwlockForGetUsersFromGmailRow.RUnlock() // we are now done referencing the idx tab in the happy path
-
-	err := rs.Scan(scanTgts...)
-	if err != nil {
-		// The database schema may have been changed out from under us, let's
-		// check to see if we just need to update our column index tables and retry.
-		colNames, colsErr := rs.Columns()
-		if colsErr != nil {
-			return fmt.Errorf("pggen: checking column names: %s", colsErr.Error())
-		}
-		client.rwlockForGetUsersFromGmailRow.RLock()
-		if len(client.colIdxTabForGetUsersFromGmailRow) != len(colNames) {
-			client.rwlockForGetUsersFromGmailRow.RUnlock() // release the lock to allow the write lock to be aquired
-			err = client.fillColPosTab(
-				ctx,
-				genTimeColIdxTabForGetUsersFromGmailRow,
-				&client.rwlockForGetUsersFromGmailRow,
-				rs,
-				&client.colIdxTabForGetUsersFromGmailRow,
-			)
-			if err != nil {
-				return err
-			}
-
-			return r.Scan(ctx, client, rs)
-		} else {
-			client.rwlockForGetUsersFromGmailRow.RUnlock()
-			return err
-		}
-	}
-	r.Id = convertNullInt64(nullableTgts.scanId)
-	r.Email = convertNullString(nullableTgts.scanEmail)
-
-	return nil
-}
-
-type nullableScanTgtsForGetUsersFromGmailRow struct {
-	scanId    sql.NullInt64
-	scanEmail sql.NullString
-}
-
-// a table mapping codegen-time col indicies to functions returning a scanner for the
-// field that was at that column index at codegen-time.
-var scannerTabForGetUsersFromGmailRow = [...]func(*GetUsersFromGmailRow, *nullableScanTgtsForGetUsersFromGmailRow) interface{}{
-	func(
-		r *GetUsersFromGmailRow,
-		nullableTgts *nullableScanTgtsForGetUsersFromGmailRow,
-	) interface{} {
-		return &(nullableTgts.scanId)
-	},
-	func(
-		r *GetUsersFromGmailRow,
-		nullableTgts *nullableScanTgtsForGetUsersFromGmailRow,
-	) interface{} {
-		return &(nullableTgts.scanEmail)
-	},
-	func(
-		r *GetUsersFromGmailRow,
-		nullableTgts *nullableScanTgtsForGetUsersFromGmailRow,
-	) interface{} {
-		return &(r.Nickname)
-	},
-}
-
-var genTimeColIdxTabForGetUsersFromGmailRow map[string]int = map[string]int{
-	`id`:       0,
-	`email`:    1,
-	`nickname`: 2,
 }
 
 type User struct {

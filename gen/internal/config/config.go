@@ -81,7 +81,8 @@ type QueryConfig struct {
 	// a pointer type would just be annoying for client code, but sometimes you
 	// do actually want nullable arguments.
 	NullableArguments bool `toml:"nullable_arguments"`
-	// If true, blah blah blah
+	// If true and the query returns a slice, the values will be boxed as a slice
+	// of pointers. Otherwise, it will be a slice of struct values.
 	BoxResults bool `toml:"box_results"`
 }
 
