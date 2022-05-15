@@ -118,28 +118,28 @@ func (p *pgClientImpl) get{{ .GoName }}(
 
 	// List{{ .GoName }} always returns the same number of records as were
 	// requested, so this is safe.
-	return &values[0], err
+	return {{ if (not .Meta.Config.BoxResults) }}&{{- end }}values[0], err
 }
 
 func (p *PGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.ListOpt,
-) (ret []{{ .GoName }}, err error) {
+) (ret []{{- if .Meta.Config.BoxResults }}*{{- end }}{{ .GoName }}, err error) {
 	return p.impl.list{{ .GoName }}(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.ListOpt,
-) (ret []{{ .GoName }}, err error) {
+) (ret []{{- if .Meta.Config.BoxResults }}*{{- end }}{{ .GoName }}, err error) {
 	return tx.impl.list{{ .GoName }}(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) List{{ .GoName }}(
 	ctx context.Context,
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	opts ...pggen.ListOpt,
-) (ret []{{ .GoName }}, err error) {
+) (ret []{{- if .Meta.Config.BoxResults }}*{{- end }}{{ .GoName }}, err error) {
 	return conn.impl.list{{ .GoName }}(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) list{{ .GoName }}(
@@ -147,13 +147,13 @@ func (p *pgClientImpl) list{{ .GoName }}(
 	ids []{{ .PkeyCol.TypeInfo.Name }},
 	isGet bool,
 	opts ...pggen.ListOpt,
-) (ret []{{ .GoName }}, err error) {
+) (ret []{{- if .Meta.Config.BoxResults }}*{{- end }}{{ .GoName }}, err error) {
 	opt := pggen.ListOptions{}
 	for _, o := range opts {
 		o(&opt)
 	}
 	if len(ids) == 0 {
-		return []{{ .GoName }}{}, nil
+		return []{{- if .Meta.Config.BoxResults }}*{{- end }}{{ .GoName }}{}, nil
 	}
 
 	rows, err := p.queryContext(
@@ -180,14 +180,14 @@ func (p *pgClientImpl) list{{ .GoName }}(
 		}
 	}()
 
-	ret = make([]{{ .GoName }}, 0, len(ids))
+	ret = make([]{{- if .Meta.Config.BoxResults }}*{{- end }}{{ .GoName }}, 0, len(ids))
 	for rows.Next() {
 		var value {{ .GoName }}
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
 			return nil, p.client.errorConverter(err)
 		}
-		ret = append(ret, value)
+		ret = append(ret, {{- if .Meta.Config.BoxResults }}&{{- end }}value)
 	}
 
 	if len(ret) != len(ids) {

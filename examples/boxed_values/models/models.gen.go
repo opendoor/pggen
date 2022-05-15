@@ -168,28 +168,28 @@ func (p *pgClientImpl) getUser(
 
 	// ListUser always returns the same number of records as were
 	// requested, so this is safe.
-	return &values[0], err
+	return values[0], err
 }
 
 func (p *PGClient) ListUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
-) (ret []User, err error) {
+) (ret []*User, err error) {
 	return p.impl.listUser(ctx, ids, false /* isGet */, opts...)
 }
 func (tx *TxPGClient) ListUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
-) (ret []User, err error) {
+) (ret []*User, err error) {
 	return tx.impl.listUser(ctx, ids, false /* isGet */, opts...)
 }
 func (conn *ConnPGClient) ListUser(
 	ctx context.Context,
 	ids []int64,
 	opts ...pggen.ListOpt,
-) (ret []User, err error) {
+) (ret []*User, err error) {
 	return conn.impl.listUser(ctx, ids, false /* isGet */, opts...)
 }
 func (p *pgClientImpl) listUser(
@@ -197,13 +197,13 @@ func (p *pgClientImpl) listUser(
 	ids []int64,
 	isGet bool,
 	opts ...pggen.ListOpt,
-) (ret []User, err error) {
+) (ret []*User, err error) {
 	opt := pggen.ListOptions{}
 	for _, o := range opts {
 		o(&opt)
 	}
 	if len(ids) == 0 {
-		return []User{}, nil
+		return []*User{}, nil
 	}
 
 	rows, err := p.queryContext(
@@ -229,14 +229,14 @@ func (p *pgClientImpl) listUser(
 		}
 	}()
 
-	ret = make([]User, 0, len(ids))
+	ret = make([]*User, 0, len(ids))
 	for rows.Next() {
 		var value User
 		err = value.Scan(ctx, p.client, rows)
 		if err != nil {
 			return nil, p.client.errorConverter(err)
 		}
-		ret = append(ret, value)
+		ret = append(ret, &value)
 	}
 
 	if len(ret) != len(ids) {
@@ -1007,7 +1007,7 @@ type DBQueries interface {
 
 	// User methods
 	GetUser(ctx context.Context, id int64, opts ...pggen.GetOpt) (*User, error)
-	ListUser(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]User, error)
+	ListUser(ctx context.Context, ids []int64, opts ...pggen.ListOpt) ([]*User, error)
 	InsertUser(ctx context.Context, value *User, opts ...pggen.InsertOpt) (int64, error)
 	BulkInsertUser(ctx context.Context, values []User, opts ...pggen.InsertOpt) ([]int64, error)
 	UpdateUser(ctx context.Context, value *User, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret int64, err error)

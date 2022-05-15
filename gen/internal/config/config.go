@@ -134,6 +134,9 @@ type TableConfig struct {
 	// be (de)serialized into. By default, all `json` and `jsonb` columns will
 	// become byte arrays.
 	JsonTypes []JsonType `toml:"json_type"`
+	// If true, queries that return sliced results will return a slice of pointers.
+	// Otherwise, it will be a slice of struct values.
+	BoxResults bool `toml:"box_results"`
 }
 
 // An explicitly configured foreign key relationship which can be attached

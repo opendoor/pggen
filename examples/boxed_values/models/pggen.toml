@@ -1,5 +1,6 @@
 [[table]]
     name = "users"
+    box_results = true
 
 [[query]]
     name = "GetUsersFromGmail"
