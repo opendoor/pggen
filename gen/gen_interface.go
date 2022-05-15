@@ -25,8 +25,9 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 		}
 
 		genCtx.Tables = append(genCtx.Tables, tableIfaceGenCtx{
-			GoName:   tableInfo.Info.GoName,
-			PkeyType: tableInfo.Info.PkeyCol.TypeInfo.Name,
+			GoName:     tableInfo.Info.GoName,
+			PkeyType:   tableInfo.Info.PkeyCol.TypeInfo.Name,
+			BoxResults: tableInfo.Config.BoxResults,
 		})
 	}
 
@@ -54,8 +55,9 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 }
 
 type tableIfaceGenCtx struct {
-	GoName   string
-	PkeyType string
+	GoName     string
+	PkeyType   string
+	BoxResults bool
 }
 
 type ifaceGenCtx struct {
@@ -75,7 +77,7 @@ type DBQueries interface {
 	{{ range .Tables }}
 	// {{ .GoName }} methods
 	Get{{ .GoName }}(ctx context.Context, id {{ .PkeyType }}, opts ...pggen.GetOpt) (*{{ .GoName }}, error)
-	List{{ .GoName }}(ctx context.Context, ids []{{ .PkeyType }}, opts ...pggen.ListOpt) ([]{{ .GoName }}, error)
+	List{{ .GoName }}(ctx context.Context, ids []{{ .PkeyType }}, opts ...pggen.ListOpt) ([]{{- if .BoxResults }}*{{- end }}{{ .GoName }}, error)
 	Insert{{ .GoName }}(ctx context.Context, value *{{ .GoName }}, opts ...pggen.InsertOpt) ({{ .PkeyType }}, error)
 	BulkInsert{{ .GoName }}(ctx context.Context, values []{{ .GoName }}, opts ...pggen.InsertOpt) ([]{{ .PkeyType }}, error)
 	Update{{ .GoName }}(ctx context.Context, value *{{ .GoName }}, fieldMask pggen.FieldSet, opts ...pggen.UpdateOpt) (ret {{ .PkeyType }}, err error)

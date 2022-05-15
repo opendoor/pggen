@@ -21,7 +21,7 @@ func main() {
 
 	pgClient := models.NewPGClient(conn)
 
-	_, err = pgClient.BulkInsertUser(ctx, []models.User{
+	ids, err := pgClient.BulkInsertUser(ctx, []models.User{
 		{ Nickname: "Jim", Email: "jim@gmail.com" },
 		{ Nickname: "Bill", Email: "bill@gmail.com" },
 		{ Nickname: "Stacy", Email: "stacy@yahoo.com" },
@@ -30,10 +30,20 @@ func main() {
 		log.Fatal(err)
 	}
 
+	users, err := pgClient.ListUser(ctx, ids)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("type of user result: %T\n", users[0])
+	fmt.Println("name 1:", users[0].Nickname)
+
 	res, err := pgClient.GetUsersFromGmail(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Printf("type of user result: %T\n", res[0])
 
 	fmt.Println("users from gmail:", len(res))
 	fmt.Println("name 1:", res[0].Nickname)

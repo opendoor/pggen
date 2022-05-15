@@ -1,3 +1,6 @@
+type of user result: *models.User
+name 1: Jim
+type of user result: *models.User
 users from gmail: 2
 name 1: Jim
 name 2: Bill
