@@ -16,9 +16,7 @@ require (
 	github.com/lib/pq v1.10.0
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/willf/bitset v1.1.11
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
-	golang.org/x/text v0.3.5 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
