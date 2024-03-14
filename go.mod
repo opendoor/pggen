@@ -8,7 +8,7 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/google/uuid v1.2.0
 	github.com/jackc/pgconn v1.8.0
-	github.com/jackc/pgproto3/v2 v2.0.7 // indirect
+	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jinzhu/inflection v1.0.0
