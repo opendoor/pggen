@@ -70,7 +70,7 @@ type {{ .GoName }} struct {
 func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows) error {
 	client.rwlockFor{{ .GoName }}.RLock()
 	if client.colIdxTabFor{{ .GoName }} == nil {
-		client.rwlockFor{{ .GoName }}.RUnlock() // release the lock to allow the write lock to be aquired
+		client.rwlockFor{{ .GoName }}.RUnlock() // release the lock to allow the write lock to be acquired
 		err := client.fillColPosTab(
 			ctx,
 			genTimeColIdxTabFor{{ .GoName }},
@@ -106,7 +106,7 @@ func (r *{{ .GoName }}) Scan(ctx context.Context, client *PGClient, rs *sql.Rows
 		}
 		client.rwlockFor{{ .GoName }}.RLock()
 		if len(client.colIdxTabFor{{ .GoName }}) != len(colNames) {
-			client.rwlockFor{{ .GoName }}.RUnlock() // release the lock to allow the write lock to be aquired
+			client.rwlockFor{{ .GoName }}.RUnlock() // release the lock to allow the write lock to be acquired
 			err = client.fillColPosTab(
 				ctx,
 				genTimeColIdxTabFor{{ .GoName }},
@@ -144,7 +144,7 @@ type nullableScanTgtsFor{{ .GoName }} struct {
 	{{- end }}
 }
 
-// a table mapping codegen-time col indicies to functions returning a scanner for the
+// a table mapping codegen-time col indices to functions returning a scanner for the
 // field that was at that column index at codegen-time.
 var scannerTabFor{{ .GoName }} = [...]func(*{{ .GoName }}, *nullableScanTgtsFor{{ .GoName }}) interface{} {
 	{{- range .Meta.Info.Cols }}

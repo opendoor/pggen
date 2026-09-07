@@ -1016,7 +1016,7 @@ func TestIncludeCustomNames(t *testing.T) {
 	chkErr(t, err)
 
 	// We can construct a spec with our custom name, not the name of the table.
-	// Because they are custom names, we need to to use a rename expressions in the spec.
+	// Because they are custom names, we need to use a rename expression in the spec.
 	spec := include.Must(include.Parse(`
 		small_entities.{
 			custom_reference_name -> alternative_reference_name,
@@ -1145,7 +1145,7 @@ func TestListSucceedOnPartial(t *testing.T) {
 }
 
 func TestDroppingColumnOnTheFly(t *testing.T) {
-	// make sure we always start in a consistant state
+	// make sure we always start in a consistent state
 	_, err := pgClient.Handle().ExecContext(ctx, `
 		DROP TABLE drop_cols;
 		CREATE TABLE drop_cols (
@@ -1171,7 +1171,7 @@ func TestDroppingColumnOnTheFly(t *testing.T) {
 
 	// load the record again
 	dc, err := pgClient.GetDropCol(ctx, id)
-	// NOTE: error actually occurs in github.com/jackc/pgx/v4/stdlib.(*Conn).QueryContex
+	// NOTE: error actually occurs in github.com/jackc/pgx/v4/stdlib.(*Conn).QueryContext
 	//       when scanning the very first row.
 	chkErr(t, err)
 

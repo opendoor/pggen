@@ -19,7 +19,7 @@ import (
 )
 
 // `pggen.Config` contains a collection of configuration options for the
-// the codegenerator
+// code generator
 type Config struct {
 	// The path to a configuration file in TOML format containing information
 	// about the database objects that pggen should generate code for.
@@ -27,7 +27,7 @@ type Config struct {
 	// The name of the file to which the output should be written.
 	OutputFileName string
 	// A list of postgres connection strings to be used to connect to the
-	// database. They tried in order until one is found where `DB.Ping` works.
+	// database. They are tried in order until one is found where `DB.Ping` works.
 	ConnectionStrings []string
 	// A list of var patterns which disable pggen when they match the environment.
 	DisableVars []string
@@ -39,10 +39,10 @@ type Config struct {
 	Verbosity int
 }
 
-// An instantiation of a pggen codegenerator
+// An instantiation of a pggen code generator
 type Generator struct {
 	// The user supplied configuration for this run of the pggen
-	// codegenerator.
+	// code generator.
 	config Config
 	// A logger to use to print output
 	log *log.Logger
@@ -57,7 +57,7 @@ type Generator struct {
 	imports map[string]bool
 	// This generator should do nothing because a disable var matched
 	disabledByDisableVar bool
-	// This generated should do nothing becase an enable var failed to match
+	// This generator should do nothing because an enable var failed to match
 	disabledByEnableVar bool
 	// Used to map postgres types to information we can use to codegen go types
 	typeResolver *types.Resolver

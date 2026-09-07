@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// Note that even though this query will always return one result, pggen still
-	// returns a list of results. For a trick to make this eaiser, check out the
+	// returns a list of results. For a trick to make this easier, check out the
 	// `single_results` example.
 	fmt.Println("user.name:", user[0].Nickname)
 	fmt.Println("user.email:", user[0].Email)

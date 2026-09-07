@@ -26,7 +26,7 @@ func argNamesToSlice(argNamesSpec string, targetNargs int) ([]string, error) {
 
 		pairParts := strings.SplitN(pair, ":", 2)
 		if len(pairParts) != 2 {
-			return nil, fmt.Errorf("malformed arg_names spec: expected ':' seperated pair")
+			return nil, fmt.Errorf("malformed arg_names spec: expected ':' separated pair")
 		}
 
 		argNum, err := strconv.Atoi(pairParts[0])

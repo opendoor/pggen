@@ -31,7 +31,7 @@ func (g *Generator) genInterfaces(into io.Writer, conf *config.DbConfig) error {
 		})
 	}
 
-	// poplulate queries
+	// populate queries
 	genCtx.Queries = make([]meta.QueryMeta, 0, len(conf.Queries))
 	for i := range conf.Queries {
 		meta, err := g.metaResolver.QueryMeta(&conf.Queries[i], true /* inferArgTypes */)

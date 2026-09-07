@@ -191,7 +191,7 @@ func (p *PGClient) fillColPosTab(
 	tab *[]int, // out
 ) error {
 	// We need to ensure that writes to the slice header are atomic. We want to
-	// aquire the lock sooner rather than later to avoid lots of reader goroutines
+	// acquire the lock sooner rather than later to avoid lots of reader goroutines
 	// queuing up computations to compute the position table and causing lock
 	// contention.
 	rwlock.Lock()
@@ -213,7 +213,7 @@ func (p *PGClient) fillColPosTab(
 			genIdx = -1 // this is a new column
 		}
 
-		// shift the indicies to be 0 based
+		// shift the indices to be 0 based
 		indicies = append(indicies, idxMapping{ gen: genIdx, run: i })
 	}
 

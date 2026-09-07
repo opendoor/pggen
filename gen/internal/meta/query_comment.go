@@ -1,7 +1,7 @@
 package meta
 
 // file: query_comment.go
-// This file is concerned with convering a text comment from the config file
+// This file is concerned with converting a text comment from the config file
 // into a golang comment.
 
 import (

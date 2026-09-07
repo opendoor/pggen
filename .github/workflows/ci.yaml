@@ -21,7 +21,7 @@ jobs:
       - name: Running Step ${{ matrix.entrypoint }}
         run: docker-compose --file .github/docker-compose.yml run ${{ matrix.entrypoint }}
 
-  # msgv gets a seperate one since it uses its own entrypoint
+  # msgv gets a separate one since it uses its own entrypoint
   msgv:
     runs-on: ubuntu-latest
     steps:

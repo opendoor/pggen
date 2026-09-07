@@ -9,20 +9,20 @@
 // CREATE SCHEMA public;
 // ```
 //
-// This is because the database schema is not garenteed to be empty when the schema file
+// This is because the database schema is not guaranteed to be empty when the schema file
 // is run.
 //
 // The example must have a file called `main.go` in its root. This serves as the entrypoint
 // to the example.
 //
-// The example must have a file caled `output.txt` in its root. The stdout of the running `main.go`
+// The example must have a file called `output.txt` in its root. The stdout of the running `main.go`
 // will be checked against this file.
 //
 // The example must have a subdirectory called `models` which contains its generated code. This
 // code will be regenerated and diffed against.
 //
 // In order to focus on just a single example, run with PGGEN_TEST_EXAMPLE=<examples>
-// where <examples> is a comma seperated list of directory names containing the examples
+// where <examples> is a comma separated list of directory names containing the examples
 // to run.
 //
 // By default, this package will test all of the examples found in the examples directory.

@@ -27,7 +27,7 @@ func (p *PGClient) ClearCaches() {
 			continue
 		}
 
-		// We resort to unsafe shenannigans to enable us to use reflection to set
+		// We resort to unsafe shenanigans to enable us to use reflection to set
 		// unexported fields. We are not really breaking privacy here because the
 		// PGClient type is defined in this module.
 		field = reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()

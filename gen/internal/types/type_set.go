@@ -35,7 +35,7 @@ func newSet() set {
 	}
 }
 
-// Probe the type set for a specific type defintion. Can allow us to skip
+// Probe the type set for a specific type definition. Can allow us to skip
 // some work for types generated purely off of database objects such as
 // user-defined postgres types.
 func (t *set) probe(name string) bool {
