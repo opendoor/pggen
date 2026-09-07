@@ -396,7 +396,7 @@ func (p *pgClientImpl) bulkInsert{{ .GoName }}(
 	return ids, nil
 }
 
-// bit indicies for 'fieldMask' parameters
+// bit indices for 'fieldMask' parameters
 const (
 	{{- range $i, $c := .Meta.Info.Cols }}
 	{{ $.GoName }}{{ $c.GoName }}FieldIndex int = {{ $i }}

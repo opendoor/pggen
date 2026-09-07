@@ -47,7 +47,7 @@ type QueryConfig struct {
 	// nullability of return columns. '-' indicates that the column is
 	// not nullable (NOT NULL), while 'n' indicates that it is nullable.
 	// These need to be specified manually because postgres does not expose
-	// a mechanism for infering the nullability of query results that I
+	// a mechanism for inferring the nullability of query results that I
 	// could discover. The flags string must be exactly as long as the
 	// result set is wide.
 	NullFlags string `toml:"null_flags"`
@@ -65,7 +65,7 @@ type QueryConfig struct {
 	ReturnType string `toml:"return_type"`
 	// A mapping of argument numbers to names to generate for them.
 	// This configuration option allows you to give useful names to the
-	// query arguments in the genrated code (normaly pggen will just make up
+	// query arguments in the generated code (normally pggen will just make up
 	// names like `arg0`, `arg1` and so on). An example mapping is
 	// `"1:foo 2:bar 3:baz"`.
 	ArgNames string `toml:"arg_names"`
@@ -98,7 +98,7 @@ type StmtConfig struct {
 	Body string `toml:"body"`
 	// A mapping of argument numbers to names to generate for them.
 	// This configuration option allows you to give useful names to the
-	// query arguments in the genrated code (normaly pggen will just make up
+	// query arguments in the generated code (normally pggen will just make up
 	// names like `arg0`, `arg1` and so on). An example mapping is
 	// `"1:foo 2:bar 3:baz"`.
 	ArgNames string `toml:"arg_names"`
@@ -120,13 +120,13 @@ type TableConfig struct {
 	NoInferBelongsTo bool `toml:"no_infer_belongs_to"`
 	// A list of tables that this table belongs to
 	BelongsTo []BelongsTo `toml:"belongs_to"`
-	// The timestamp to update in `Insert`. Overriddes global version.
+	// The timestamp to update in `Insert`. Overrides global version.
 	CreatedAtField string `toml:"created_at_field"`
 	// The timestamp to update in `Update` and `Insert`.
-	// Overriddes global version.
+	// Overrides global version.
 	UpdatedAtField string `toml:"updated_at_field"`
 	// The nullable timestamp for implementing soft deletes.
-	// Overriddes global version.
+	// Overrides global version.
 	DeletedAtField string `toml:"deleted_at_field"`
 	// A list of extra annotations to add to the generated fields.
 	FieldTags []FieldTag `toml:"field_tags"`
@@ -216,8 +216,8 @@ type TypeOverride struct {
 	NullableToBoxed string `toml:"nullable_to_boxed"`
 }
 
-// Give a user provided configuration, runs some santity checks on the provided values
-// to try to provent users from encountering hard to diagnose issues down the line.
+// Given a user provided configuration, runs some sanity checks on the provided values
+// to try to prevent users from encountering hard to diagnose issues down the line.
 func (c *DbConfig) Validate() error {
 	for _, override := range c.TypeOverrides {
 		if len(override.Pkg) > 0 {

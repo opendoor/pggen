@@ -79,7 +79,7 @@ type Arg struct {
 }
 
 type QueryMeta struct {
-	// The configuation data for this query from the .toml file
+	// The configuration data for this query from the .toml file
 	ConfigData config.QueryConfig
 	// The metadata for the arguments to this query
 	Args []Arg
@@ -167,7 +167,7 @@ func (mc *Resolver) QueryMeta(
 }
 
 type StmtMeta struct {
-	// The configuation data for this stmt from the .toml file
+	// The configuration data for this stmt from the .toml file
 	ConfigData config.StmtConfig
 	// The comment as it should be emitted in the generated code
 	Comment string
@@ -521,7 +521,7 @@ type RefMeta struct {
 	Nullable bool
 }
 
-// given a slice of columns, return a table mapping the ColNums to indicies in the slice
+// given a slice of columns, return a table mapping the ColNums to indices in the slice
 func columnResolverTable(cols []ColMeta) []int {
 	max := 0
 	for _, col := range cols {

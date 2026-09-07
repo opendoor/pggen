@@ -79,7 +79,7 @@ on one or more examples rather than running the whole suite every time.
 
 ## Errors in the Generated Code
 
-When modifying the output of the codegenerator, you are likely to introduce compile
+When modifying the output of the code generator, you are likely to introduce compile
 errors in the generated code. Because we run the `go/format` package over our output
 before landing it to a disk you won't be able to debug the issue by looking at the
 generated file by default. In order to make this easier, you can set `PGGEN_GOFMT=off`
@@ -116,8 +116,8 @@ explanation as to why things are the way they are.
 ## Testing
 
 `pggen` uses the built in go unit test framework. This is good because tests are code, not English,
-and trying to make them look like English tens to encourage tests that fail to explore the state
-space programatically. `pggen` will never use a test framework like ginkgo. A flexible assertions
+and trying to make them look like English tends to encourage tests that fail to explore the state
+space programmatically. `pggen` will never use a test framework like ginkgo. A flexible assertions
 framework like gomega may be considered, but it is likely better to leverage libraries like
 `google/go-cmp` and pattern matching DSLs like regular expressions. Using a randomized testing
 framework in the spirit of quickcheck or a fuzz tester would definitely be considered.

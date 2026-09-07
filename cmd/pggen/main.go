@@ -97,7 +97,7 @@ func main() {
 	}()
 
 	//
-	// Create the codegenerator and invoke it
+	// Create the code generator and invoke it
 	//
 
 	g, err := gen.FromConfig(config)

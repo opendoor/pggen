@@ -6,11 +6,11 @@
 // The DBConnWrapper struct is the main character of this package. It wraps a database
 // connection, and implements the database connection interface itself. The thing it
 // brings to the table is making it easy to inject your own interceptor routines for
-// commen SQL operations.
+// common SQL operations.
 //
 // In addition to allowing you to hook SQL operations, you can attach an ErrorConverter
 // routine to the DBConnWrapper. This routine will be called by the generated code before
-// any error is returned. This allows you to conveniantly translate pggen errors into the
+// any error is returned. This allows you to conveniently translate pggen errors into the
 // error format used in the rest of your application.
 package middleware
 

@@ -15,7 +15,7 @@ import (
 
 // cli_test.go contains tests that execute pggen as a subprocess and perform
 // assertions about the outputs. For the most part, these tests are used
-// to verifty that appropriate error messages are generated for various
+// to verify that appropriate error messages are generated for various
 // situations.
 
 type cliCase struct {
@@ -26,12 +26,12 @@ type cliCase struct {
 	extraEnv []string
 	// The contents of the toml file to use
 	toml string
-	// A template string to use to create the the command line flags.
+	// A template string to use to create the command line flags.
 	// Defaults to "{{ .Exe }} -o {{ .Output }} {{ .Toml }}".
 	cmd string
 	// If non-empty, a regex that must match the stdout of the process.
 	stdoutRE string
-	// If non-empty, a regex that must match the stderr of the procees.
+	// If non-empty, a regex that must match the stderr of the process.
 	stderrRE string
 	// The expected exit code of the process.
 	exitCode int

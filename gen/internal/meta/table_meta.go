@@ -17,7 +17,7 @@ import (
 	"github.com/opendoor/pggen/include"
 )
 
-// tablesMeta contains information _all_ of the tables that pggen is awair of
+// tablesMeta contains information _all_ of the tables that pggen is aware of
 type tablesMeta struct {
 	// A table mapping go type name for a table struct to the postgres
 	// name for that table.
@@ -62,9 +62,9 @@ func newTableResolver(
 // fields.
 type TableMeta struct {
 	Config *config.TableConfig
-	// All references to this table from other tables (both infered and configured).
+	// All references to this table from other tables (both inferred and configured).
 	AllIncomingReferences []RefMeta
-	// All references from this table to other tables (both infered and configured).
+	// All references from this table to other tables (both inferred and configured).
 	AllOutgoingReferences []RefMeta
 	// The include spec which represents the transitive closure of
 	// this tables family
@@ -90,7 +90,7 @@ type TableMeta struct {
 
 	// If true, this table has a nullable soft-delete timestamp field
 	HasDeletedAtField bool
-	// True if the deleleted at timestamp has a timezone
+	// True if the deleted at timestamp has a timezone
 	DeletedAtHasTimezone bool
 	// The name of the deleted at field
 	PgDeletedAtField string
@@ -100,7 +100,7 @@ type TableMeta struct {
 }
 
 // This genctx duplicates info already stored in the Meta member, but it is
-// a nice quality of life improvement to have some of the really commonly refered
+// a nice quality of life improvement to have some of the really commonly referred
 // to data bubbled up to the top level.
 type TableGenCtx struct {
 	// taken from Meta
@@ -349,7 +349,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 	infoTab map[string]*TableMeta,
 ) error {
 	// a mapping of table names to sets of reference names which were
-	// infered rather than explicitly configured.
+	// inferred rather than explicitly configured.
 	inferedReferencs := map[string]map[string]bool{}
 	for _, table := range tables {
 		quotedName := mustConfigPgNameToQuoted(table.Name)
@@ -358,14 +358,14 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 		for _, ref := range meta.Info.IncomingReferences {
 			refererMeta := infoTab[ref.PointsFrom.Info.PgName]
 
-			// don't pass the infered relationship along if we've been asked not to
+			// don't pass the inferred relationship along if we've been asked not to
 			if !refererMeta.Config.NoInferBelongsTo {
 				inferedReferencs[quotedName][ref.PointsFrom.Info.PgName] = true
 			}
 		}
 	}
 
-	// the explicitly configured referneces
+	// the explicitly configured references
 	for _, table := range tables {
 		quotedName := mustConfigPgNameToQuoted(table.Name)
 		pointsFromTable := tr.meta.tableInfo[quotedName]
@@ -443,7 +443,7 @@ func (tr *tableResolver) buildAllIncomingReferencesMapping(
 		}
 	}
 
-	// fill in with infered references that have not been overridden by an
+	// fill in with inferred references that have not been overridden by an
 	// explicit config, and disambiguate the final reflist.
 	for _, table := range tables {
 		quotedName := mustConfigPgNameToQuoted(table.Name)
@@ -692,7 +692,7 @@ func (tr *tableResolver) tableInfo(table *config.TableConfig) (PgTableInfo, erro
 		GoName: goName,
 		// we pluralize `goName` rather than just converting `table` to PascalCase
 		// to better handle tables from non-public schemas (the schema/table boundary
-		// would not end up captalized if we just use `names.PgToGoName`)
+		// would not end up capitalized if we just use `names.PgToGoName`)
 		PluralGoName: inflection.Plural(goName),
 		PkeyCol:      pkeyCol,
 		PkeyColIdx:   pkeyColIdx,

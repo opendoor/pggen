@@ -9,12 +9,12 @@ import (
 // mergeTags combines two strings containing golang struct tags
 //
 // The rules are:
-//    - gorm tags get combined into a single tag with semicolon seperated values
-//    - only the first occurence of a duplicate tag is kept (unless that tag is 'gorm').
-//      This means that that this function is not communitive because tags in t1 take
+//    - gorm tags get combined into a single tag with semicolon separated values
+//    - only the first occurrence of a duplicate tag is kept (unless that tag is 'gorm').
+//      This means that this function is not commutative because tags in t1 take
 //      precedence over tags in t2.
-//    - orthoginal tags are joined with spaces
-//    - if exactly one tag string does not parse, it is just appened to the end with a seperating
+//    - orthogonal tags are joined with spaces
+//    - if exactly one tag string does not parse, it is just appended to the end with a separating
 //      space
 //    - if both tag strings do not parse, mergeTags returns "$t1 $t2"
 func mergeTags(t1 string, t2 string) string {
@@ -27,7 +27,7 @@ func mergeTags(t1 string, t2 string) string {
 		pairs = pairs2
 	}
 
-	// combine gorm tags, seperating with ';'
+	// combine gorm tags, separating with ';'
 	var gormValue strings.Builder
 	seenGormTag := false
 	for _, pair := range pairs {
@@ -93,7 +93,7 @@ type tagPair struct {
 	value string
 }
 
-// parseTags splits a conventially formated golang struct tag into key value pairs
+// parseTags splits a conventionally formatted golang struct tag into key value pairs
 //
 // This is a modified version of the reflect.StructTag.Lookup routine. Internal
 // to this file.

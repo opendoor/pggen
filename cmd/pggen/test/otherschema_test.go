@@ -27,7 +27,7 @@ func TestOtherschemaFoos(t *testing.T) {
 	})
 	chkErr(t, err)
 
-	// get (and list transitivly as well)
+	// get (and list transitively as well)
 	foo, err := txClient.GetOtherschema_Foo(ctx, id)
 	chkErr(t, err)
 	if foo.Value != "a value" {
@@ -192,7 +192,7 @@ func TestOtherschemaFunkyName(t *testing.T) {
 	})
 	chkErr(t, err)
 
-	// get (and list transitivly as well)
+	// get (and list transitively as well)
 	funky, err := txClient.GetOtherschema_Funkyname(ctx, id)
 	chkErr(t, err)
 	if funky.Value != "a value" {

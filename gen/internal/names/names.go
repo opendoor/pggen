@@ -18,7 +18,7 @@ func PgTableToGoModel(tableName string) string {
 	parsed, err := ParsePgName(tableName)
 	if err != nil {
 		// fall back to treating the name as a single name
-		// not idea, but we want to keep this infallable
+		// not ideal, but we want to keep this infallible
 		return PgToGoName(inflection.Singular(tableName))
 	}
 

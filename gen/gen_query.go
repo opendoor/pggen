@@ -201,7 +201,7 @@ func (p *pgClientImpl) {{ .ConfigData.Name }}(
 	{{- end }}
 
 	// we still use QueryConfig rather than QueryRowContext so the scan
-	// impl remains consistant. We don't need to split out a seperate Query
+	// impl remains consistent. We don't need to split out a separate Query
 	// method though.
 	var rows *sql.Rows
 	{{- /* We can't call out to *Query method because this is in the SingleResult block. */}}

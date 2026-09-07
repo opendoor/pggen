@@ -32,7 +32,7 @@ point `pggen` at a `toml` file which contains the bulk of the configuration
 telling `pggen` what part of the database schema to generate code for.
 
 `pggen` will not generate code for any database object unless it is explicitly
-asked do so so via an entry in the config file. Often, configuring `pggen`
+asked to do so via an entry in the config file. Often, configuring `pggen`
 to generate code for an object is as simple as adding that object's name
 to the config file and letting `pggen` figure out the rest, but there are
 finer grained knobs if you want more control.
@@ -329,14 +329,14 @@ in the configuration file
           BulkDelete\<Entity\> respects soft deletes.
     - \<Entity\>FillIncludes
         - Given a pointer to an entity and an include spec, \<Entity\>FillIncludes fills
-          in all the decendant entities in the spec recursivly. This api allows finer grained
-          control over which decendant entities are loaded from the database. For more infomation
+          in all the descendant entities in the spec recursively. This api allows finer grained
+          control over which descendant entities are loaded from the database. For more information
           about include specs see [the README for that package](include/README.md).
           For entities without children, this routine is a no-op. It returns an error on failure and
-          nil on success. It returns an error on failure and nil on success.
+          nil on success.
     - \<Entity\>BulkFillIncludes
         - Given a list of pointers to entities and an include spec, \<Entity\>BulkFillIncludes fills
-          in all the decendant entities in the spec recursivly. It returns an error on failure and
+          in all the descendant entities in the spec recursively. It returns an error on failure and
           nil on success.
 - Values (constant or variable definitions)
     - \<Entity\><FieldName>FieldIndex
@@ -348,7 +348,7 @@ in the configuration file
     - \<Entity\>AllFields
         - A bitset with the bits for all the fields in \<Entity\> set
     - \<Entity\>AllIncludes
-        - An include spec specifying all decendant tables for use with the \<Entity\>FillIncludes
+        - An include spec specifying all descendant tables for use with the \<Entity\>FillIncludes
           method.
 
 #### Special Fields
